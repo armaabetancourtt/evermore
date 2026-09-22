@@ -338,6 +338,68 @@ function inferExpression(
       return resolved;
     }
 
+    case "IfExpression": {
+      const condition = inferExpression(
+        expression.condition,
+        env,
+        signatures,
+        dataByName,
+        diagnostics,
+      );
+      const thenType = inferExpression(
+        expression.thenExpression,
+        env,
+        signatures,
+        dataByName,
+        diagnostics,
+      );
+      const elseType = inferExpression(
+        expression.elseExpression,
+        env,
+        signatures,
+        dataByName,
+        diagnostics,
+      );
+
+      const booleanType = typeRef("boolean");
+
+      if (condition && !sameType(condition, booleanType)) {
+        diagnostics.push({
+          code: "E2213",
+          severity: "error",
+          message:
+            "If condition must be boolean, but found " +
+            describeType(condition) +
+            ".",
+          span: expression.condition.span,
+          help: "Use a boolean expression or comparison as the condition.",
+        });
+      }
+
+      if (!thenType || !elseType) return undefined;
+
+      const merged = commonType(thenType, elseType);
+
+      if (!merged) {
+        diagnostics.push({
+          code: "E2214",
+          severity: "error",
+          message:
+            "If branches must have compatible types. Found " +
+            describeType(thenType) +
+            " and " +
+            describeType(elseType) +
+            ".",
+          span: expression.span,
+          help:
+            "Return compatible values from both branches. A value and none may form an optional type.",
+        });
+        return undefined;
+      }
+
+      return merged;
+    }
+
     case "BinaryExpression": {
       const left = inferExpression(
         expression.left,
@@ -357,22 +419,77 @@ function inferExpression(
       if (!left || !right) return undefined;
 
       const numberType = typeRef("number");
+      const booleanType = typeRef("boolean");
 
-      if (!sameType(left, numberType) || !sameType(right, numberType)) {
+      if (
+        expression.operator === "+" ||
+        expression.operator === "-" ||
+        expression.operator === "*" ||
+        expression.operator === "/"
+      ) {
+        if (!sameType(left, numberType) || !sameType(right, numberType)) {
+          diagnostics.push({
+            code: "E2205",
+            severity: "error",
+            message:
+              'Operator "' +
+              expression.operator +
+              '" requires number operands.',
+            span: expression.span,
+            help: "Use numeric expressions on both sides of the operator.",
+          });
+          return undefined;
+        }
+
+        return numberType;
+      }
+
+      if (
+        expression.operator === ">" ||
+        expression.operator === ">=" ||
+        expression.operator === "<" ||
+        expression.operator === "<="
+      ) {
+        if (!sameType(left, numberType) || !sameType(right, numberType)) {
+          diagnostics.push({
+            code: "E2215",
+            severity: "error",
+            message:
+              'Ordering operator "' +
+              expression.operator +
+              '" requires number operands.',
+            span: expression.span,
+            help: "Compare numeric expressions with ordering operators.",
+          });
+          return undefined;
+        }
+
+        return booleanType;
+      }
+
+      if (
+        !sameType(left, right) &&
+        !isAssignable(left, right) &&
+        !isAssignable(right, left)
+      ) {
         diagnostics.push({
-          code: "E2205",
+          code: "E2216",
           severity: "error",
           message:
-            'Operator "' +
+            'Equality operator "' +
             expression.operator +
-            '" currently requires number operands.',
+            '" cannot compare ' +
+            describeType(left) +
+            " with " +
+            describeType(right) +
+            ".",
           span: expression.span,
-          help: "Use numeric expressions on both sides of the operator.",
+          help: "Compare values with compatible types.",
         });
         return undefined;
       }
 
-      return numberType;
+      return booleanType;
     }
 
     case "CallExpression": {

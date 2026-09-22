@@ -1,4 +1,5 @@
 import type {
+  DataDeclaration,
   Expression,
   FunctionDeclaration,
   FunctionStatement,
@@ -11,7 +12,6 @@ import {
   typeRefFromAnnotation,
   type TypeRef,
 } from "./types.js";
-import type { DataDeclaration } from "./ast.js";
 
 export type FunctionSignature = {
   readonly declaration: FunctionDeclaration;
@@ -216,7 +216,7 @@ function validateFunctionStatement(
     diagnostics,
   );
 
-  if (returned && !sameType(returned, signature.returnType)) {
+  if (returned && !isAssignable(returned, signature.returnType)) {
     diagnostics.push({
       code: "E2206",
       severity: "error",
@@ -229,7 +229,7 @@ function validateFunctionStatement(
         describeType(signature.returnType) +
         ".",
       span: statement.span,
-      help: "Return an expression matching the declared return type.",
+      help: "Return an expression assignable to the declared return type.",
     });
   }
 }
@@ -250,6 +250,9 @@ function inferExpression(
 
     case "BooleanExpression":
       return typeRef("boolean");
+
+    case "NoneExpression":
+      return { kind: "None" };
 
     case "ListExpression": {
       if (expression.elements.length === 0) {
@@ -274,10 +277,11 @@ function inferExpression(
 
       if (!first) return undefined;
 
+      let common = first;
       let valid = true;
 
       for (const element of expression.elements.slice(1)) {
-        const type = inferExpression(
+        const elementType = inferExpression(
           element,
           env,
           signatures,
@@ -285,25 +289,36 @@ function inferExpression(
           diagnostics,
         );
 
-        if (type && !sameType(type, first)) {
+        if (!elementType) {
+          valid = false;
+          continue;
+        }
+
+        const merged = commonType(common, elementType);
+
+        if (!merged) {
           diagnostics.push({
             code: "E2211",
             severity: "error",
             message:
-              "List elements must share one type. Expected " +
-              describeType(first) +
-              " but found " +
-              describeType(type) +
+              "List elements do not have a compatible common type. Found " +
+              describeType(common) +
+              " and " +
+              describeType(elementType) +
               ".",
             span: element.span,
-            help: "Use elements with the same type.",
+            help:
+              "Use compatible elements. A value and none may combine into an optional type.",
           });
           valid = false;
+          continue;
         }
+
+        common = merged;
       }
 
       return valid
-        ? { kind: "List", elementType: first }
+        ? { kind: "List", elementType: common }
         : undefined;
     }
 
@@ -316,8 +331,7 @@ function inferExpression(
           severity: "error",
           message: 'Unknown value "' + expression.name + '".',
           span: expression.span,
-          help:
-            "Declare it as a parameter or local before using it.",
+          help: "Declare it as a parameter or local before using it.",
         });
       }
 
@@ -353,8 +367,7 @@ function inferExpression(
             expression.operator +
             '" currently requires number operands.',
           span: expression.span,
-          help:
-            "Use numeric expressions on both sides of the operator.",
+          help: "Use numeric expressions on both sides of the operator.",
         });
         return undefined;
       }
@@ -414,7 +427,7 @@ function inferExpression(
         );
         const expected = callee.parameters[index];
 
-        if (actual && expected && !sameType(actual, expected)) {
+        if (actual && expected && !isAssignable(actual, expected)) {
           diagnostics.push({
             code: "E2209",
             severity: "error",
@@ -429,7 +442,7 @@ function inferExpression(
               describeType(expected) +
               ".",
             span: argument.span,
-            help: "Pass a value matching the parameter type.",
+            help: "Pass a value assignable to the parameter type.",
           });
         }
       });
@@ -481,16 +494,62 @@ function findUnknownType(
   }
 }
 
+function isAssignable(actual: TypeRef, expected: TypeRef): boolean {
+  if (sameType(actual, expected)) return true;
+
+  if (expected.kind === "Optional") {
+    if (actual.kind === "None") return true;
+    return isAssignable(actual, expected.valueType);
+  }
+
+  if (actual.kind === "List" && expected.kind === "List") {
+    return isAssignable(actual.elementType, expected.elementType);
+  }
+
+  return false;
+}
+
+function commonType(left: TypeRef, right: TypeRef): TypeRef | undefined {
+  if (sameType(left, right)) return left;
+
+  if (left.kind === "None" && right.kind !== "None") {
+    return right.kind === "Optional"
+      ? right
+      : { kind: "Optional", valueType: right };
+  }
+
+  if (right.kind === "None" && left.kind !== "None") {
+    return left.kind === "Optional"
+      ? left
+      : { kind: "Optional", valueType: left };
+  }
+
+  if (left.kind === "Optional" && isAssignable(right, left)) {
+    return left;
+  }
+
+  if (right.kind === "Optional" && isAssignable(left, right)) {
+    return right;
+  }
+
+  if (left.kind === "List" && right.kind === "List") {
+    const elementType = commonType(left.elementType, right.elementType);
+    return elementType ? { kind: "List", elementType } : undefined;
+  }
+
+  return undefined;
+}
+
 function sameType(left: TypeRef, right: TypeRef): boolean {
   if (left.kind !== right.kind) return false;
 
   switch (left.kind) {
+    case "None":
+      return right.kind === "None";
+
     case "Primitive":
     case "Named":
-      return (
-        right.kind === left.kind &&
-        left.name === right.name
-      );
+      return right.kind === left.kind && left.name === right.name;
 
     case "List":
       return (
@@ -508,11 +567,16 @@ function sameType(left: TypeRef, right: TypeRef): boolean {
 
 function describeType(type: TypeRef): string {
   switch (type.kind) {
+    case "None":
+      return "none";
+
     case "Primitive":
     case "Named":
       return type.name;
+
     case "List":
       return "list of " + describeType(type.elementType);
+
     case "Optional":
       return "optional " + describeType(type.valueType);
   }

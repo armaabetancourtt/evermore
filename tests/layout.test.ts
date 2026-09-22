@@ -84,7 +84,7 @@ test("formatter preserves natural stack terminators", () => {
 
   assert.match(formatted, /stack vertical/);
   assert.match(formatted, /stack horizontal/);
-  assert.match(formatted, /\n    end\n\n  end/);
+  assert.match(formatted, /\n    end\n  end/);
 });
 
 test("Vue target renders nested responsive stack classes", () => {

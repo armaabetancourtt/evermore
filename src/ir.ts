@@ -9,14 +9,25 @@ export type IRProgram = {
 export type IRScreen = {
   readonly id: string;
   readonly title?: string;
+  readonly states: readonly IRState[];
   readonly elements: readonly IRElement[];
 };
 
-export type IRElement = IRText | IRButton;
+export type IRState = {
+  readonly name: string;
+  readonly initialValue: number;
+};
+
+export type IRElement = IRText | IRStateValue | IRButton;
 
 export type IRText = {
   readonly kind: "Text";
   readonly value: string;
+};
+
+export type IRStateValue = {
+  readonly kind: "StateValue";
+  readonly stateName: string;
 };
 
 export type IRButton = {
@@ -25,9 +36,17 @@ export type IRButton = {
   readonly action?: IRAction;
 };
 
-export type IRAction = {
+export type IRAction = IRNavigateAction | IRIncrementAction;
+
+export type IRNavigateAction = {
   readonly kind: "Navigate";
   readonly target: string;
+};
+
+export type IRIncrementAction = {
+  readonly kind: "Increment";
+  readonly stateName: string;
+  readonly amount: number;
 };
 
 export function lowerToIR(model: SemanticModel): IRProgram {
@@ -39,10 +58,18 @@ export function lowerToIR(model: SemanticModel): IRProgram {
         (statement) => statement.kind === "TitleStatement",
       );
 
+      const states: IRState[] = [];
       const elements: IRElement[] = [];
 
       for (const statement of screen.body) {
         switch (statement.kind) {
+          case "StateDeclaration":
+            states.push({
+              name: statement.name,
+              initialValue: statement.initialValue,
+            });
+            break;
+
           case "TitleStatement":
             break;
 
@@ -53,16 +80,30 @@ export function lowerToIR(model: SemanticModel): IRProgram {
             });
             break;
 
+          case "ShowStatement":
+            elements.push({
+              kind: "StateValue",
+              stateName: statement.stateName,
+            });
+            break;
+
           case "ButtonStatement":
             elements.push({
               kind: "Button",
               label: statement.label,
               ...(statement.action
                 ? {
-                    action: {
-                      kind: "Navigate" as const,
-                      target: statement.action.target,
-                    },
+                    action:
+                      statement.action.kind === "NavigationAction"
+                        ? {
+                            kind: "Navigate" as const,
+                            target: statement.action.target,
+                          }
+                        : {
+                            kind: "Increment" as const,
+                            stateName: statement.action.stateName,
+                            amount: statement.action.amount,
+                          },
                   }
                 : {}),
             });
@@ -73,6 +114,7 @@ export function lowerToIR(model: SemanticModel): IRProgram {
       return {
         id: screen.name,
         ...(title?.kind === "TitleStatement" ? { title: title.text } : {}),
+        states,
         elements,
       };
     }),

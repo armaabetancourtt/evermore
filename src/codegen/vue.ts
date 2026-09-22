@@ -407,6 +407,29 @@ function emitFunctionExpression(
         "]"
       );
 
+    case "If":
+      return (
+        "(" +
+        emitFunctionExpression(
+          expression.condition,
+          values,
+          functions,
+        ) +
+        " ? " +
+        emitFunctionExpression(
+          expression.thenExpression,
+          values,
+          functions,
+        ) +
+        " : " +
+        emitFunctionExpression(
+          expression.elseExpression,
+          values,
+          functions,
+        ) +
+        ")"
+      );
+
     case "Identifier": {
       const generated = values.get(expression.name);
 
@@ -419,16 +442,24 @@ function emitFunctionExpression(
       return generated;
     }
 
-    case "Binary":
+    case "Binary": {
+      const operator =
+        expression.operator === "=="
+          ? "==="
+          : expression.operator === "!="
+            ? "!=="
+            : expression.operator;
+
       return (
         "(" +
         emitFunctionExpression(expression.left, values, functions) +
         " " +
-        expression.operator +
+        operator +
         " " +
         emitFunctionExpression(expression.right, values, functions) +
         ")"
       );
+    }
 
     case "Call": {
       const generated = functions.get(expression.callee);

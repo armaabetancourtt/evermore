@@ -34,6 +34,7 @@ import type {
   TextStatement,
   TitleStatement,
   TypeAnnotation,
+  TypeParameter,
   UseStatement,
   VisualStatement,
 } from "./ast.js";
@@ -204,6 +205,7 @@ class Parser {
     const start = this.consume("function", "Expected a function declaration.");
     const name = this.consume("identifier", "Expected a function name.");
     const explicitBlock = this.match("lbrace");
+    const typeParameters: TypeParameter[] = [];
     const parameters: FunctionParameter[] = [];
     const body: FunctionStatement[] = [];
     let returnType: TypeAnnotation | undefined;
@@ -214,6 +216,19 @@ class Parser {
       !(!explicitBlock && this.check("end"))
     ) {
       try {
+        if (this.match("generic")) {
+          const typeName = this.consume(
+            "identifier",
+            "Expected a generic type parameter name.",
+          );
+
+          typeParameters.push({
+            name: typeName.value ?? typeName.lexeme,
+            span: typeName.span,
+          });
+          continue;
+        }
+
         if (this.match("takes")) {
           const parameterName = this.consume(
             "identifier",
@@ -262,7 +277,7 @@ class Parser {
           this.peek(),
           "E1010",
           "Expected a function declaration item or statement.",
-          "Use takes, returns, let, or return.",
+          "Use generic, takes, returns, let, or return.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -287,6 +302,7 @@ class Parser {
     return {
       kind: "FunctionDeclaration",
       name: name.value ?? name.lexeme,
+      typeParameters,
       parameters,
       returnType,
       body,
@@ -885,6 +901,7 @@ class Parser {
 
   private isFunctionBoundary(): boolean {
     return (
+      this.check("generic") ||
       this.check("takes") ||
       this.check("returns") ||
       this.check("let") ||

@@ -548,7 +548,10 @@ Implemented today:
 - framework-neutral Evermore IR;
 - complete Vue 3 + Vite application generation;
 - accessibility defaults including visible focus, reduced-motion behavior, touch sizing and polite live state output;
-- generated-target builds in CI, including a three-screen M1 showcase.
+- generated-target builds in CI, including a three-screen M1 showcase;
+- nominal `data` declarations with primitive and user-defined types;
+- pure typed functions with parameters, declared returns, inferred local `let`, arithmetic precedence and typed calls;
+- strict TypeScript generation for models and functions, validated by `vue-tsc`.
 
 A complete executable example now looks like:
 
@@ -738,7 +741,7 @@ The source should describe enduring product and system intent. Targets can evolv
 
 ## Status
 
-**Experimental · Pre-alpha · M1 web vertical slice complete; M2 core language underway**
+**Experimental · Pre-alpha · M1 complete; M2 typed core underway**
 
 Do not use Evermore for production systems yet.
 

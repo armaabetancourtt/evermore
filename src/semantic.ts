@@ -1,7 +1,9 @@
 import type {
+  ComponentDeclaration,
   Program,
   ScreenDeclaration,
   StateDeclaration,
+  UseStatement,
   VisualStatement,
 } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
@@ -9,6 +11,7 @@ import type { Diagnostic } from "./diagnostics.js";
 export type SemanticModel = {
   readonly program: Program;
   readonly screensByName: ReadonlyMap<string, ScreenDeclaration>;
+  readonly componentsByName: ReadonlyMap<string, ComponentDeclaration>;
 };
 
 export function analyze(program: Program): {
@@ -17,11 +20,28 @@ export function analyze(program: Program): {
 } {
   const diagnostics: Diagnostic[] = [];
   const screens = new Map<string, ScreenDeclaration>();
+  const components = new Map<string, ComponentDeclaration>();
+
+  for (const component of program.components) {
+    if (components.has(component.name)) {
+      diagnostics.push({
+        code: "E2010",
+        severity: "error",
+        message:
+          'Component "' +
+          component.name +
+          '" is declared more than once.',
+        span: component.span,
+        help: "Give each component a unique name.",
+      });
+      continue;
+    }
+
+    components.set(component.name, component);
+  }
 
   for (const screen of program.screens) {
-    const previous = screens.get(screen.name);
-
-    if (previous) {
+    if (screens.has(screen.name)) {
       diagnostics.push({
         code: "E2001",
         severity: "error",
@@ -35,6 +55,8 @@ export function analyze(program: Program): {
     screens.set(screen.name, screen);
   }
 
+  validateComponents(components, screens, diagnostics);
+
   for (const screen of program.screens) {
     const states = collectStates(screen, diagnostics);
 
@@ -46,11 +68,12 @@ export function analyze(program: Program): {
         continue;
       }
 
-      validateVisualStatement(
+      validateScreenVisual(
         statement,
         screen,
         states,
         screens,
+        components,
         diagnostics,
       );
     }
@@ -75,17 +98,187 @@ export function analyze(program: Program): {
           model: {
             program,
             screensByName: screens,
+            componentsByName: components,
           },
         }),
     diagnostics,
   };
 }
 
-function validateVisualStatement(
+function validateComponents(
+  components: ReadonlyMap<string, ComponentDeclaration>,
+  screens: ReadonlyMap<string, ScreenDeclaration>,
+  diagnostics: Diagnostic[],
+): void {
+  const validated = new Set<string>();
+  const visiting = new Set<string>();
+
+  const validate = (name: string): void => {
+    if (validated.has(name)) return;
+
+    const component = components.get(name);
+    if (!component) return;
+
+    visiting.add(name);
+
+    for (const statement of component.body) {
+      validateComponentVisual(
+        statement,
+        component,
+        components,
+        screens,
+        visiting,
+        validate,
+        diagnostics,
+      );
+    }
+
+    visiting.delete(name);
+    validated.add(name);
+  };
+
+  for (const name of components.keys()) {
+    validate(name);
+  }
+}
+
+function validateComponentVisual(
+  statement: VisualStatement,
+  owner: ComponentDeclaration,
+  components: ReadonlyMap<string, ComponentDeclaration>,
+  screens: ReadonlyMap<string, ScreenDeclaration>,
+  visiting: ReadonlySet<string>,
+  validateComponent: (name: string) => void,
+  diagnostics: Diagnostic[],
+): void {
+  if (statement.kind === "ShowStatement") {
+    diagnostics.push({
+      code: "E2013",
+      severity: "error",
+      message:
+        'Component "' +
+        owner.name +
+        '" cannot read screen-local state "' +
+        statement.stateName +
+        '" yet.',
+      span: statement.span,
+      help:
+        "Keep M1 components stateless. Typed component inputs are planned for a later milestone.",
+    });
+    return;
+  }
+
+  if (statement.kind === "ButtonStatement") {
+    if (
+      statement.action?.kind === "IncrementAction"
+    ) {
+      diagnostics.push({
+        code: "E2013",
+        severity: "error",
+        message:
+          'Component "' +
+          owner.name +
+          '" cannot mutate screen-local state "' +
+          statement.action.stateName +
+          '" yet.',
+        span: statement.action.span,
+        help:
+          "Keep M1 components stateless. Typed component inputs are planned for a later milestone.",
+      });
+    }
+
+    if (
+      statement.action?.kind === "NavigationAction" &&
+      !screens.has(statement.action.target)
+    ) {
+      diagnostics.push({
+        code: "E2002",
+        severity: "error",
+        message:
+          'Button "' +
+          statement.label +
+          '" opens unknown screen "' +
+          statement.action.target +
+          '".',
+        span: statement.action.span,
+        help:
+          "Declare screen " +
+          statement.action.target +
+          " or change the navigation target.",
+      });
+    }
+
+    return;
+  }
+
+  if (statement.kind === "UseStatement") {
+    validateComponentUse(
+      statement,
+      components,
+      visiting,
+      validateComponent,
+      diagnostics,
+    );
+    return;
+  }
+
+  if (statement.kind === "StackStatement") {
+    for (const child of statement.body) {
+      validateComponentVisual(
+        child,
+        owner,
+        components,
+        screens,
+        visiting,
+        validateComponent,
+        diagnostics,
+      );
+    }
+  }
+}
+
+function validateComponentUse(
+  statement: UseStatement,
+  components: ReadonlyMap<string, ComponentDeclaration>,
+  visiting: ReadonlySet<string>,
+  validateComponent: (name: string) => void,
+  diagnostics: Diagnostic[],
+): void {
+  if (!components.has(statement.componentName)) {
+    diagnostics.push({
+      code: "E2011",
+      severity: "error",
+      message:
+        'Unknown component "' + statement.componentName + '".',
+      span: statement.span,
+      help: "Declare the component before using it.",
+    });
+    return;
+  }
+
+  if (visiting.has(statement.componentName)) {
+    diagnostics.push({
+      code: "E2012",
+      severity: "error",
+      message:
+        'Component cycle detected through "' +
+        statement.componentName +
+        '".',
+      span: statement.span,
+      help: "Break the component use cycle.",
+    });
+    return;
+  }
+
+  validateComponent(statement.componentName);
+}
+
+function validateScreenVisual(
   statement: VisualStatement,
   screen: ScreenDeclaration,
   states: ReadonlyMap<string, StateDeclaration>,
   screens: ReadonlyMap<string, ScreenDeclaration>,
+  components: ReadonlyMap<string, ComponentDeclaration>,
   diagnostics: Diagnostic[],
 ): void {
   if (
@@ -156,13 +349,28 @@ function validateVisualStatement(
     return;
   }
 
+  if (statement.kind === "UseStatement") {
+    if (!components.has(statement.componentName)) {
+      diagnostics.push({
+        code: "E2011",
+        severity: "error",
+        message:
+          'Unknown component "' + statement.componentName + '".',
+        span: statement.span,
+        help: "Declare the component before using it.",
+      });
+    }
+    return;
+  }
+
   if (statement.kind === "StackStatement") {
     for (const child of statement.body) {
-      validateVisualStatement(
+      validateScreenVisual(
         child,
         screen,
         states,
         screens,
+        components,
         diagnostics,
       );
     }
@@ -178,9 +386,7 @@ function collectStates(
   for (const statement of screen.body) {
     if (statement.kind !== "StateDeclaration") continue;
 
-    const previous = states.get(statement.name);
-
-    if (previous) {
+    if (states.has(statement.name)) {
       diagnostics.push({
         code: "E2003",
         severity: "error",

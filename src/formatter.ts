@@ -3,6 +3,7 @@ import type {
   Program,
   ScreenDeclaration,
   ScreenStatement,
+  StackStatement,
 } from "./ast.js";
 import { parse } from "./parser.js";
 
@@ -82,7 +83,39 @@ function formatStatement(
 
     case "ButtonStatement":
       return formatButton(statement, style, depth);
+
+    case "StackStatement":
+      return formatStack(statement, style, depth);
   }
+}
+
+function formatStack(
+  stack: StackStatement,
+  style: FormatStyle,
+  depth: number,
+): string {
+  const head = indent(depth) + "stack " + stack.direction;
+  const body = stack.body
+    .map((statement) => formatStatement(statement, style, depth + 1))
+    .join("\n\n");
+
+  if (style === "explicit") {
+    return (
+      head +
+      " {\n" +
+      (body ? body + "\n" : "") +
+      indent(depth) +
+      "}"
+    );
+  }
+
+  return (
+    head +
+    "\n" +
+    (body ? "\n" + body + "\n" : "") +
+    indent(depth) +
+    "end"
+  );
 }
 
 function formatButton(

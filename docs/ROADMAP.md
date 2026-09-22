@@ -77,7 +77,7 @@ Goals:
 - [x] nominal data structures (typed field contracts, nominal construction and member access);
 - [x] enums / algebraic choices (nominal payload-free `choice` types);
 - [x] optionals (`optional T`, `none`, optional lifting);
-- [ ] collections (typed/list literals and recursive `list of T` implemented; broader collection families pending);
+- [x] collections (`list of T`, `set of T`, `map of K to V`, typed literals, recursive composition and contextual empty-collection inference);
 - [x] generics (function type parameters with argument/context inference);
 - [ ] interfaces / protocols (field contracts, `data` conformance, protocol-typed values, member access and protocol-constrained generics implemented; method requirements pending);
 - [ ] classes and encapsulation;

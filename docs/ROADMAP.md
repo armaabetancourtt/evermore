@@ -84,7 +84,7 @@ Goals:
 - [x] pattern matching (exhaustive matching over nominal choices and typed results with payload bindings);
 - [x] error model (`result of T error E`, contextual `ok(...)`/`error(...)`, exhaustive result matching and typed payload bindings);
 - [x] modules (app entrypoint + imported module files, recursive relative imports, cycle detection, deduplication and project-wide semantic composition);
-- [ ] package semantics;
+- [x] package semantics (evermore.json identity/version/entry manifests, exact local dependencies, bare package/submodule imports, transitive graph validation and deterministic generated package graph);
 - [ ] type inference where unambiguous (local `let`, homogeneous lists, optional branch lifting, contextual empty-list inference and generic call inference implemented; broader inference pending).
 
 Research:

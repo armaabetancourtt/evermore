@@ -91,6 +91,7 @@ export type Expression =
   | BooleanExpression
   | NoneExpression
   | ListExpression
+  | IfExpression
   | IdentifierExpression
   | BinaryExpression
   | CallExpression;
@@ -130,7 +131,25 @@ export type IdentifierExpression = {
   readonly span: SourceSpan;
 };
 
-export type BinaryOperator = "+" | "-" | "*" | "/";
+export type BinaryOperator =
+  | "+"
+  | "-"
+  | "*"
+  | "/"
+  | "=="
+  | "!="
+  | ">"
+  | ">="
+  | "<"
+  | "<=";
+
+export type IfExpression = {
+  readonly kind: "IfExpression";
+  readonly condition: Expression;
+  readonly thenExpression: Expression;
+  readonly elseExpression: Expression;
+  readonly span: SourceSpan;
+};
 
 export type BinaryExpression = {
   readonly kind: "BinaryExpression";

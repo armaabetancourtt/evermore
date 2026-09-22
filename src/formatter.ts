@@ -61,7 +61,7 @@ function formatData(
   declaration: DataDeclaration,
   style: FormatStyle,
 ): string {
-  const body = [
+  const bodyParts = [
     ...declaration.conformances.map(
       (conformance) => indent(1) + "conforms " + conformance.name,
     ),
@@ -69,7 +69,11 @@ function formatData(
       (field) =>
         indent(1) + field.name + " " + formatTypeAnnotation(field.type),
     ),
-  ].join("\n");
+    ...declaration.methods.map((method) =>
+      formatFunction(method, style, 1),
+    ),
+  ];
+  const body = bodyParts.join("\n");
 
   if (style === "explicit") {
     return (
@@ -116,15 +120,18 @@ function formatProtocol(
   protocol: ProtocolDeclaration,
   style: FormatStyle,
 ): string {
-  const body = protocol.fields
-    .map(
+  const body = [
+    ...protocol.fields.map(
       (field) =>
         indent(1) +
         field.name +
         " " +
         formatTypeAnnotation(field.type),
-    )
-    .join("\n");
+    ),
+    ...protocol.methods.map((method) =>
+      formatFunction(method, style, 1),
+    ),
+  ].join("\n");
 
   if (style === "explicit") {
     return (
@@ -175,12 +182,13 @@ function formatChoice(
 function formatFunction(
   fn: FunctionDeclaration,
   style: FormatStyle,
+  depth = 0,
 ): string {
   const lines: string[] = [];
 
   for (const parameter of fn.typeParameters) {
     lines.push(
-      indent(1) +
+      indent(depth + 1) +
         "generic " +
         parameter.name +
         (parameter.constraintName
@@ -191,7 +199,7 @@ function formatFunction(
 
   for (const parameter of fn.parameters) {
     lines.push(
-      indent(1) +
+      indent(depth + 1) +
         "takes " +
         parameter.name +
         " " +
@@ -200,34 +208,40 @@ function formatFunction(
   }
 
   lines.push(
-    indent(1) + "returns " + formatTypeAnnotation(fn.returnType),
+    indent(depth + 1) +
+      "returns " +
+      formatTypeAnnotation(fn.returnType),
   );
 
   if (fn.body.length > 0) {
     lines.push("");
     lines.push(
       ...fn.body.map((statement) =>
-        formatFunctionStatement(statement, 1),
+        formatFunctionStatement(statement, depth + 1),
       ),
     );
   }
 
+  const head = indent(depth) + "function " + fn.name;
+
   if (style === "explicit") {
     return (
-      "function " +
-      fn.name +
+      head +
       " {\n" +
       lines.join("\n") +
-      "\n}"
+      "\n" +
+      indent(depth) +
+      "}"
     );
   }
 
   return (
-    "function " +
-    fn.name +
+    head +
     "\n\n" +
     lines.join("\n") +
-    "\nend"
+    "\n" +
+    indent(depth) +
+    "end"
   );
 }
 
@@ -364,6 +378,18 @@ function formatExpression(
         formatExpression(expression.thenExpression, 0, false, depth) +
         " else " +
         formatExpression(expression.elseExpression, 0, false, depth)
+      );
+
+    case "MethodCallExpression":
+      return (
+        formatExpression(expression.object, 4, false, depth) +
+        "." +
+        expression.method +
+        "(" +
+        expression.arguments
+          .map((argument) => formatExpression(argument, 0, false, depth))
+          .join(", ") +
+        ")"
       );
 
     case "CallExpression":

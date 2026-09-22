@@ -31,6 +31,7 @@ import type {
   ProtocolConformance,
   ProtocolDeclaration,
   ReturnStatement,
+  ResultExpression,
   SetExpression,
   SetStatement,
   ScreenDeclaration,
@@ -574,16 +575,22 @@ class Parser {
         const caseStart = this.previous();
         const caseName = this.consume(
           "identifier",
-          "Expected a choice case name after case.",
+          "Expected a match case name after case.",
         );
+        const binding = this.check("identifier")
+          ? this.advance()
+          : undefined;
         this.consume(
           "then",
-          'Expected "then" after the match case name.',
+          'Expected "then" after the match case pattern.',
         );
         const expression = this.parseExpression();
 
         cases.push({
           caseName: caseName.value ?? caseName.lexeme,
+          ...(binding
+            ? { bindingName: binding.value ?? binding.lexeme }
+            : {}),
           expression,
           span: {
             start: caseStart.span.start,
@@ -708,6 +715,28 @@ class Parser {
         kind: "NoneExpression",
         span: token.span,
       };
+    }
+
+    if (this.match("success") || this.match("failure")) {
+      const start = this.previous();
+      const variant = start.kind === "success" ? "success" : "failure";
+      this.consume(
+        "lparen",
+        'Expected "(" after ' + variant + ".",
+      );
+      const value = this.parseExpression();
+      const close = this.consume(
+        "rparen",
+        'Expected ")" after ' + variant + " payload.",
+      );
+
+      const expression: ResultExpression = {
+        kind: "ResultExpression",
+        variant,
+        value,
+        span: spanFrom(start, close),
+      };
+      return expression;
     }
 
     if (this.match("lbracket")) {
@@ -904,6 +933,27 @@ class Parser {
       };
     }
 
+    if (this.match("result")) {
+      const start = this.previous();
+      this.consume("of", 'Expected "of" after result.');
+      const successType = this.parseTypeAnnotation();
+      this.consume(
+        "or",
+        'Expected "or" between result success and failure types.',
+      );
+      const failureType = this.parseTypeAnnotation();
+
+      return {
+        kind: "ResultTypeAnnotation",
+        successType,
+        failureType,
+        span: {
+          start: start.span.start,
+          end: failureType.span.end,
+        },
+      };
+    }
+
     if (this.match("list")) {
       const start = this.previous();
       this.consume("of", 'Expected "of" after list.');
@@ -966,7 +1016,7 @@ class Parser {
       this.peek(),
       "E1008",
       "Expected a type.",
-      "Use a primitive/data type, list of <type>, set of <type>, map of <key> to <value>, or optional <type>.",
+      "Use a primitive/data type, list/set/map, result of <ok> or <error>, or optional <type>.",
     );
   }
 

@@ -2,6 +2,8 @@ import type {
   ButtonAction,
   ButtonStatement,
   ComponentDeclaration,
+  DataDeclaration,
+  DataField,
   IncrementAction,
   NavigationAction,
   Program,
@@ -40,11 +42,17 @@ class Parser {
     );
     const nameToken = this.consume("string", "Expected an application name.");
 
+    const data: DataDeclaration[] = [];
     const components: ComponentDeclaration[] = [];
     const screens: ScreenDeclaration[] = [];
 
     while (!this.check("eof")) {
       try {
+        if (this.check("data")) {
+          data.push(this.parseData());
+          continue;
+        }
+
         if (this.check("component")) {
           components.push(this.parseComponent());
           continue;
@@ -59,7 +67,7 @@ class Parser {
           this.peek(),
           "E1007",
           "Expected a top-level declaration.",
-          "Declare a component or screen.",
+          "Declare data, a component, or a screen.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -77,6 +85,7 @@ class Parser {
     return {
       kind: "Program",
       appName: nameToken.value ?? "",
+      data,
       components,
       screens,
       span: {
@@ -84,6 +93,55 @@ class Parser {
         end: eof.span.end,
       },
     };
+  }
+
+  private parseData(): DataDeclaration {
+    const start = this.consume("data", "Expected a data declaration.");
+    const name = this.consume("identifier", "Expected a data type name.");
+    const explicitBlock = this.match("lbrace");
+    const fields: DataField[] = [];
+
+    while (
+      !this.check("eof") &&
+      !(explicitBlock && this.check("rbrace")) &&
+      !(!explicitBlock && this.check("end"))
+    ) {
+      const fieldName = this.consume(
+        "identifier",
+        "Expected a field name in the data declaration.",
+      );
+      const typeToken = this.consumeTypeName();
+
+      fields.push({
+        name: fieldName.value ?? fieldName.lexeme,
+        typeName: typeToken.lexeme,
+        span: spanFrom(fieldName, typeToken),
+      });
+    }
+
+    const end = explicitBlock
+      ? this.consume("rbrace", 'Expected "}" to close the data declaration.')
+      : this.consume("end", 'Expected "end" to close the data declaration.');
+
+    return {
+      kind: "DataDeclaration",
+      name: name.value ?? name.lexeme,
+      fields,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private consumeTypeName(): Token {
+    if (this.check("identifier") || this.check("text")) {
+      return this.advance();
+    }
+
+    return this.fail(
+      this.peek(),
+      "E1008",
+      "Expected a field type.",
+      "Use a primitive type such as text, number, boolean, id, or another data type.",
+    );
   }
 
   private parseComponent(): ComponentDeclaration {
@@ -128,6 +186,7 @@ class Parser {
       !this.check("eof") &&
       !this.check("screen") &&
       !this.check("component") &&
+      !this.check("data") &&
       !(explicitBlock && this.check("rbrace"))
     ) {
       try {
@@ -385,7 +444,8 @@ class Parser {
       this.check("title") ||
       this.isVisualBoundary() ||
       this.check("screen") ||
-      this.check("component")
+      this.check("component") ||
+      this.check("data")
     );
   }
 
@@ -406,6 +466,7 @@ class Parser {
     if (
       this.check("screen") ||
       this.check("component") ||
+      this.check("data") ||
       this.check("eof")
     ) {
       return;
@@ -416,7 +477,8 @@ class Parser {
     while (
       !this.check("eof") &&
       !this.check("screen") &&
-      !this.check("component")
+      !this.check("component") &&
+      !this.check("data")
     ) {
       this.advance();
     }

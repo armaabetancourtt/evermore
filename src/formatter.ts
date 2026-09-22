@@ -176,6 +176,9 @@ function formatExpression(
     case "BooleanExpression":
       return expression.value ? "true" : "false";
 
+    case "NoneExpression":
+      return "none";
+
     case "ListExpression":
       return (
         "[" +

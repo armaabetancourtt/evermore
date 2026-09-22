@@ -36,6 +36,24 @@ function identity
 
 end
 
+function keepUsers
+
+  takes users list of User
+  returns list of User
+
+  return users
+
+end
+
+function maybeUser
+
+  takes user optional User
+  returns optional User
+
+  return user
+
+end
+
 function greeting
 
   returns text

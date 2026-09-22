@@ -35,6 +35,9 @@ jobs:
       - name: Reproduce M1 syntax study
         run: npm run research:m1
 
+      - name: Reproduce M2 type-system study
+        run: npm run research:m2
+
       - name: Build compiler
         run: npm run build
 

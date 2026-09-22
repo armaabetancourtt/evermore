@@ -1,0 +1,32 @@
+app "Choices"
+
+choice Status
+
+  draft
+  active
+  archived
+
+end
+
+function defaultStatus
+
+  returns Status
+
+  return Status.draft
+
+end
+
+function isActive
+
+  takes status Status
+  returns boolean
+
+  return status == Status.active
+
+end
+
+screen Home
+
+  title "Choices are nominal"
+
+  text "Cases are checked by Evermore before target generation."

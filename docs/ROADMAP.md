@@ -38,7 +38,7 @@ Exit condition:
 
 ## M1 — Human syntax + Web vertical slice
 
-**Status: vertical slice complete ✅ · research follow-up ongoing**
+**Status: complete ✅**
 
 Goals:
 
@@ -55,9 +55,14 @@ Goals:
 
 Research:
 
-- [ ] natural syntax ambiguity study;
-- [ ] source readability study;
+- [x] natural syntax ambiguity study;
+- [x] source readability study;
 - [x] AST/IR equivalence between natural and explicit modes.
+
+Evidence:
+
+- [M1 natural syntax study](./M1_SYNTAX_STUDY.md);
+- executable research corpus in `tests/m1-research.test.ts`.
 
 Exit condition:
 

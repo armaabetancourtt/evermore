@@ -60,9 +60,9 @@ screen Home {
 }
 ~~~
 
-The **explicit form is implemented first** because braces provide unambiguous structure while the natural grammar is being formalized.
+Both natural and explicit forms are implemented for the M1 surface. Explicit delimiters remain useful for tooling and advanced editing, while natural blocks use deterministic terminators such as `end` where a boundary cannot be inferred from a top-level declaration.
 
-Both forms are intended to lower into the same AST.
+Both forms lower into equivalent semantic representations.
 
 ### Indentation
 
@@ -74,35 +74,81 @@ This avoids a class of accidental syntax errors while preserving clean formattin
 
 ## 3. Implemented grammar
 
-The current compiler accepts the following EBNF-like subset:
+The executable M1 surface accepts the following EBNF-like grammar:
 
 ~~~text
-program          ::= "app" string screen* EOF ;
+program          ::= "app" string declaration* EOF ;
+
+declaration      ::= component
+                   | screen ;
+
+component        ::= "component" identifier component_body ;
+
+component_body   ::= "{" visual_statement* "}"
+                   | visual_statement* "end" ;
 
 screen           ::= "screen" identifier screen_body ;
 
-screen_body      ::= "{" ui_statement* "}"
-                   | ui_statement* ;
+screen_body      ::= "{" screen_statement* "}"
+                   | screen_statement*
+                     // natural screen ends at next top-level declaration / EOF
+                   ;
 
-ui_statement     ::= title
-                   | text
-                   | button ;
+screen_statement ::= state
+                   | title
+                   | visual_statement ;
 
+state            ::= "state" identifier "starts" integer ;
 title            ::= "title" string ;
+
+visual_statement ::= text
+                   | show
+                   | button
+                   | stack
+                   | use ;
+
 text             ::= "text" string ;
+show             ::= "show" identifier ;
+use              ::= "use" identifier ;
 
 button           ::= "button" string
-                     ("{" navigation "}" | navigation)? ;
+                     ("{" button_action "}" | button_action)? ;
 
-navigation       ::= "opens" identifier ;
+button_action    ::= "opens" identifier
+                   | "increases" identifier ;
+
+stack            ::= "stack" stack_direction stack_body ;
+stack_direction  ::= "vertical" | "horizontal" ;
+
+stack_body       ::= "{" visual_statement* "}"
+                   | visual_statement* "end" ;
 
 identifier       ::= letter (letter | digit | "_" | "-")* ;
+integer          ::= digit+ ;
 string           ::= '"' character* '"' ;
 ~~~
 
-This grammar is intentionally tiny.
+### Structural rule
 
-A narrow executable language is more valuable than a broad fictional one.
+Whitespace and indentation are trivia. They improve readability but do not determine block ownership.
+
+Natural nested constructs that cannot be terminated by a following top-level declaration use the explicit word:
+
+~~~evermore
+end
+~~~
+
+This keeps the human-facing surface readable without importing Python-style indentation semantics.
+
+### M1 component rule
+
+Reusable components are deliberately **stateless** in M1. They may contain text, buttons, navigation, stacks and other components. Reading or mutating screen-local state from a component is rejected until typed component inputs/bindings are designed.
+
+### Executable equivalence
+
+The test suite requires natural and explicit forms to lower to equivalent generated artifacts for overlapping syntax. The Vue/Vite target is then compiled in CI.
+
+This grammar remains intentionally narrow. A small executable language is more valuable than a broad fictional one.
 
 ---
 
@@ -343,7 +389,7 @@ Every diagnostic should aim to provide:
 
 ## 10. Formatting
 
-Evermore will eventually ship a canonical formatter.
+Evermore ships a canonical formatter for the implemented surface.
 
 The formatter should:
 

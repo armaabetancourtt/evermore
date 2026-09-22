@@ -145,8 +145,10 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
 }
 
 function emitScreen(screen: IRScreen): string {
-  const needsRouter = screen.controls.some(
-    (control) => control.action?.kind === "Navigate",
+  const needsRouter = screen.elements.some(
+    (element) =>
+      element.kind === "Button" &&
+      element.action?.kind === "Navigate",
   );
 
   const script = needsRouter
@@ -163,12 +165,21 @@ function emitScreen(screen: IRScreen): string {
     body.push("    <h1>" + escapeHtml(screen.title) + "</h1>");
   }
 
-  for (const control of screen.controls) {
+  for (const element of screen.elements) {
+    if (element.kind === "Text") {
+      body.push(
+        '    <p class="evermore-text">' +
+          escapeHtml(element.value) +
+          "</p>",
+      );
+      continue;
+    }
+
     const action =
-      control.action?.kind === "Navigate"
+      element.action?.kind === "Navigate"
         ? ' @click="go(' +
           "'" +
-          escapeAttribute(control.action.target) +
+          escapeAttribute(element.action.target) +
           "'" +
           ')"'
         : "";
@@ -177,7 +188,7 @@ function emitScreen(screen: IRScreen): string {
       '    <button class="evermore-button" type="button"' +
         action +
         ">" +
-        escapeHtml(control.label) +
+        escapeHtml(element.label) +
         "</button>",
     );
   }
@@ -239,6 +250,14 @@ h1 {
   line-height: 0.94;
   letter-spacing: -0.055em;
   font-weight: 700;
+}
+
+.evermore-text {
+  margin: 0;
+  max-width: 38rem;
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  line-height: 1.6;
+  color: color-mix(in srgb, currentColor 72%, transparent);
 }
 
 .evermore-button {

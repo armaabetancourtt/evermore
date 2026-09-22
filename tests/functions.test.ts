@@ -476,3 +476,163 @@ test("formatter canonicalizes none", () => {
   assert.match(formatted, /returns optional number/);
   assert.match(formatted, /return none/);
 });
+
+
+test("type-checks comparisons and conditional expressions", () => {
+  const source = String.raw`
+app "Logic"
+
+function classify
+  takes score number
+  returns text
+  return if score >= 80 then "high" else "standard"
+end
+
+screen Home
+  title "Logic"
+`;
+
+  const result = compile(source);
+  const generated = result.files.find(
+    (file) => file.path === "src/generated/functions.ts",
+  );
+
+  assert.ok(generated);
+  assert.match(generated.content, /arg_0 >= 80/);
+  assert.match(generated.content, /\? "high" : "standard"/);
+});
+
+test("conditional branches infer optional common types", () => {
+  const source = String.raw`
+app "Logic"
+
+function maybe
+  takes enabled boolean
+  returns optional text
+  return if enabled == true then "yes" else none
+end
+
+screen Home
+  title "Logic"
+`;
+
+  const result = compile(source);
+  const generated = result.files.find(
+    (file) => file.path === "src/generated/functions.ts",
+  );
+
+  assert.ok(generated);
+  assert.match(generated.content, /arg_0 === true/);
+  assert.match(generated.content, /\? "yes" : null/);
+});
+
+test("if conditions must be boolean", () => {
+  const invalid = String.raw`
+app "Broken"
+
+function wrong
+  returns number
+  return if 1 then 2 else 3
+end
+
+screen Home
+  title "Broken"
+`;
+
+  assert.throws(
+    () => compile(invalid),
+    (error: unknown) => {
+      assert.ok(error instanceof EvermoreDiagnosticError);
+      assert.ok(
+        error.diagnostics.some((diagnostic) => diagnostic.code === "E2213"),
+      );
+      return true;
+    },
+  );
+});
+
+test("if branches require compatible types", () => {
+  const invalid = String.raw`
+app "Broken"
+
+function wrong
+  returns text
+  return if true then "yes" else 3
+end
+
+screen Home
+  title "Broken"
+`;
+
+  assert.throws(
+    () => compile(invalid),
+    (error: unknown) => {
+      assert.ok(error instanceof EvermoreDiagnosticError);
+      assert.ok(
+        error.diagnostics.some((diagnostic) => diagnostic.code === "E2214"),
+      );
+      return true;
+    },
+  );
+});
+
+test("ordering comparisons require numeric operands", () => {
+  const invalid = String.raw`
+app "Broken"
+
+function wrong
+  returns boolean
+  return "a" > "b"
+end
+
+screen Home
+  title "Broken"
+`;
+
+  assert.throws(
+    () => compile(invalid),
+    (error: unknown) => {
+      assert.ok(error instanceof EvermoreDiagnosticError);
+      assert.ok(
+        error.diagnostics.some((diagnostic) => diagnostic.code === "E2215"),
+      );
+      return true;
+    },
+  );
+});
+
+test("equality requires compatible operands", () => {
+  const invalid = String.raw`
+app "Broken"
+
+function wrong
+  returns boolean
+  return 1 == "1"
+end
+
+screen Home
+  title "Broken"
+`;
+
+  assert.throws(
+    () => compile(invalid),
+    (error: unknown) => {
+      assert.ok(error instanceof EvermoreDiagnosticError);
+      assert.ok(
+        error.diagnostics.some((diagnostic) => diagnostic.code === "E2216"),
+      );
+      return true;
+    },
+  );
+});
+
+test("formatter canonicalizes conditional expressions", () => {
+  const formatted = formatSource(
+    'app "Logic" function classify { takes score number returns text return if score >= 80 then "high" else "standard" } screen Home { title "Logic" }',
+  );
+
+  assert.match(
+    formatted,
+    /return if score >= 80 then "high" else "standard"/,
+  );
+});

@@ -13,6 +13,7 @@ export type IRProgram = {
   readonly kind: "IRProgram";
   readonly appName: string;
   readonly data: readonly IRDataModel[];
+  readonly protocols: readonly IRProtocol[];
   readonly choices: readonly IRChoice[];
   readonly functions: readonly IRFunction[];
   readonly screens: readonly IRScreen[];
@@ -23,8 +24,14 @@ export type IRChoice = {
   readonly cases: readonly string[];
 };
 
+export type IRProtocol = {
+  readonly name: string;
+  readonly fields: readonly IRDataField[];
+};
+
 export type IRDataModel = {
   readonly name: string;
+  readonly conformances: readonly string[];
   readonly fields: readonly IRDataField[];
 };
 
@@ -203,7 +210,17 @@ export function lowerToIR(model: SemanticModel): IRProgram {
     appName: model.program.appName,
     data: model.program.data.map((declaration) => ({
       name: declaration.name,
+      conformances: declaration.conformances.map(
+        (conformance) => conformance.name,
+      ),
       fields: declaration.fields.map((field) => ({
+        name: field.name,
+        type: typeRefFromAnnotation(field.type),
+      })),
+    })),
+    protocols: model.program.protocols.map((protocol) => ({
+      name: protocol.name,
+      fields: protocol.fields.map((field) => ({
         name: field.name,
         type: typeRefFromAnnotation(field.type),
       })),

@@ -67,12 +67,14 @@ Exit condition:
 
 ## M2 — Core language
 
+**Status: in progress — nominal data + pure typed functions operational**
+
 Goals:
 
-- variables and constants;
-- expressions;
-- functions;
-- structures;
+- [ ] variables and constants (immutable inferred local `let` implemented; broader model pending);
+- [x] expressions (numeric arithmetic, literals, identifiers, calls);
+- [x] pure typed functions;
+- [x] nominal data structures;
 - enums / algebraic choices;
 - optionals;
 - collections;
@@ -83,7 +85,7 @@ Goals:
 - error model;
 - modules;
 - package semantics;
-- type inference where unambiguous.
+- [ ] type inference where unambiguous (local `let` inference implemented; broader inference pending).
 
 Research:
 

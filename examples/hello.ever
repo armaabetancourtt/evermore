@@ -1,0 +1,13 @@
+app "Hello Evermore"
+
+screen Home {
+  title "Build what you imagine"
+
+  button "Continue" {
+    opens Future
+  }
+}
+
+screen Future {
+  title "Software in human terms"
+}

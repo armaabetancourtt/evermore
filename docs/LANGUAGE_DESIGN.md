@@ -74,12 +74,13 @@ This avoids a class of accidental syntax errors while preserving clean formattin
 
 ## 3. Implemented grammar
 
-The executable M1 surface accepts the following EBNF-like grammar:
+The executable M1 + current M2 surface accepts the following EBNF-like grammar:
 
 ~~~text
 program          ::= "app" string declaration* EOF ;
 
 declaration      ::= data
+                   | choice
                    | function
                    | component
                    | screen ;
@@ -87,7 +88,12 @@ declaration      ::= data
 data             ::= "data" identifier data_body ;
 data_body        ::= "{" data_field* "}"
                    | data_field* "end" ;
-data_field       ::= identifier type_name ;
+data_field       ::= identifier type_annotation ;
+
+choice           ::= "choice" identifier choice_body ;
+choice_body      ::= "{" choice_case* "}"
+                   | choice_case* "end" ;
+choice_case      ::= identifier ;
 
 function         ::= "function" identifier function_body ;
 function_body    ::= "{" function_item* "}"
@@ -96,34 +102,58 @@ function_item    ::= parameter
                    | return_type
                    | let_statement
                    | return_statement ;
-parameter        ::= "takes" identifier type_name ;
-return_type      ::= "returns" type_name ;
+parameter        ::= "takes" identifier type_annotation ;
+return_type      ::= "returns" type_annotation ;
 let_statement    ::= "let" identifier "=" expression ;
 return_statement ::= "return" expression ;
 
-expression       ::= additive ;
+type_annotation  ::= "optional" type_annotation
+                   | "list" "of" type_annotation
+                   | type_atom ;
+type_atom        ::= "text" | identifier ;
+
+expression       ::= if_expression
+                   | match_expression
+                   | comparison ;
+
+if_expression    ::= "if" comparison
+                     "then" expression
+                     "else" expression ;
+
+match_expression ::= "match" comparison
+                     match_case*
+                     "end" ;
+match_case       ::= "case" identifier "then" expression ;
+
+comparison       ::= additive
+                     (("==" | "!=" | ">" | ">=" | "<" | "<=")
+                     additive)* ;
+
 additive         ::= multiplicative
                      (("+" | "-") multiplicative)* ;
+
 multiplicative   ::= primary
                      (("*" | "/") primary)* ;
+
 primary          ::= integer
                    | string
                    | "true"
                    | "false"
+                   | "none"
+                   | list_literal
                    | identifier
+                   | identifier "." identifier
                    | identifier "(" arguments? ")"
                    | "(" expression ")" ;
+
+list_literal     ::= "[" arguments? "]" ;
 arguments        ::= expression ("," expression)* ;
 
-type_name        ::= "text" | identifier ;
-
 component        ::= "component" identifier component_body ;
-
 component_body   ::= "{" visual_statement* "}"
                    | visual_statement* "end" ;
 
 screen           ::= "screen" identifier screen_body ;
-
 screen_body      ::= "{" screen_statement* "}"
                    | screen_statement*
                      // natural screen ends at next top-level declaration / EOF
@@ -154,7 +184,6 @@ button_action    ::= "opens" identifier
 
 stack            ::= "stack" stack_direction stack_body ;
 stack_direction  ::= "vertical" | "horizontal" ;
-
 stack_body       ::= "{" visual_statement* "}"
                    | visual_statement* "end" ;
 
@@ -165,27 +194,36 @@ string           ::= '"' character* '"' ;
 
 ### Structural rule
 
-Whitespace and indentation are trivia. They improve readability but do not determine block ownership.
+Whitespace and indentation are trivia. They improve readability but do not determine block ownership. Natural nested constructs that cannot be terminated by a following top-level declaration use the explicit word `end`.
 
-Natural nested constructs that cannot be terminated by a following top-level declaration use the explicit word:
+### Current type semantics
 
-~~~evermore
-end
-~~~
+The checker currently supports:
 
-This keeps the human-facing surface readable without importing Python-style indentation semantics.
+- primitive `text`, `number`, `boolean` and `id`;
+- nominal `data` and payload-free nominal `choice` types;
+- recursive `list of T` and `optional T` type annotations;
+- `none` with optional lifting;
+- homogeneous list-literal inference;
+- contextual typing of empty lists when a list type is already expected;
+- typed pure function signatures and forward calls;
+- local immutable `let` inference;
+- numeric arithmetic and ordering;
+- compatible equality comparisons;
+- typed `if` expressions;
+- exhaustive `match` expressions over choices.
+
+A `match` fails semantic analysis when a choice case is missing, repeated or unknown. Branch result types must have a compatible common type.
 
 ### M1 component rule
 
-Reusable components are deliberately **stateless** in M1. They may contain text, buttons, navigation, stacks and other components. Reading or mutating screen-local state from a component is rejected until typed component inputs/bindings are designed.
+Reusable components remain deliberately **stateless** in M1. They may contain text, buttons, navigation, stacks and other components. Reading or mutating screen-local state from a component is rejected until typed component inputs/bindings are designed.
 
-### Executable equivalence
+### Executable evidence
 
-The test suite requires natural and explicit forms to lower to equivalent generated artifacts for overlapping syntax. The Vue/Vite target is then compiled in CI.
+The test suite requires natural and explicit forms to lower to equivalent generated artifacts for overlapping syntax. Generated Vue/Vite applications are then type-checked with `vue-tsc` and built in CI.
 
-The current type checker recognizes primitive types `text`, `number`, `boolean` and `id`, plus nominal user-defined `data` types. Function signatures are checked before bodies, enabling forward calls and recursive references at the signature level. Local `let` values infer their type from expressions.
-
-This grammar remains intentionally narrow. A small executable language is more valuable than a broad fictional one.
+This grammar remains intentionally narrower than the long-term language. Executable semantics take priority over aspirational syntax.
 
 ---
 
@@ -212,30 +250,50 @@ end
 
 Broader value lifetimes, mutable variables and richer expression families remain M2 work.
 
-### Algebraic data
+### Algebraic data — partially implemented
+
+Nominal `data` records and payload-free `choice` types are executable today. Payload-carrying algebraic cases and generic choices remain future M2 work.
 
 ~~~evermore
-structure User
+data User
   id id
   name text
-  email email
+end
 
-choice Result<T, E>
-  success T
-  failure E
+choice Status
+  draft
+  active
+  archived
+end
 ~~~
 
-### Collections
+Exhaustive choice matching is also executable:
 
 ~~~evermore
-List<T>
-Set<T>
-Map<K, V>
-Queue<T>
-Stack<T>
-Tree<T>
-Graph<N, E>
+return match status
+  case draft then "Draft"
+  case active then "Active"
+  case archived then "Archived"
+end
 ~~~
+
+### Collections — partially implemented
+
+`list of T`, list literals, homogeneous element inference and contextual empty-list typing are executable today.
+
+~~~evermore
+function names
+  returns list of text
+  return ["Ada", "Grace"]
+end
+
+function emptyNames
+  returns list of text
+  return []
+end
+~~~
+
+Set, map, queue, tree, graph and broader collection APIs remain future work.
 
 ### Object-oriented programming
 

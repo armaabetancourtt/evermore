@@ -13,6 +13,7 @@ export type Program = {
   readonly kind: "Program";
   readonly appName: string;
   readonly data: readonly DataDeclaration[];
+  readonly functions: readonly FunctionDeclaration[];
   readonly components: readonly ComponentDeclaration[];
   readonly screens: readonly ScreenDeclaration[];
   readonly span: SourceSpan;
@@ -28,6 +29,85 @@ export type DataDeclaration = {
 export type DataField = {
   readonly name: string;
   readonly typeName: string;
+  readonly span: SourceSpan;
+};
+
+export type FunctionDeclaration = {
+  readonly kind: "FunctionDeclaration";
+  readonly name: string;
+  readonly parameters: readonly FunctionParameter[];
+  readonly returnTypeName: string;
+  readonly body: readonly FunctionStatement[];
+  readonly span: SourceSpan;
+};
+
+export type FunctionParameter = {
+  readonly name: string;
+  readonly typeName: string;
+  readonly span: SourceSpan;
+};
+
+export type FunctionStatement = LetStatement | ReturnStatement;
+
+export type LetStatement = {
+  readonly kind: "LetStatement";
+  readonly name: string;
+  readonly expression: Expression;
+  readonly span: SourceSpan;
+};
+
+export type ReturnStatement = {
+  readonly kind: "ReturnStatement";
+  readonly expression: Expression;
+  readonly span: SourceSpan;
+};
+
+export type Expression =
+  | NumberExpression
+  | StringExpression
+  | BooleanExpression
+  | IdentifierExpression
+  | BinaryExpression
+  | CallExpression;
+
+export type NumberExpression = {
+  readonly kind: "NumberExpression";
+  readonly value: number;
+  readonly span: SourceSpan;
+};
+
+export type StringExpression = {
+  readonly kind: "StringExpression";
+  readonly value: string;
+  readonly span: SourceSpan;
+};
+
+export type BooleanExpression = {
+  readonly kind: "BooleanExpression";
+  readonly value: boolean;
+  readonly span: SourceSpan;
+};
+
+export type IdentifierExpression = {
+  readonly kind: "IdentifierExpression";
+  readonly name: string;
+  readonly span: SourceSpan;
+};
+
+export type BinaryOperator = "+" | "-" | "*" | "/";
+
+export type BinaryExpression = {
+  readonly kind: "BinaryExpression";
+  readonly operator: BinaryOperator;
+  readonly left: Expression;
+  readonly right: Expression;
+  readonly span: SourceSpan;
+};
+
+export type CallExpression = {
+  readonly kind: "CallExpression";
+  readonly callee: string;
+  readonly arguments: readonly Expression[];
   readonly span: SourceSpan;
 };
 

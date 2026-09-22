@@ -36,6 +36,8 @@ export type TokenKind =
   | "rbrace"
   | "lparen"
   | "rparen"
+  | "lbracket"
+  | "rbracket"
   | "comma"
   | "equal"
   | "plus"
@@ -102,6 +104,18 @@ class Lexer {
 
       const start = this.position();
       const char = this.peek();
+
+      if (char === "[") {
+        this.advance();
+        tokens.push(this.token("lbracket", "[", start));
+        continue;
+      }
+
+      if (char === "]") {
+        this.advance();
+        tokens.push(this.token("rbracket", "]", start));
+        continue;
+      }
 
       if (char === "(") {
         this.advance();

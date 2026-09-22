@@ -15,7 +15,10 @@ import {
   validateFunctions,
   type FunctionSignature,
 } from "./typecheck.js";
-import { isPrimitiveTypeName } from "./types.js";
+import {
+  isPrimitiveTypeName,
+  typeRefFromAnnotation,
+} from "./types.js";
 
 export type SemanticModel = {
   readonly program: Program;
@@ -258,6 +261,65 @@ export function analyze(program: Program): {
     }
   }
 
+  for (const protocol of program.protocols) {
+    const methodNames = new Set<string>();
+    const fieldNames = new Set(
+      protocol.fields.map((field) => field.name),
+    );
+
+    for (const method of protocol.methods) {
+      if (methodNames.has(method.name) || fieldNames.has(method.name)) {
+        diagnostics.push({
+          code: "E2411",
+          severity: "error",
+          message:
+            'Protocol member "' +
+            protocol.name +
+            "." +
+            method.name +
+            '" is declared more than once or conflicts with a field.',
+          span: method.span,
+          help:
+            "Give every protocol field and method a unique member name.",
+        });
+      } else {
+        methodNames.add(method.name);
+      }
+
+      if (method.body.length > 0) {
+        diagnostics.push({
+          code: "E2412",
+          severity: "error",
+          message:
+            'Protocol method "' +
+            protocol.name +
+            "." +
+            method.name +
+            '" is a requirement and cannot contain a body.',
+          span: method.span,
+          help:
+            "Keep only generic/takes/returns declarations inside a protocol method.",
+        });
+      }
+
+      if (method.typeParameters.length > 0) {
+        diagnostics.push({
+          code: "E2413",
+          severity: "error",
+          message:
+            'Protocol method "' +
+            protocol.name +
+            "." +
+            method.name +
+            '" cannot declare generic parameters yet.',
+          span: method.span,
+          help:
+            "Move generic behavior to a protocol-constrained top-level function for now.",
+        });
+      }
+    }
+  }
+
   for (const declaration of program.data) {
     const fieldNames = new Set<string>();
 
@@ -303,6 +365,69 @@ export function analyze(program: Program): {
             unknownType +
             ".",
         });
+      }
+    }
+  }
+
+  for (const declaration of program.data) {
+    const methodNames = new Set<string>();
+    const fieldNames = new Set(
+      declaration.fields.map((field) => field.name),
+    );
+
+    for (const method of declaration.methods) {
+      if (methodNames.has(method.name) || fieldNames.has(method.name)) {
+        diagnostics.push({
+          code: "E2411",
+          severity: "error",
+          message:
+            'Data member "' +
+            declaration.name +
+            "." +
+            method.name +
+            '" is declared more than once or conflicts with a field.',
+          span: method.span,
+          help:
+            "Give every data field and method a unique member name.",
+        });
+      } else {
+        methodNames.add(method.name);
+      }
+
+      if (method.typeParameters.length > 0) {
+        diagnostics.push({
+          code: "E2413",
+          severity: "error",
+          message:
+            'Data method "' +
+            declaration.name +
+            "." +
+            method.name +
+            '" cannot declare generic parameters yet.',
+          span: method.span,
+          help:
+            "Move generic behavior to a protocol-constrained top-level function for now.",
+        });
+      }
+
+      for (const parameter of method.parameters) {
+        if (fieldNames.has(parameter.name)) {
+          diagnostics.push({
+            code: "E2414",
+            severity: "error",
+            message:
+              'Method parameter "' +
+              parameter.name +
+              '" conflicts with field "' +
+              declaration.name +
+              "." +
+              parameter.name +
+              '".',
+            span: parameter.span,
+            help:
+              "Rename the parameter so field reads remain unambiguous.",
+          });
+        }
       }
     }
   }
@@ -391,6 +516,51 @@ export function analyze(program: Program): {
           });
         }
       }
+
+      const methods = new Map(
+        declaration.methods.map((method) => [method.name, method] as const),
+      );
+
+      for (const required of protocol.methods) {
+        const actual = methods.get(required.name);
+
+        if (!actual) {
+          diagnostics.push({
+            code: "E2409",
+            severity: "error",
+            message:
+              'Data type "' +
+              declaration.name +
+              '" is missing method "' +
+              required.name +
+              '" required by protocol "' +
+              protocol.name +
+              '".',
+            span: conformance.span,
+            help:
+              "Implement the required method with the protocol-declared signature.",
+          });
+          continue;
+        }
+
+        if (!sameMethodContract(actual, required)) {
+          diagnostics.push({
+            code: "E2410",
+            severity: "error",
+            message:
+              'Method "' +
+              declaration.name +
+              "." +
+              required.name +
+              '" does not match protocol "' +
+              protocol.name +
+              '".',
+            span: actual.span,
+            help:
+              "Use the same parameter and return types required by the protocol method.",
+          });
+        }
+      }
     }
   }
 
@@ -399,6 +569,41 @@ export function analyze(program: Program): {
     { dataByName, protocolsByName, choicesByName },
     diagnostics,
   );
+
+  for (const protocol of program.protocols) {
+    validateFunctions(
+      protocol.methods,
+      { dataByName, protocolsByName, choicesByName },
+      diagnostics,
+      { validateBodies: false },
+    );
+  }
+
+  for (const declaration of program.data) {
+    const initialValues = new Map(
+      declaration.fields.map(
+        (field) =>
+          [
+            field.name,
+            typeRefFromAnnotation(
+              field.type,
+              new Set(),
+              new Set(protocolsByName.keys()),
+            ),
+          ] as const,
+      ),
+    );
+
+    validateFunctions(
+      declaration.methods,
+      { dataByName, protocolsByName, choicesByName },
+      diagnostics,
+      {
+        initialValues,
+        bodyCallSignatures: functionTypes.signaturesByName,
+      },
+    );
+  }
 
   for (const component of program.components) {
     if (components.has(component.name)) {
@@ -758,6 +963,27 @@ function validateScreenVisual(
       );
     }
   }
+}
+
+function sameMethodContract(
+  actual: Program["functions"][number],
+  required: Program["functions"][number],
+): boolean {
+  if (actual.parameters.length !== required.parameters.length) {
+    return false;
+  }
+
+  if (!sameTypeAnnotation(actual.returnType, required.returnType)) {
+    return false;
+  }
+
+  return actual.parameters.every((parameter, index) => {
+    const requiredParameter = required.parameters[index];
+    return (
+      requiredParameter !== undefined &&
+      sameTypeAnnotation(parameter.type, requiredParameter.type)
+    );
+  });
 }
 
 function sameTypeAnnotation(

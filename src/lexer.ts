@@ -4,6 +4,8 @@ import { EvermoreDiagnosticError } from "./diagnostics.js";
 export type TokenKind =
   | "app"
   | "data"
+  | "protocol"
+  | "conforms"
   | "choice"
   | "function"
   | "generic"
@@ -71,6 +73,8 @@ export type Token = {
 const keywords = new Map<string, TokenKind>([
   ["app", "app"],
   ["data", "data"],
+  ["protocol", "protocol"],
+  ["conforms", "conforms"],
   ["choice", "choice"],
   ["function", "function"],
   ["generic", "generic"],

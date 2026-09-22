@@ -4,53 +4,87 @@
 
 [English](README.md) · [Español](README.es.md)
 
+![Status](https://img.shields.io/badge/status-pre--alpha-111111)
+![Compiler](https://img.shields.io/badge/compiler-TypeScript-111111?logo=typescript&logoColor=white)
+![Language](https://img.shields.io/badge/language-Evermore-111111)
+[![CI](https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml/badge.svg)](https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml)
+
 > **Evermore es un lenguaje de programación experimental y una plataforma para construir productos, inteligencia e infraestructura reduciendo radicalmente la complejidad accidental.**
 
-Evermore explora una pregunta sencilla:
+Evermore parte de una pregunta:
 
 > **¿Y si construir software serio se sintiera más parecido a describir el producto que a operar toda la maquinaria que existe debajo?**
 
-El lenguaje se inspira en la claridad de **Swift**, la mentalidad multiplataforma de **Flutter** y la accesibilidad de **Python**, pero nace para un mundo donde una aplicación abarca web, móvil, servidores, datos, agentes de IA, código nativo e infraestructura cloud.
+El lenguaje se inspira en la claridad de **Swift**, la mentalidad multiplataforma de **Flutter** y la accesibilidad de **Python**; pero nace para una época donde un producto real cruza web, móvil, servidores, datos, IA, código nativo e infraestructura cloud.
 
-Evermore está actualmente en **pre-alpha**. El repositorio se construye con disciplina de investigación e ingeniería: primero el diseño del lenguaje, después fundamentos ejecutables del compilador y, posteriormente, targets cada vez más capaces. Las funciones descritas como **objetivos de diseño** se distinguen deliberadamente de las ya implementadas.
+Evermore está en **pre-alpha**. El proyecto separa deliberadamente lo que ya funciona de lo que todavía es dirección de investigación. La ambición puede ser enorme; las afirmaciones deben estar respaldadas por código, tests o experimentos reproducibles.
 
 ---
 
-## La tesis
+# La tesis
 
-La ingeniería de software ha acumulado una capacidad enorme y, al mismo tiempo, una enorme complejidad incidental.
+La ingeniería de software moderna tiene una capacidad extraordinaria, pero también una cantidad enorme de complejidad que no pertenece al problema que el usuario quería resolver.
 
-Un producto moderno puede requerir TypeScript, un framework web, otro móvil, backend, esquemas, autenticación, Dockerfiles, CI, manifiestos de Kubernetes, servicios cloud, notebooks de Python, SDKs de IA, prompts, infraestructura vectorial y varios modelos mentales distintos antes de que el producto siquiera sea visible.
-
-Evermore no asume que esa complejidad sea inevitable.
-
-Su objetivo es conservar el **poder esencial de la ingeniería** mientras elimina la mayor cantidad posible de **fricción accidental**.
+Para construir un solo producto hoy puedes terminar usando:
 
 ~~~text
-Human intent
-    ↓
-Evermore source
-    ↓
-Parser + semantic analysis
-    ↓
-Typed Evermore IR
-    ↓
+TypeScript
+Vue / React
+React Native / Flutter
+Swift
+Kotlin
+Node.js
+Python
+SQL
+Docker
+Kubernetes
+CI/CD
+Cloud
+AI SDKs
+Vector databases
+YAML
+Bash
+~~~
+
+Cada herramienta puede ser excelente por separado.
+
+La pregunta de Evermore es si el desarrollador realmente debería cargar con **todas esas fronteras mentales antes de poder expresar el producto**.
+
+La meta no es esconder la ingeniería esencial.
+
+La meta es eliminar la ingeniería accidental.
+
+~~~text
+Intención humana
+      ↓
+Código Evermore
+      ↓
+Lexer + Parser
+      ↓
+AST
+      ↓
+Análisis semántico
+      ↓
+Evermore IR
+      ↓
 ┌──────────┬─────────────┬──────────┬──────────┬──────────────┐
-│ Web      │ Mobile      │ Server   │ Data/AI  │ Infrastructure│
+│ Web      │ Mobile      │ Server   │ Data/AI  │ Infra        │
 │ Vue/Vite │ RN/Flutter  │ Node.js  │ Python   │ Docker / K8s │
-│ TS       │ Swift/Kotlin│ TS       │ JVM      │ Cloud         │
+│ TS       │ Swift/Kotlin│ TS       │ JVM      │ Cloud        │
 └──────────┴─────────────┴──────────┴──────────┴──────────────┘
 ~~~
 
-Los frameworks son **targets**, no el lenguaje.
+Los frameworks son **targets**.
 
-Si mañana aparece un runtime móvil o web superior, Evermore debería poder incorporar un nuevo backend sin obligar a las aplicaciones a abandonar el lenguaje.
+No son el lenguaje.
+
+Si dentro de cinco años existe algo mejor que React Native, Vue o incluso Node, Evermore debería poder adquirir un backend nuevo sin obligar al producto a reescribirse desde cero.
 
 ---
 
-## Objetivo de diseño: software en términos humanos
+# Software en términos humanos
 
-La sintaxis a largo plazo pretende ser legible antes que impresionante.
+La sintaxis objetivo debe poder leerse antes de poder impresionarte.
 
 ~~~evermore
 app "Atlas"
@@ -62,11 +96,11 @@ data Note
 
 screen Home
 
-  title "Your ideas"
+  title "Tus ideas"
 
   show notes
 
-  button "New note"
+  button "Nueva nota"
     opens NewNote
 
 agent Summarizer
@@ -107,28 +141,28 @@ production
     backup daily
 ~~~
 
-Esto es un **objetivo de diseño**, no una afirmación de que cada construcción anterior ya esté implementada.
+Ese ejemplo representa una **dirección de diseño**, no una promesa de que toda esa sintaxis ya compile hoy.
 
-El lenguaje debe comenzar simple, pero no debe terminar siendo simple.
+Evermore debe comenzar simple.
+
+Pero no debe quedarse limitado.
 
 ---
 
-## Poder progresivo
+# Poder progresivo
 
-Evermore se diseña alrededor de la revelación progresiva de complejidad.
+No quiero que Evermore sea un lenguaje para principiantes del que tengas que escapar cuando aprendes más.
+
+Quiero que crezca contigo.
 
 ### Modo natural
 
-El modo por defecto debe leerse cerca de la intención de producto:
-
 ~~~evermore
-button "Continue"
+button "Continuar"
   opens Dashboard
 ~~~
 
 ### Modo explícito
-
-Los desarrolladores avanzados deben poder expresar el mismo programa con mayor control formal:
 
 ~~~evermore
 component ContinueButton {
@@ -138,23 +172,43 @@ component ContinueButton {
 }
 ~~~
 
-Ambas formas deben reducirse a la misma representación semántica.
+Ambas formas deben terminar en la misma representación semántica.
 
-La indentación existe para legibilidad. **La indentación no pretende determinar el significado del programa.**
+La indentación ayuda a leer.
+
+**La indentación no debería decidir qué significa el programa.**
 
 ---
 
 # Ocho pilares
 
-### 01 — Lenguaje humano primero
+## 01 — Humano primero
 
 La primera abstracción es la intención del desarrollador, no la API de un framework.
 
-Lo común debe ser obvio. Lo avanzado debe seguir siendo posible.
+Lo frecuente debe ser evidente.
 
-### 02 — Programación con IA nativa
+Lo avanzado debe seguir siendo posible.
 
-La IA no se plantea como un SDK añadido al final. Agentes, herramientas, contexto, presupuestos, aprobaciones, salidas estructuradas y capacidades de modelos deben convertirse en conceptos tipados del lenguaje.
+---
+
+## 02 — IA nativa
+
+La IA no debería entrar a Evermore como otro SDK pegado al final.
+
+Evermore investiga convertir en conceptos reales del lenguaje:
+
+- agentes;
+- herramientas;
+- modelos;
+- contexto;
+- presupuestos de tokens;
+- memoria;
+- salidas estructuradas;
+- evaluaciones;
+- aprobación humana;
+- permisos;
+- observabilidad.
 
 ~~~evermore
 agent Researcher
@@ -175,30 +229,67 @@ agent Researcher
     summarize overflow
 ~~~
 
-### 03 — Defaults obsesivos de producto y diseño
+El proveedor del modelo es configuración.
 
-Evermore busca interfaces tranquilas, coherentes y accesibles por defecto.
+La semántica del agente pertenece a Evermore.
 
-La filosofía de diseño se inspira en el énfasis de Apple en claridad, jerarquía, consistencia, movimiento con propósito, accesibilidad y excelentes defaults, no en copiar una estética.
+---
 
-Un botón no debería requerir decenas de propiedades antes de ser usable, responsivo y accesible.
+## 03 — Diseño obsesivo
 
-### 04 — Un lenguaje para todo el producto
+Evermore debe tener excelentes defaults de producto.
 
-El mismo modelo fuente debería poder describir:
+No significa copiar visualmente a Apple.
 
-- web interfaces;
-- mobile interfaces;
-- APIs and server behavior;
-- domain models;
+Significa aprender de principios como:
+
+- claridad;
+- jerarquía;
+- consistencia;
+- accesibilidad;
+- movimiento con propósito;
+- atención al detalle;
+- reducción de ruido;
+- progressive disclosure;
+- interfaces que no requieren configuración excesiva para ser correctas.
+
+~~~evermore
+button "Continuar"
+~~~
+
+debería producir un control usable, accesible, responsivo y coherente sin exigir veinte propiedades.
+
+El desarrollador avanzado podrá personalizarlo.
+
+Pero la calidad no debería empezar desde cero.
+
+---
+
+## 04 — Un lenguaje para el producto completo
+
+El mismo modelo semántico debería poder describir:
+
+- interfaces web;
+- interfaces móviles;
+- modelos de dominio;
+- APIs;
+- servidores;
 - workflows;
-- agents;
-- data pipelines;
-- infrastructure intent.
+- agentes;
+- pipelines de datos;
+- intención de infraestructura.
 
-### 05 — Ciencia de datos sin una pared entre ecosistemas
+Modelas un concepto una vez.
 
-Python sigue siendo uno de los ecosistemas más fuertes para cómputo científico y machine learning. Evermore pretende interoperar con él, no reemplazarlo.
+Los targets lo entienden desde una fuente de verdad.
+
+---
+
+## 05 — Ciencia de datos sin abandonar el ecosistema
+
+Python es demasiado importante para fingir que Evermore debe reemplazarlo.
+
+Evermore pretende integrarse con Python.
 
 ~~~evermore
 dataset Housing from "housing.csv"
@@ -214,11 +305,21 @@ validate with time split
 show error distribution
 ~~~
 
-Los usuarios avanzados deben poder cruzar directamente hacia Python cuando lo necesiten.
+Y cuando necesites todo el poder del ecosistema:
 
-### 06 — Infraestructura como intención de producto
+~~~evermore
+use python from "./risk_model.py"
+~~~
 
-Desplegar no debería exigir aprender cinco lenguajes de configuración antes de poder operar responsablemente una aplicación.
+Evermore reduce fricción.
+
+No levanta paredes.
+
+---
+
+## 06 — Infraestructura como intención
+
+Levantar una aplicación responsable no debería requerir dominar primero Dockerfiles, YAML, Kubernetes, ingress, probes, secrets, CI y cloud networking.
 
 ~~~evermore
 production
@@ -235,25 +336,51 @@ production
   cache redis
 ~~~
 
-Evermore podrá reducir intención de infraestructura a Docker, Kubernetes y configuración específica de cloud manteniendo inspeccionables los artefactos generados.
+La dirección de Evermore es convertir eso en planes inspeccionables de infraestructura.
 
-### 07 — Interoperabilidad antes que aislamiento
+No ocultar Kubernetes.
 
-Un lenguaje nuevo no debería desechar el mundo de software que ya existe.
+**Evitar que Kubernetes sea un prerrequisito para comenzar.**
 
-Las fronteras de interoperabilidad planeadas incluyen:
+---
 
-- TypeScript / JavaScript
-- Python
-- Swift / SwiftUI
-- Kotlin
-- Java / JVM
-- Dart / Flutter
-- Rust and WebAssembly where appropriate
+## 07 — Interoperabilidad
 
-### 08 — Seguridad por construcción
+Evermore no debe intentar borrar décadas de software.
 
-La información sensible debe representarse semánticamente.
+Debe poder conversar con ellas.
+
+Direcciones planeadas:
+
+- TypeScript / JavaScript;
+- Python;
+- Swift / SwiftUI;
+- Kotlin;
+- Java / JVM;
+- Dart / Flutter;
+- Rust;
+- WebAssembly.
+
+Ejemplo conceptual:
+
+~~~evermore
+capability Health
+
+  ios uses HealthKit with Swift
+  android uses HealthConnect with Kotlin
+~~~
+
+El producto depende de una capability.
+
+Cada plataforma implementa su parte nativa.
+
+---
+
+## 08 — Seguridad por construcción
+
+La seguridad no debería existir solamente en documentación.
+
+Evermore investiga llevarla al sistema semántico.
 
 ~~~evermore
 data User
@@ -261,17 +388,41 @@ data User
   password secret
 ~~~
 
-Un valor tipado como **secret** no debería poder imprimirse, serializarse o devolverse por una API de manera casual. El compilador y el runtime deben participar en prevenir flujos inseguros, no depender únicamente de la disciplina del desarrollador.
+Un valor Secret no debería fluir casualmente a:
+
+- logs;
+- analytics;
+- UI pública;
+- respuestas de API;
+- modelos externos de IA.
+
+Si escribes:
+
+~~~evermore
+log user.password
+~~~
+
+el compilador debería ser capaz de detenerte y explicar por qué.
 
 ---
 
 # IA como primitiva del lenguaje
 
-Muchas aplicaciones de IA representan hoy comportamiento importante como strings más llamadas a SDKs.
+Hoy muchas aplicaciones de IA terminan siendo:
 
-La dirección de investigación de Evermore es distinta.
+~~~text
+prompt string
++ SDK call
++ JSON parsing
++ retries
++ tool loop
++ logging
++ context assembly
+~~~
 
-Un agente puede modelarse como una computación tipada:
+Evermore investiga otra representación.
+
+Un agente puede modelarse abstractamente como:
 
 ~~~text
 Agent<I, O, T, C, B>
@@ -279,17 +430,15 @@ Agent<I, O, T, C, B>
 
 donde:
 
-- **I** = input type
-- **O** = output type
-- **T** = available tools
-- **C** = capability / permission set
-- **B** = resource budget
+- **I** = tipo de entrada;
+- **O** = tipo de salida;
+- **T** = herramientas;
+- **C** = capabilities / permisos;
+- **B** = presupuesto de recursos.
 
-Un presupuesto puede incluir tokens, latencia, costo monetario o tiempo de ejecución.
+Esto permite que el compilador y el runtime razonen sobre un agente antes de ejecutarlo.
 
-Esto permite que compilador, runtime y tooling razonen sobre comportamiento de IA antes de ejecutar.
-
-### Salida estructurada y tipada
+## Salidas tipadas
 
 ~~~evermore
 structure RiskAssessment
@@ -302,9 +451,11 @@ agent RiskAnalyst
   returns RiskAssessment
 ~~~
 
-El contrato de salida es un tipo, no una sugerencia escondida en un prompt.
+La salida deja de ser “por favor responde JSON”.
 
-### Aprobación humana
+Es un contrato.
+
+## Aprobación humana
 
 ~~~evermore
 agent Support
@@ -318,9 +469,9 @@ agent Support
     send response
 ~~~
 
-La supervisión humana se vuelve parte del programa.
+La supervisión humana forma parte del programa.
 
-### Contexto y tokenización
+## Contexto y tokens
 
 ~~~evermore
 context CustomerContext
@@ -335,76 +486,126 @@ context CustomerContext
   summarize overflow
 ~~~
 
-La construcción de contexto debe ser explícita, inspeccionable y testeable.
+El contexto se vuelve explícito, medible y testeable.
 
 ---
 
 # Fundamento formal
 
-La accesibilidad no debe obtenerse sacrificando rigor semántico.
+Ser fácil de usar no significa ser informal.
 
-La investigación de tipos y efectos de Evermore se organiza alrededor de juicios de la forma:
+Evermore explora un modelo de tipos, efectos y capabilities basado en juicios de la forma:
 
 ~~~text
 Γ ; C ⊢ e : τ ! ε
 ~~~
 
-Interpretación:
+donde:
 
-- **Γ** — typing environment
-- **C** — capabilities available to the computation
-- **e** — expression
-- **τ** — resulting type
-- **ε** — observable effect set
+- **Γ** es el entorno de tipos;
+- **C** son las capabilities disponibles;
+- **e** es una expresión;
+- **τ** es el tipo resultante;
+- **ε** es el conjunto de efectos observables.
 
-Una transformación pura podría tener:
+Una operación pura:
 
 ~~~text
 ε = ∅
 ~~~
 
-mientras otra computación podría tener:
+Una operación de backend podría tener:
 
 ~~~text
-ε = { network, ai, database.write }
+ε = {
+  network,
+  database.read,
+  database.write
+}
 ~~~
 
-Esto permite que el tooling responda preguntas como:
+Un agente:
 
-- Can this function access the network?
-- Can this agent transmit sensitive information?
-- Can this workflow mutate production data?
-- Can this mobile capability run offline?
-- Is this function deterministic?
-- Which actions require human approval?
+~~~text
+ε = {
+  ai.infer,
+  network
+}
+~~~
 
-## Dirección del flujo de información
+Esto abre la puerta a tooling capaz de responder:
 
-Evermore también explora un retículo de seguridad:
+- ¿esta función puede tocar la red?
+- ¿este agente puede enviar datos privados?
+- ¿este workflow modifica producción?
+- ¿esta operación funciona offline?
+- ¿esta función es determinista?
+- ¿qué acciones requieren aprobación?
+
+---
+
+# Flujo de información
+
+Evermore investiga un retículo de confidencialidad:
 
 ~~~text
 public ⊑ internal ⊑ sensitive ⊑ secret
 ~~~
 
-Los datos no deberían fluir implícitamente de un nivel fuerte de confidencialidad a uno más débil.
+Por defecto, los datos no deberían poder bajar silenciosamente desde un nivel más confidencial hacia uno menos confidencial.
 
-## Modelo de recursos de IA
+Esto puede ayudar a prevenir errores antes de producción.
 
-La ejecución de IA introduce otra superficie de optimización. Un planificador futuro podría minimizar un objetivo como:
+---
+
+# Matemáticas para IA y optimización
+
+La IA introduce costos que los lenguajes tradicionales no suelen modelar directamente.
+
+Para un plan de ejecución p podemos considerar:
 
 ~~~text
-J = λ₁·latency + λ₂·cost + λ₃·token_usage + λ₄·energy
+J(p) =
+  λ₁ · latency(p)
++ λ₂ · cost(p)
++ λ₃ · token_usage(p)
++ λ₄ · energy(p)
 ~~~
 
-subject to semantic, quality and security constraints.
+sujeto a restricciones de:
 
-El propósito no es decoración matemática: ofrece un marco para volver explícitas y medibles las decisiones de enrutamiento de modelos, construcción de contexto y despliegue.
+- seguridad;
+- capabilities;
+- calidad;
+- presupuesto;
+- contexto;
+- disponibilidad de modelos.
+
+No existe un único óptimo universal.
+
+Las prioridades pertenecen al producto.
+
+## Selección de contexto
+
+Si cada fragmento de contexto tiene costo de tokens tᵢ y utilidad uᵢ, una aproximación simple puede escribirse como:
+
+~~~text
+maximizar   Σ uᵢ zᵢ
+
+sujeto a   Σ tᵢ zᵢ ≤ B
+
+            zᵢ ∈ {0,1}
+~~~
+
+En un sistema real también aparecen privacidad, dependencias semánticas, frescura, orden y compresión.
+
+La idea importante es que **la tokenización y el contexto se conviertan en recursos del programa**, no en strings accidentales.
+
+Más detalle: [docs/FORMAL_MODEL.md](docs/FORMAL_MODEL.md).
 
 ---
 
 # Arquitectura del compilador
-
-Evermore se diseña alrededor de un núcleo semántico estable, no de una traducción directa de código fuente a framework.
 
 ~~~text
 .ever source
@@ -430,81 +631,128 @@ optimization / planning
 target backends
 ~~~
 
-### Por qué importa un IR
-
-Without an intermediate representation:
+Evermore no debería traducir directamente:
 
 ~~~text
 Evermore → React Native
 ~~~
 
-Evermore becomes a syntax wrapper around React Native.
+porque entonces sería una sintaxis bonita encima de un framework.
 
-With a stable IR:
+El objetivo es:
 
 ~~~text
                  ┌→ Vue + Vite
-Evermore → IR ───┼→ React Native
-                 ├→ Flutter
+                 ├→ React Native
+Evermore → IR ───┼→ Flutter
                  ├→ Swift / SwiftUI
                  ├→ Kotlin
                  ├→ Node.js
-                 ├→ Python / JVM interop
-                 └→ infrastructure planners
+                 ├→ Python / JVM
+                 └→ Infrastructure
 ~~~
 
-El lenguaje puede sobrevivir a cambios de frameworks.
+Más detalle: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
-# Arquitectura de targets
+# Targets
 
-| Domain | Primary direction | Native / alternate direction |
+| Dominio | Dirección principal | Extensión / alternativa |
 |---|---|---|
-| Web | TypeScript + Vue 3 + Vite | future additional web backend |
+| Web | TypeScript + Vue 3 + Vite | futuros backends web |
 | Mobile | React Native + TypeScript | Flutter + Dart |
-| iOS | React Native common layer | Swift + SwiftUI extensions |
-| Android | React Native common layer | Kotlin extensions |
-| Server | Node.js + TypeScript | future native/WASM runtimes |
-| Data science | Python interoperability | native numerical work where justified |
-| JVM | Java interoperability | future JVM backend |
-| Infrastructure | Docker + Kubernetes planning | cloud adapters |
-| AI | provider-neutral agent runtime | local / hosted model adapters |
+| iOS | capa común RN | Swift + SwiftUI |
+| Android | capa común RN | Kotlin |
+| Server | Node.js + TypeScript | futuros runtimes nativos/WASM |
+| Data Science | interoperabilidad Python | cómputo nativo donde tenga sentido |
+| JVM | interoperabilidad Java | futuro backend JVM |
+| Infraestructura | Docker + Kubernetes | adaptadores cloud |
+| IA | runtime provider-neutral | modelos hosted o locales |
+
+---
+
+# POO, estructuras y fundamentos clásicos
+
+Ser futurista no significa abandonar fundamentos.
+
+Evermore pretende incluir:
+
+~~~text
+functions
+classes
+interfaces
+composition
+encapsulation
+generics
+pattern matching
+optionals
+errors
+modules
+async/concurrency
+
+List<T>
+Set<T>
+Map<K,V>
+Queue<T>
+Stack<T>
+Tree<T>
+Graph<N,E>
+~~~
+
+Ejemplo conceptual:
+
+~~~evermore
+interface Repository<T>
+  function find id -> T?
+  function save value T
+
+class UserService
+  private users Repository<User>
+
+  function create input CreateUser -> User
+~~~
+
+La composición debe sentirse natural.
+
+La herencia no tiene que ser la única forma de reutilización.
 
 ---
 
 # Extensiones nativas
 
-Evermore debe ofrecer escape hatches en lugar de atrapar a desarrolladores avanzados dentro de sus abstracciones.
+Evermore debe tener escape hatches.
+
+No quiero que un desarrollador avanzado quede atrapado dentro de la abstracción.
 
 ~~~evermore
-capability health
+use python from "./model.py"
 
+capability Health
   ios uses HealthKit with Swift
   android uses HealthConnect with Kotlin
 ~~~
 
-La aplicación puede depender de la capability en lugar de duplicar intención por plataforma.
-
-El mismo principio aplica a modelos de Python, librerías Java y futuros runtimes nativos.
+Código generado y bridges deben seguir siendo inspeccionables.
 
 ---
 
 # Sistema de diseño
 
-La UI de Evermore debe optimizar coherencia antes que personalización.
+El sistema de UI debería optimizar coherencia antes que configuración.
 
-Los objetivos de diseño incluyen:
+Objetivos:
 
-- semantic typography;
-- spacing based on a consistent scale;
-- accessible contrast;
-- platform-appropriate touch targets;
-- keyboard and assistive-technology support;
+- tipografía semántica;
+- escala de espaciado consistente;
+- contraste accesible;
+- touch targets correctos;
+- soporte de teclado;
+- tecnologías asistivas;
 - dark mode;
-- motion with reduced-motion behavior;
+- reduced motion;
 - responsive layout;
-- native platform conventions where they improve usability.
+- comportamiento nativo cuando la plataforma lo amerite.
 
 ~~~evermore
 design
@@ -520,15 +768,29 @@ accessibility
   strict
 ~~~
 
-El styling avanzado seguirá siendo posible, pero belleza y usabilidad deben ser el default, no una recompensa por configurar todo manualmente.
-
 ---
 
-# Implementación actual
+# Lo que ya funciona
 
-Evermore está en etapa **compiler-foundation / pre-alpha**.
+Evermore está hoy en **pre-alpha / compiler foundation**.
 
-El primer milestone ejecutable se concentra deliberadamente en un vertical slice pequeño:
+Actualmente el repositorio ya contiene:
+
+- lexer;
+- source positions;
+- parser;
+- AST;
+- diagnósticos legibles;
+- validación semántica;
+- verificación de navegación;
+- IR inicial;
+- generador experimental de Vue;
+- CLI;
+- tests;
+- programa .ever de ejemplo;
+- CI.
+
+El vertical slice actual es intencionalmente pequeño:
 
 ~~~text
 Evermore source
@@ -541,12 +803,64 @@ AST
    ↓
 semantic checks
    ↓
-Vue-oriented prototype backend
+Vue-oriented generated artifacts
 ~~~
 
-El repositorio no afirmará soporte de frameworks, IA o infraestructura hasta que exista una implementación ejecutable.
+Todavía **no afirmamos soporte implementado** para agentes, mobile, Python, Kubernetes o el resto de la visión hasta que exista evidencia ejecutable.
 
-Consulta [docs/ROADMAP.md](docs/ROADMAP.md) para las definiciones de milestones.
+---
+
+# Primer programa ejecutable
+
+Actualmente la sintaxis explícita del prototipo es:
+
+~~~evermore
+app "Hello Evermore"
+
+screen Home {
+  title "Build what you imagine"
+
+  button "Continue" {
+    opens Future
+  }
+}
+
+screen Future {
+  title "Software in human terms"
+}
+~~~
+
+Ver: [examples/hello.ever](examples/hello.ever).
+
+La forma natural sin braces es el siguiente paso de diseño del parser.
+
+---
+
+# CLI actual
+
+Después de instalar dependencias:
+
+~~~bash
+npm install
+~~~
+
+Puedes validar:
+
+~~~bash
+npm run evermore -- check examples/hello.ever
+~~~
+
+ver la representación:
+
+~~~bash
+npm run evermore -- ast examples/hello.ever
+~~~
+
+y generar el target experimental:
+
+~~~bash
+npm run evermore -- build examples/hello.ever --out evermore-build
+~~~
 
 ---
 
@@ -554,89 +868,73 @@ Consulta [docs/ROADMAP.md](docs/ROADMAP.md) para las definiciones de milestones.
 
 **Effortless es una restricción de ingeniería, no un slogan.**
 
-Evermore sigue estos principios:
-
-1. **Zero-config first success.**
-2. **Convention before configuration.**
-3. **One semantic source of truth.**
-4. **Progressive disclosure of complexity.**
-5. **Human-readable diagnostics.**
-6. **Secure defaults.**
-7. **Beautiful defaults.**
-8. **Native escape hatches.**
-9. **AI assists; semantics decide.**
-10. **Generated artifacts remain inspectable.**
-11. **No benchmark claims without reproducible evidence.**
-12. **No AI capability claims without executable tests.**
+1. Zero-config para el primer éxito.
+2. Convención antes que configuración.
+3. Una fuente semántica de verdad.
+4. Complejidad revelada progresivamente.
+5. Errores escritos para humanos.
+6. Seguridad por defecto.
+7. Diseño de calidad por defecto.
+8. Escape hatches nativos.
+9. La IA ayuda; la semántica decide.
+10. El código generado se puede inspeccionar.
+11. No hay claims de performance sin benchmarks.
+12. No hay claims de IA sin tests ejecutables.
 
 ---
 
 # Preguntas de investigación
 
-Evermore también es un proyecto de investigación en lenguajes de programación.
+Evermore también es un proyecto de investigación en lenguajes.
 
-Preguntas que vale la pena poner a prueba:
+Queremos poner a prueba preguntas como:
 
-- Can natural-looking syntax remain deterministic and formally analyzable?
-- Can effect and capability systems make AI agents safer without making the language intimidating?
-- Can one semantic product model target multiple UI runtimes without collapsing to the lowest common denominator?
-- Can infrastructure intent be compiled while keeping operational decisions understandable?
-- Can AI context budgets become first-class resource constraints?
-- Can secure information-flow defaults remain ergonomic for beginners?
-- Can generated code remain debuggable enough for professional teams?
-- How much framework-specific optimization can be preserved behind a portable IR?
+- ¿puede una sintaxis cercana al lenguaje humano seguir siendo determinista?
+- ¿puede un sistema de efectos y capabilities volver más seguros a los agentes sin intimidar al principiante?
+- ¿puede una representación semántica producir múltiples runtimes sin caer en el mínimo común denominador?
+- ¿puede compilarse intención de infraestructura sin volver invisibles las decisiones operativas?
+- ¿pueden los presupuestos de contexto y tokens ser recursos de primera clase?
+- ¿pueden los defaults de seguridad seguir siendo ergonómicos?
+- ¿puede el código generado seguir siendo depurable en equipos profesionales?
+- ¿cuánta optimización específica por plataforma puede preservar un IR portable?
 
-Las respuestas deben venir de prototipos, benchmarks, estudios de usuarios y experimentos reproducibles, no de branding.
+Las respuestas deben venir de prototipos, benchmarks, user studies y experimentos reproducibles.
 
----
-
-# Dirección del repositorio
-
-~~~text
-evermore/
-├── src/                    # compiler foundation
-├── tests/                  # executable language tests
-├── examples/               # small programs
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── FORMAL_MODEL.md
-│   ├── LANGUAGE_DESIGN.md
-│   └── ROADMAP.md
-└── .github/workflows/      # continuous integration
-~~~
-
-Conforme crezca la implementación, las etapas del compilador y los backends se separarán en paquetes dedicados.
+No de marketing.
 
 ---
 
 # Roadmap
 
-### M0 — Foundation
-Language principles, bilingual documentation, grammar experiments, lexer, parser, diagnostics and AST.
+~~~text
+M0  Compiler Foundation
+ ↓
+M1  Human Syntax + Web
+ ↓
+M2  Core Typed Language
+ ↓
+M3  Full Stack
+ ↓
+M4  AI-native Runtime
+ ↓
+M5  Mobile
+ ↓
+M6  Data / Python
+ ↓
+M7  Infrastructure
+ ↓
+M8  Tooling / Ecosystem
+ ↓
+M9  Native compilation research
+~~~
 
-### M1 — First vertical slice
-Screens, text, buttons, navigation and a minimal Vue/Vite target.
+Roadmap completo: [docs/ROADMAP.md](docs/ROADMAP.md).
 
-### M2 — Type system
-Data declarations, functions, collections, optionals, generics, interfaces, classes and effect tracking.
+Diseño del lenguaje: [docs/LANGUAGE_DESIGN.md](docs/LANGUAGE_DESIGN.md).
 
-### M3 — Full-stack semantics
-Typed server actions, shared contracts, Node.js target and persistence abstractions.
+Modelo formal: [docs/FORMAL_MODEL.md](docs/FORMAL_MODEL.md).
 
-### M4 — AI-native runtime
-Typed agents, tools, structured outputs, budgets, context, approval boundaries and observable execution.
-
-### M5 — Mobile
-React Native target, native Swift/Kotlin capability extensions and Flutter backend experiments.
-
-### M6 — Data
-Python bridge, datasets, reproducible pipelines, numerical semantics and model evaluation primitives.
-
-### M7 — Infrastructure
-Docker packaging, deployment planning, Kubernetes generation, health, observability and secrets.
-
-### M8 — Optimization and research
-IR optimization, performance studies, security analysis, language-server tooling and broader backend research.
+Arquitectura: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
@@ -644,24 +942,28 @@ IR optimization, performance studies, security analysis, language-server tooling
 
 Evermore no pretende ser:
 
-- English text sent to an LLM and executed blindly;
-- a no-code system disguised as a language;
-- a replacement for every existing ecosystem;
-- a framework-specific DSL;
-- an excuse to hide unsafe infrastructure decisions;
-- a repository full of architecture diagrams with no executable compiler.
+- inglés libre enviado a un LLM y ejecutado ciegamente;
+- no-code disfrazado de lenguaje;
+- un reemplazo obligatorio para todos los ecosistemas existentes;
+- un DSL atrapado en un solo framework;
+- una excusa para esconder decisiones inseguras;
+- un repositorio lleno de diagramas sin compilador ejecutable.
 
-La ambición es alta. El estándar de implementación debe ser todavía mayor.
+La visión es grande.
+
+**El estándar de implementación tiene que ser todavía mayor.**
 
 ---
 
-## Nombre
+# Por qué Evermore
 
-**Evermore** refleja el objetivo arquitectónico central:
+El nombre resume una decisión arquitectónica:
 
-> Las aplicaciones deberían sobrevivir a los frameworks de hoy.
+> **Las aplicaciones deberían sobrevivir a los frameworks de hoy.**
 
-El código fuente debe describir intención duradera de producto y sistema. Los targets pueden evolucionar por debajo.
+El código fuente debería representar intención duradera de producto y sistema.
+
+Los targets pueden cambiar debajo.
 
 ---
 
@@ -669,9 +971,16 @@ El código fuente debe describir intención duradera de producto y sistema. Los 
 
 **Experimental · Pre-alpha · Diseño del lenguaje y fundamentos del compilador**
 
-Todavía no uses Evermore para sistemas de producción.
+Todavía no uses Evermore para producción.
 
-El proyecto prioriza actualmente corrección, semántica, calidad de investigación y evidencia ejecutable por encima de cantidad de features.
+Hoy el proyecto prioriza:
+
+- corrección;
+- semántica;
+- calidad de investigación;
+- arquitectura durable;
+- evidencia ejecutable;
+- una experiencia de desarrollo excepcional.
 
 ---
 

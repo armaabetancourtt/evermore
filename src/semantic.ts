@@ -3,6 +3,7 @@ import type {
   ComponentDeclaration,
   DataDeclaration,
   Program,
+  ProtocolDeclaration,
   ScreenDeclaration,
   StateDeclaration,
   TypeAnnotation,
@@ -19,6 +20,7 @@ import { isPrimitiveTypeName } from "./types.js";
 export type SemanticModel = {
   readonly program: Program;
   readonly dataByName: ReadonlyMap<string, DataDeclaration>;
+  readonly protocolsByName: ReadonlyMap<string, ProtocolDeclaration>;
   readonly choicesByName: ReadonlyMap<string, ChoiceDeclaration>;
   readonly functionsByName: ReadonlyMap<string, Program["functions"][number]>;
   readonly functionSignaturesByName: ReadonlyMap<string, FunctionSignature>;
@@ -32,6 +34,7 @@ export function analyze(program: Program): {
 } {
   const diagnostics: Diagnostic[] = [];
   const dataByName = new Map<string, DataDeclaration>();
+  const protocolsByName = new Map<string, ProtocolDeclaration>();
   const choicesByName = new Map<string, ChoiceDeclaration>();
   const screens = new Map<string, ScreenDeclaration>();
   const components = new Map<string, ComponentDeclaration>();
@@ -68,6 +71,52 @@ export function analyze(program: Program): {
     dataByName.set(declaration.name, declaration);
   }
 
+  for (const protocol of program.protocols) {
+    if (isPrimitiveTypeName(protocol.name)) {
+      diagnostics.push({
+        code: "E2403",
+        severity: "error",
+        message:
+          'Protocol "' +
+          protocol.name +
+          '" conflicts with a primitive type.',
+        span: protocol.span,
+        help: "Choose a non-primitive protocol name.",
+      });
+      continue;
+    }
+
+    if (dataByName.has(protocol.name)) {
+      diagnostics.push({
+        code: "E2402",
+        severity: "error",
+        message:
+          'Protocol "' +
+          protocol.name +
+          '" conflicts with an existing data type.',
+        span: protocol.span,
+        help: "Every top-level type contract must have a unique name.",
+      });
+      continue;
+    }
+
+    if (protocolsByName.has(protocol.name)) {
+      diagnostics.push({
+        code: "E2400",
+        severity: "error",
+        message:
+          'Protocol "' +
+          protocol.name +
+          '" is declared more than once.',
+        span: protocol.span,
+        help: "Give each protocol a unique name.",
+      });
+      continue;
+    }
+
+    protocolsByName.set(protocol.name, protocol);
+  }
+
   for (const choice of program.choices) {
     if (isPrimitiveTypeName(choice.name)) {
       diagnostics.push({
@@ -91,6 +140,20 @@ export function analyze(program: Program): {
           'Choice type "' +
           choice.name +
           '" conflicts with an existing data type.',
+        span: choice.span,
+        help: "Every nominal type must have a unique name.",
+      });
+      continue;
+    }
+
+    if (protocolsByName.has(choice.name)) {
+      diagnostics.push({
+        code: "E2302",
+        severity: "error",
+        message:
+          'Choice type "' +
+          choice.name +
+          '" conflicts with an existing protocol.',
         span: choice.span,
         help: "Every nominal type must have a unique name.",
       });
@@ -148,6 +211,53 @@ export function analyze(program: Program): {
     choicesByName.set(choice.name, choice);
   }
 
+  for (const protocol of program.protocols) {
+    const fieldNames = new Set<string>();
+
+    for (const field of protocol.fields) {
+      if (fieldNames.has(field.name)) {
+        diagnostics.push({
+          code: "E2401",
+          severity: "error",
+          message:
+            'Protocol field "' +
+            protocol.name +
+            "." +
+            field.name +
+            '" is declared more than once.',
+          span: field.span,
+          help: "Give each required protocol field a unique name.",
+        });
+      } else {
+        fieldNames.add(field.name);
+      }
+
+      const unknownType = findUnknownType(
+        field.type,
+        dataByName,
+        choicesByName,
+      );
+
+      if (unknownType) {
+        diagnostics.push({
+          code: "E2408",
+          severity: "error",
+          message:
+            'Protocol field "' +
+            protocol.name +
+            "." +
+            field.name +
+            '" references unknown type "' +
+            unknownType +
+            '".',
+          span: field.type.span,
+          help:
+            "Protocol field requirements may use primitives, data types, choices, lists and optionals.",
+        });
+      }
+    }
+  }
+
   for (const declaration of program.data) {
     const fieldNames = new Set<string>();
 
@@ -193,6 +303,93 @@ export function analyze(program: Program): {
             unknownType +
             ".",
         });
+      }
+    }
+  }
+
+  for (const declaration of program.data) {
+    const seen = new Set<string>();
+    const fields = new Map(
+      declaration.fields.map((field) => [field.name, field] as const),
+    );
+
+    for (const conformance of declaration.conformances) {
+      if (seen.has(conformance.name)) {
+        diagnostics.push({
+          code: "E2404",
+          severity: "error",
+          message:
+            'Data type "' +
+            declaration.name +
+            '" declares protocol "' +
+            conformance.name +
+            '" more than once.',
+          span: conformance.span,
+          help: "Keep each protocol conformance once.",
+        });
+        continue;
+      }
+
+      seen.add(conformance.name);
+      const protocol = protocolsByName.get(conformance.name);
+
+      if (!protocol) {
+        diagnostics.push({
+          code: "E2405",
+          severity: "error",
+          message:
+            'Data type "' +
+            declaration.name +
+            '" conforms to unknown protocol "' +
+            conformance.name +
+            '".',
+          span: conformance.span,
+          help: "Declare the protocol before relying on its contract.",
+        });
+        continue;
+      }
+
+      for (const required of protocol.fields) {
+        const actual = fields.get(required.name);
+
+        if (!actual) {
+          diagnostics.push({
+            code: "E2406",
+            severity: "error",
+            message:
+              'Data type "' +
+              declaration.name +
+              '" is missing field "' +
+              required.name +
+              '" required by protocol "' +
+              protocol.name +
+              '".',
+            span: conformance.span,
+            help:
+              "Add " +
+              required.name +
+              " with the protocol-required type.",
+          });
+          continue;
+        }
+
+        if (!sameTypeAnnotation(actual.type, required.type)) {
+          diagnostics.push({
+            code: "E2407",
+            severity: "error",
+            message:
+              'Field "' +
+              declaration.name +
+              "." +
+              required.name +
+              '" does not match protocol "' +
+              protocol.name +
+              '".',
+            span: actual.type.span,
+            help:
+              "Use the same field type required by the protocol contract.",
+          });
+        }
       }
     }
   }
@@ -279,6 +476,7 @@ export function analyze(program: Program): {
           model: {
             program,
             dataByName,
+            protocolsByName,
             choicesByName,
             functionsByName: functionTypes.functionsByName,
             functionSignaturesByName: functionTypes.signaturesByName,
@@ -559,6 +757,33 @@ function validateScreenVisual(
         diagnostics,
       );
     }
+  }
+}
+
+function sameTypeAnnotation(
+  left: TypeAnnotation,
+  right: TypeAnnotation,
+): boolean {
+  if (left.kind !== right.kind) return false;
+
+  switch (left.kind) {
+    case "NamedTypeAnnotation":
+      return (
+        right.kind === "NamedTypeAnnotation" &&
+        left.name === right.name
+      );
+
+    case "ListTypeAnnotation":
+      return (
+        right.kind === "ListTypeAnnotation" &&
+        sameTypeAnnotation(left.elementType, right.elementType)
+      );
+
+    case "OptionalTypeAnnotation":
+      return (
+        right.kind === "OptionalTypeAnnotation" &&
+        sameTypeAnnotation(left.valueType, right.valueType)
+      );
   }
 }
 

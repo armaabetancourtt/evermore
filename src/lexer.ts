@@ -4,6 +4,13 @@ import { EvermoreDiagnosticError } from "./diagnostics.js";
 export type TokenKind =
   | "app"
   | "data"
+  | "function"
+  | "takes"
+  | "returns"
+  | "let"
+  | "return"
+  | "true"
+  | "false"
   | "screen"
   | "component"
   | "use"
@@ -24,6 +31,14 @@ export type TokenKind =
   | "string"
   | "lbrace"
   | "rbrace"
+  | "lparen"
+  | "rparen"
+  | "comma"
+  | "equal"
+  | "plus"
+  | "minus"
+  | "star"
+  | "slash"
   | "eof";
 
 export type Token = {
@@ -36,6 +51,13 @@ export type Token = {
 const keywords = new Map<string, TokenKind>([
   ["app", "app"],
   ["data", "data"],
+  ["function", "function"],
+  ["takes", "takes"],
+  ["returns", "returns"],
+  ["let", "let"],
+  ["return", "return"],
+  ["true", "true"],
+  ["false", "false"],
   ["screen", "screen"],
   ["component", "component"],
   ["use", "use"],
@@ -75,6 +97,48 @@ class Lexer {
       const start = this.position();
       const char = this.peek();
 
+      if (char === "(") {
+        this.advance();
+        tokens.push(this.token("lparen", "(", start));
+        continue;
+      }
+
+      if (char === ")") {
+        this.advance();
+        tokens.push(this.token("rparen", ")", start));
+        continue;
+      }
+
+      if (char === ",") {
+        this.advance();
+        tokens.push(this.token("comma", ",", start));
+        continue;
+      }
+
+      if (char === "=") {
+        this.advance();
+        tokens.push(this.token("equal", "=", start));
+        continue;
+      }
+
+      if (char === "+") {
+        this.advance();
+        tokens.push(this.token("plus", "+", start));
+        continue;
+      }
+
+      if (char === "-") {
+        this.advance();
+        tokens.push(this.token("minus", "-", start));
+        continue;
+      }
+
+      if (char === "*") {
+        this.advance();
+        tokens.push(this.token("star", "*", start));
+        continue;
+      }
+
       if (char === "{") {
         this.advance();
         tokens.push(this.token("lbrace", "{", start));
@@ -84,6 +148,12 @@ class Lexer {
       if (char === "}") {
         this.advance();
         tokens.push(this.token("rbrace", "}", start));
+        continue;
+      }
+
+      if (char === "/") {
+        this.advance();
+        tokens.push(this.token("slash", "/", start));
         continue;
       }
 

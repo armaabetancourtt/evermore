@@ -11,6 +11,9 @@ export type TokenKind =
   | "of"
   | "optional"
   | "none"
+  | "if"
+  | "then"
+  | "else"
   | "let"
   | "return"
   | "true"
@@ -41,6 +44,12 @@ export type TokenKind =
   | "rbracket"
   | "comma"
   | "equal"
+  | "eqeq"
+  | "neq"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
   | "plus"
   | "minus"
   | "star"
@@ -64,6 +73,9 @@ const keywords = new Map<string, TokenKind>([
   ["of", "of"],
   ["optional", "optional"],
   ["none", "none"],
+  ["if", "if"],
+  ["then", "then"],
+  ["else", "else"],
   ["let", "let"],
   ["return", "return"],
   ["true", "true"],
@@ -139,7 +151,52 @@ class Lexer {
 
       if (char === "=") {
         this.advance();
-        tokens.push(this.token("equal", "=", start));
+        if (this.peek() === "=") {
+          this.advance();
+          tokens.push(this.token("eqeq", "==", start));
+        } else {
+          tokens.push(this.token("equal", "=", start));
+        }
+        continue;
+      }
+
+      if (char === "!") {
+        this.advance();
+        if (this.peek() !== "=") {
+          throw new EvermoreDiagnosticError([
+            {
+              code: "E0003",
+              severity: "error",
+              message: 'Expected "=" after "!".',
+              span: { start, end: this.position() },
+              help: 'Use "!=" for inequality.',
+            },
+          ]);
+        }
+        this.advance();
+        tokens.push(this.token("neq", "!=", start));
+        continue;
+      }
+
+      if (char === ">") {
+        this.advance();
+        if (this.peek() === "=") {
+          this.advance();
+          tokens.push(this.token("gte", ">=", start));
+        } else {
+          tokens.push(this.token("gt", ">", start));
+        }
+        continue;
+      }
+
+      if (char === "<") {
+        this.advance();
+        if (this.peek() === "=") {
+          this.advance();
+          tokens.push(this.token("lte", "<=", start));
+        } else {
+          tokens.push(this.token("lt", "<", start));
+        }
         continue;
       }
 

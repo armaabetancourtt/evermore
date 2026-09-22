@@ -1,12 +1,16 @@
 import type {
+  ButtonAction,
   ButtonStatement,
+  IncrementAction,
   NavigationAction,
   Program,
   ScreenDeclaration,
+  ScreenStatement,
+  ShowStatement,
   SourceSpan,
+  StateDeclaration,
   TextStatement,
   TitleStatement,
-  UIStatement,
 } from "./ast.js";
 import {
   EvermoreDiagnosticError,
@@ -64,8 +68,7 @@ class Parser {
     const start = this.consume("screen", "Expected a screen declaration.");
     const name = this.consume("identifier", "Expected a screen name.");
     const explicitBlock = this.match("lbrace");
-
-    const body: UIStatement[] = [];
+    const body: ScreenStatement[] = [];
 
     while (
       !this.check("eof") &&
@@ -73,11 +76,11 @@ class Parser {
       !(explicitBlock && this.check("rbrace"))
     ) {
       try {
-        body.push(this.parseUIStatement());
+        body.push(this.parseScreenStatement());
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
         this.record(error);
-        this.synchronizeUI();
+        this.synchronizeScreen();
       }
     }
 
@@ -97,13 +100,21 @@ class Parser {
     };
   }
 
-  private parseUIStatement(): UIStatement {
+  private parseScreenStatement(): ScreenStatement {
+    if (this.match("state")) {
+      return this.parseState(this.previous());
+    }
+
     if (this.match("title")) {
       return this.parseTitle(this.previous());
     }
 
     if (this.match("text")) {
       return this.parseText(this.previous());
+    }
+
+    if (this.match("show")) {
+      return this.parseShow(this.previous());
     }
 
     if (this.match("button")) {
@@ -113,9 +124,22 @@ class Parser {
     return this.fail(
       this.peek(),
       "E1004",
-      "Expected a UI statement.",
-      'Try title "...", text "...", or button "...".',
+      "Expected a screen statement.",
+      'Try state count starts 0, title "...", text "...", show count, or button "...".',
     );
+  }
+
+  private parseState(start: Token): StateDeclaration {
+    const name = this.consume("identifier", "Expected a state name.");
+    this.consume("starts", 'Expected "starts" after the state name.');
+    const value = this.consume("number", "Expected an integer initial value.");
+
+    return {
+      kind: "StateDeclaration",
+      name: name.value ?? name.lexeme,
+      initialValue: Number(value.value ?? value.lexeme),
+      span: spanFrom(start, value),
+    };
   }
 
   private parseTitle(start: Token): TitleStatement {
@@ -136,40 +160,40 @@ class Parser {
     };
   }
 
+  private parseShow(start: Token): ShowStatement {
+    const state = this.consume("identifier", "Expected the state name to show.");
+    return {
+      kind: "ShowStatement",
+      stateName: state.value ?? state.lexeme,
+      span: spanFrom(start, state),
+    };
+  }
+
   private parseButton(start: Token): ButtonStatement {
     const label = this.consume("string", "Expected button label.");
 
     if (this.match("lbrace")) {
-      const opens = this.consume(
-        "opens",
-        'Expected "opens ScreenName" inside the button block.',
-      );
-      const target = this.consume(
-        "identifier",
-        "Expected the destination screen name.",
-      );
+      const action = this.parseButtonAction();
       const close = this.consume("rbrace", 'Expected "}" to close the button.');
 
       return {
         kind: "ButtonStatement",
         label: label.value ?? "",
-        action: navigation(opens, target),
+        action,
         span: spanFrom(start, close),
       };
     }
 
-    if (this.match("opens")) {
-      const opens = this.previous();
-      const target = this.consume(
-        "identifier",
-        "Expected the destination screen name.",
-      );
-
+    if (this.check("opens") || this.check("increases")) {
+      const action = this.parseButtonAction();
       return {
         kind: "ButtonStatement",
         label: label.value ?? "",
-        action: navigation(opens, target),
-        span: spanFrom(start, target),
+        action,
+        span: {
+          start: start.span.start,
+          end: action.span.end,
+        },
       };
     }
 
@@ -180,33 +204,56 @@ class Parser {
     };
   }
 
-  private synchronizeUI(): void {
-    if (
-      this.check("title") ||
-      this.check("text") ||
-      this.check("button") ||
-      this.check("screen") ||
-      this.check("rbrace") ||
-      this.check("eof")
-    ) {
-      return;
+  private parseButtonAction(): ButtonAction {
+    if (this.match("opens")) {
+      const opens = this.previous();
+      const target = this.consume(
+        "identifier",
+        "Expected the destination screen name.",
+      );
+      return navigation(opens, target);
     }
+
+    if (this.match("increases")) {
+      const increases = this.previous();
+      const state = this.consume(
+        "identifier",
+        "Expected the state name to increase.",
+      );
+
+      return increment(increases, state);
+    }
+
+    return this.fail(
+      this.peek(),
+      "E1005",
+      "Expected a button action.",
+      'Try opens ScreenName or increases stateName.',
+    );
+  }
+
+  private synchronizeScreen(): void {
+    if (this.isStatementBoundary()) return;
 
     this.advance();
 
     while (!this.check("eof")) {
-      if (
-        this.check("title") ||
-        this.check("text") ||
-        this.check("button") ||
-        this.check("screen") ||
-        this.check("rbrace")
-      ) {
-        return;
-      }
-
+      if (this.isStatementBoundary()) return;
       this.advance();
     }
+  }
+
+  private isStatementBoundary(): boolean {
+    return (
+      this.check("state") ||
+      this.check("title") ||
+      this.check("text") ||
+      this.check("show") ||
+      this.check("button") ||
+      this.check("screen") ||
+      this.check("rbrace") ||
+      this.check("eof")
+    );
   }
 
   private synchronizeTopLevel(): void {
@@ -291,6 +338,15 @@ function navigation(opens: Token, target: Token): NavigationAction {
     kind: "NavigationAction",
     target: target.value ?? target.lexeme,
     span: spanFrom(opens, target),
+  };
+}
+
+function increment(increases: Token, state: Token): IncrementAction {
+  return {
+    kind: "IncrementAction",
+    stateName: state.value ?? state.lexeme,
+    amount: 1,
+    span: spanFrom(increases, state),
   };
 }
 

@@ -9,10 +9,15 @@ export type IRProgram = {
 export type IRScreen = {
   readonly id: string;
   readonly title?: string;
-  readonly controls: readonly IRControl[];
+  readonly elements: readonly IRElement[];
 };
 
-export type IRControl = IRButton;
+export type IRElement = IRText | IRButton;
+
+export type IRText = {
+  readonly kind: "Text";
+  readonly value: string;
+};
 
 export type IRButton = {
   readonly kind: "Button";
@@ -34,31 +39,41 @@ export function lowerToIR(model: SemanticModel): IRProgram {
         (statement) => statement.kind === "TitleStatement",
       );
 
-      const controls: IRControl[] = screen.body
-        .filter((statement) => statement.kind === "ButtonStatement")
-        .map((statement) => {
-          if (statement.kind !== "ButtonStatement") {
-            throw new Error("Unreachable statement kind.");
-          }
+      const elements: IRElement[] = [];
 
-          return {
-            kind: "Button",
-            label: statement.label,
-            ...(statement.action
-              ? {
-                  action: {
-                    kind: "Navigate" as const,
-                    target: statement.action.target,
-                  },
-                }
-              : {}),
-          };
-        });
+      for (const statement of screen.body) {
+        switch (statement.kind) {
+          case "TitleStatement":
+            break;
+
+          case "TextStatement":
+            elements.push({
+              kind: "Text",
+              value: statement.text,
+            });
+            break;
+
+          case "ButtonStatement":
+            elements.push({
+              kind: "Button",
+              label: statement.label,
+              ...(statement.action
+                ? {
+                    action: {
+                      kind: "Navigate" as const,
+                      target: statement.action.target,
+                    },
+                  }
+                : {}),
+            });
+            break;
+        }
+      }
 
       return {
         id: screen.name,
         ...(title?.kind === "TitleStatement" ? { title: title.text } : {}),
-        controls,
+        elements,
       };
     }),
   };

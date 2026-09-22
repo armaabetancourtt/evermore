@@ -81,7 +81,7 @@ export function lowerToIR(model: SemanticModel): IRProgram {
           continue;
         }
 
-        elements.push(lowerVisual(statement));
+        elements.push(...lowerVisual(statement, model));
       }
 
       return {
@@ -94,46 +94,75 @@ export function lowerToIR(model: SemanticModel): IRProgram {
   };
 }
 
-function lowerVisual(statement: VisualStatement): IRElement {
+function lowerVisual(
+  statement: VisualStatement,
+  model: SemanticModel,
+): readonly IRElement[] {
   switch (statement.kind) {
     case "TextStatement":
-      return {
-        kind: "Text",
-        value: statement.text,
-      };
+      return [
+        {
+          kind: "Text",
+          value: statement.text,
+        },
+      ];
 
     case "ShowStatement":
-      return {
-        kind: "StateValue",
-        stateName: statement.stateName,
-      };
+      return [
+        {
+          kind: "StateValue",
+          stateName: statement.stateName,
+        },
+      ];
 
     case "ButtonStatement":
-      return {
-        kind: "Button",
-        label: statement.label,
-        ...(statement.action
-          ? {
-              action:
-                statement.action.kind === "NavigationAction"
-                  ? {
-                      kind: "Navigate" as const,
-                      target: statement.action.target,
-                    }
-                  : {
-                      kind: "Increment" as const,
-                      stateName: statement.action.stateName,
-                      amount: statement.action.amount,
-                    },
-            }
-          : {}),
-      };
+      return [
+        {
+          kind: "Button",
+          label: statement.label,
+          ...(statement.action
+            ? {
+                action:
+                  statement.action.kind === "NavigationAction"
+                    ? {
+                        kind: "Navigate" as const,
+                        target: statement.action.target,
+                      }
+                    : {
+                        kind: "Increment" as const,
+                        stateName: statement.action.stateName,
+                        amount: statement.action.amount,
+                      },
+              }
+            : {}),
+        },
+      ];
 
     case "StackStatement":
-      return {
-        kind: "Stack",
-        direction: statement.direction,
-        elements: statement.body.map(lowerVisual),
-      };
+      return [
+        {
+          kind: "Stack",
+          direction: statement.direction,
+          elements: statement.body.flatMap((child) =>
+            lowerVisual(child, model),
+          ),
+        },
+      ];
+
+    case "UseStatement": {
+      const component = model.componentsByName.get(statement.componentName);
+
+      if (!component) {
+        throw new Error(
+          'Semantic model is missing component "' +
+            statement.componentName +
+            '".',
+        );
+      }
+
+      return component.body.flatMap((child) =>
+        lowerVisual(child, model),
+      );
+    }
   }
 }

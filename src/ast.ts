@@ -13,6 +13,7 @@ export type Program = {
   readonly kind: "Program";
   readonly appName: string;
   readonly data: readonly DataDeclaration[];
+  readonly choices: readonly ChoiceDeclaration[];
   readonly functions: readonly FunctionDeclaration[];
   readonly components: readonly ComponentDeclaration[];
   readonly screens: readonly ScreenDeclaration[];
@@ -55,6 +56,18 @@ export type OptionalTypeAnnotation = {
   readonly span: SourceSpan;
 };
 
+export type ChoiceDeclaration = {
+  readonly kind: "ChoiceDeclaration";
+  readonly name: string;
+  readonly cases: readonly ChoiceCase[];
+  readonly span: SourceSpan;
+};
+
+export type ChoiceCase = {
+  readonly name: string;
+  readonly span: SourceSpan;
+};
+
 export type FunctionDeclaration = {
   readonly kind: "FunctionDeclaration";
   readonly name: string;
@@ -92,6 +105,7 @@ export type Expression =
   | NoneExpression
   | ListExpression
   | IfExpression
+  | ChoiceCaseExpression
   | IdentifierExpression
   | BinaryExpression
   | CallExpression;
@@ -122,6 +136,13 @@ export type NoneExpression = {
 export type ListExpression = {
   readonly kind: "ListExpression";
   readonly elements: readonly Expression[];
+  readonly span: SourceSpan;
+};
+
+export type ChoiceCaseExpression = {
+  readonly kind: "ChoiceCaseExpression";
+  readonly choiceName: string;
+  readonly caseName: string;
   readonly span: SourceSpan;
 };
 

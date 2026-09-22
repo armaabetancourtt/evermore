@@ -373,6 +373,9 @@ function emitFunctions(
       containsNamedType(fn.returnType) ||
       fn.parameters.some((parameter) =>
         containsNamedType(parameter.type),
+      ) ||
+      fn.typeParameters.some(
+        (parameter) => parameter.constraint !== undefined,
       ),
   );
 
@@ -399,15 +402,31 @@ function emitFunctions(
     const values = new Map<string, string>();
     const genericNames = new Map<string, string>();
 
-    fn.typeParameters.forEach((name, index) => {
-      genericNames.set(name, "T" + index);
+    fn.typeParameters.forEach((parameter, index) => {
+      genericNames.set(parameter.name, "T" + index);
     });
 
     const genericClause =
       fn.typeParameters.length > 0
         ? "<" +
           fn.typeParameters
-            .map((name) => genericNames.get(name))
+            .map((parameter) => {
+              const generated = genericNames.get(parameter.name);
+
+              if (!generated) {
+                throw new Error(
+                  "Missing generated generic type for " +
+                    parameter.name,
+                );
+              }
+
+              return parameter.constraint
+                ? generated +
+                    " extends EvermoreProtocols[" +
+                    JSON.stringify(parameter.constraint) +
+                    "]"
+                : generated;
+            })
             .join(", ") +
           ">"
         : "";

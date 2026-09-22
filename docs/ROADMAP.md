@@ -78,8 +78,8 @@ Goals:
 - [x] enums / algebraic choices (nominal payload-free `choice` types);
 - [x] optionals (`optional T`, `none`, optional lifting);
 - [ ] collections (typed/list literals and recursive `list of T` implemented; broader collection families pending);
-- [x] generics (function type parameters with argument/context inference);
-- [ ] interfaces / protocols (field-contract `protocol` declarations and `data` conformance validation implemented; protocol-typed values and method requirements pending);
+- [x] generics (function type parameters with argument/context inference and protocol constraints);
+- [ ] interfaces / protocols (field contracts, nominal conformance, protocol-typed values, member access and generic constraints implemented; method requirements pending);
 - [ ] classes and encapsulation;
 - [x] pattern matching (exhaustive matching over nominal choices);
 - [ ] error model;

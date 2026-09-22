@@ -3,13 +3,14 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { compile } from "./compiler.js";
+import { compileProject } from "./compiler.js";
 import {
   EvermoreDiagnosticError,
   formatDiagnostic,
 } from "./diagnostics.js";
 import { formatSource, type FormatStyle } from "./formatter.js";
 import { parse } from "./parser.js";
+import { loadProject } from "./project.js";
 import { analyze } from "./semantic.js";
 
 async function main(): Promise<void> {
@@ -29,15 +30,26 @@ async function main(): Promise<void> {
 
   switch (command) {
     case "check": {
-      const program = parse(source);
-      const analysis = analyze(program);
+      const project = await loadProject(
+        absoluteSource,
+        (filePath) => readFile(filePath, "utf8"),
+      );
+      const analysis = analyze(project.program);
 
       for (const diagnostic of analysis.diagnostics) {
         console.log(formatDiagnostic(diagnostic, sourcePath));
       }
 
       if (!analysis.model) process.exitCode = 1;
-      else console.log("✓ " + program.appName + " is semantically valid.");
+      else {
+        console.log(
+          "✓ " +
+            project.program.appName +
+            " is semantically valid across " +
+            project.units.length +
+            " source file(s).",
+        );
+      }
       return;
     }
 
@@ -62,7 +74,11 @@ async function main(): Promise<void> {
 
     case "build": {
       const out = readOption(rest, "--out") ?? "evermore-build";
-      const result = compile(source, { target: "vue" });
+      const result = await compileProject(
+        absoluteSource,
+        (filePath) => readFile(filePath, "utf8"),
+        { target: "vue" },
+      );
 
       for (const diagnostic of result.diagnostics) {
         console.log(formatDiagnostic(diagnostic, sourcePath));
@@ -118,10 +134,16 @@ function printHelp(): void {
       "Evermore compiler",
       "",
       "Usage:",
-      "  evermore check <file.ever>",
+      "  evermore check <entry.ever>",
       "  evermore ast <file.ever>",
       "  evermore format <file.ever> [--style natural|explicit] [--write]",
-      "  evermore build <file.ever> [--out directory]",
+      "  evermore build <entry.ever> [--out directory]",
+      "",
+      "",
+      "Modules:",
+      '  entry files start with app "Name"',
+      "  imported files start with module Name",
+      '  import "./relative-module.ever"',
       "",
       "Current backend:",
       "  vue    Vue 3 + Vite application generation",

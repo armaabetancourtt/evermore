@@ -1,0 +1,9 @@
+module Contracts
+
+protocol Named
+  name text
+
+  function display
+    returns text
+  end
+end

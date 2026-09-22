@@ -1,8 +1,13 @@
+import type { Program } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
 import { EvermoreDiagnosticError } from "./diagnostics.js";
 import { emitVue, type GeneratedFile } from "./codegen/vue.js";
 import { lowerToIR } from "./ir.js";
 import { parse } from "./parser.js";
+import {
+  loadProject,
+  type ProjectSourceReader,
+} from "./project.js";
 import { analyze } from "./semantic.js";
 
 export type CompileTarget = "vue";
@@ -18,8 +23,52 @@ export function compile(
   source: string,
   options: { readonly target?: CompileTarget } = {},
 ): CompileResult {
-  const target = options.target ?? "vue";
   const program = parse(source);
+
+  if (program.unitKind !== "app") {
+    throw new EvermoreDiagnosticError([
+      {
+        code: "E2600",
+        severity: "error",
+        message: "A standalone compilation must start with app.",
+        span: program.span,
+        help:
+          "Compile a project entry file for modules, or change this source to an app entrypoint.",
+      },
+    ]);
+  }
+
+  if (program.imports.length > 0) {
+    throw new EvermoreDiagnosticError([
+      {
+        code: "E2606",
+        severity: "error",
+        message:
+          "Standalone compile(source) cannot resolve module imports.",
+        span: program.imports[0]!.span,
+        help:
+          "Use compileProject(...) or the Evermore CLI with an entry .ever file.",
+      },
+    ]);
+  }
+
+  return compileProgram(program, options);
+}
+
+export async function compileProject(
+  entryPath: string,
+  readSource: ProjectSourceReader,
+  options: { readonly target?: CompileTarget } = {},
+): Promise<CompileResult> {
+  const project = await loadProject(entryPath, readSource);
+  return compileProgram(project.program, options);
+}
+
+export function compileProgram(
+  program: Program,
+  options: { readonly target?: CompileTarget } = {},
+): CompileResult {
+  const target = options.target ?? "vue";
   const analysis = analyze(program);
 
   const errors = analysis.diagnostics.filter(

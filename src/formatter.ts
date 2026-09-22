@@ -51,8 +51,19 @@ export function formatProgram(
     ...program.screens.map((screen) => formatScreen(screen, style)),
   ];
 
+  const header =
+    program.unitKind === "module"
+      ? "module " + (program.moduleName ?? program.appName)
+      : 'app "' + escapeString(program.appName) + '"';
+
+  const importLines = program.imports.map(
+    (declaration) =>
+      'import "' + escapeString(declaration.path) + '"',
+  );
+
   const parts = [
-    'app "' + escapeString(program.appName) + '"',
+    header,
+    ...(importLines.length > 0 ? importLines : []),
     ...(declarations.length > 0
       ? ["", declarations.join("\n\n")]
       : []),

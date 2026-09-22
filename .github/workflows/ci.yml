@@ -98,6 +98,9 @@ jobs:
       - name: Check typed result example
         run: npm run evermore -- check examples/result.ever
 
+      - name: Check multi-file modules example
+        run: npm run evermore -- check examples/modules/main.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -364,5 +367,22 @@ jobs:
           grep -q 'switch (matchValue.kind)' /tmp/evermore-result/src/generated/functions.ts
           grep -q 'matchValue.value' /tmp/evermore-result/src/generated/functions.ts
           grep -q 'matchValue.error' /tmp/evermore-result/src/generated/functions.ts
+
+      - name: Generate multi-file modules application
+        run: npm run evermore -- build examples/modules/main.ever --out /tmp/evermore-modules
+
+      - name: Install multi-file modules application
+        working-directory: /tmp/evermore-modules
+        run: npm install
+
+      - name: Build multi-file modules application
+        working-directory: /tmp/evermore-modules
+        run: npm run build
+
+      - name: Verify generated cross-module declarations
+        run: |
+          grep -q '"User": EvermoreProtocols\["Named"\]' /tmp/evermore-modules/src/generated/models.ts
+          grep -q '"makeUser"' /tmp/evermore-modules/src/generated/functions.ts
+          grep -q '\["display"\]()' /tmp/evermore-modules/src/generated/functions.ts
 
 

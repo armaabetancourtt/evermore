@@ -3,6 +3,8 @@ import { EvermoreDiagnosticError } from "./diagnostics.js";
 
 export type TokenKind =
   | "app"
+  | "module"
+  | "import"
   | "data"
   | "class"
   | "public"
@@ -83,6 +85,8 @@ export type Token = {
 
 const keywords = new Map<string, TokenKind>([
   ["app", "app"],
+  ["module", "module"],
+  ["import", "import"],
   ["data", "data"],
   ["class", "class"],
   ["public", "public"],

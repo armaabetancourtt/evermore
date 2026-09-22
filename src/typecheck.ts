@@ -18,6 +18,7 @@ import {
 export type FunctionSignature = {
   readonly declaration: FunctionDeclaration;
   readonly typeParameters: readonly string[];
+  readonly typeParameterConstraints: ReadonlyMap<string, string>;
   readonly parameters: readonly TypeRef[];
   readonly returnType: TypeRef;
 };
@@ -31,6 +32,7 @@ export type NamedTypeContext = {
   readonly dataByName: ReadonlyMap<string, DataDeclaration>;
   readonly protocolsByName: ReadonlyMap<string, ProtocolDeclaration>;
   readonly choicesByName: ReadonlyMap<string, ChoiceDeclaration>;
+  readonly genericConstraints?: ReadonlyMap<string, string>;
 };
 
 export function validateFunctions(
@@ -60,6 +62,7 @@ export function validateFunctions(
     const parameterTypes: TypeRef[] = [];
     const parameterNames = new Set<string>();
     const genericNames = new Set<string>();
+    const genericConstraints = new Map<string, string>();
     let signatureValid = true;
 
     for (const parameter of fn.typeParameters) {
@@ -101,6 +104,33 @@ export function validateFunctions(
       }
 
       genericNames.add(parameter.name);
+
+      if (parameter.constraint) {
+        const protocol = types.protocolsByName.get(
+          parameter.constraint.name,
+        );
+
+        if (!protocol) {
+          diagnostics.push({
+            code: "E2223",
+            severity: "error",
+            message:
+              'Generic type "' +
+              parameter.name +
+              '" in function "' +
+              fn.name +
+              '" conforms to unknown protocol "' +
+              parameter.constraint.name +
+              '".',
+            span: parameter.constraint.span,
+            help:
+              "Declare the protocol before using it as a generic constraint.",
+          });
+          signatureValid = false;
+        } else {
+          genericConstraints.set(parameter.name, protocol.name);
+        }
+      }
     }
 
     for (const parameter of fn.parameters) {
@@ -152,6 +182,7 @@ export function validateFunctions(
       signaturesByName.set(fn.name, {
         declaration: fn,
         typeParameters: [...genericNames],
+        typeParameterConstraints: genericConstraints,
         parameters: parameterTypes,
         returnType,
       });
@@ -180,6 +211,10 @@ function validateFunctionBody(
   diagnostics: Diagnostic[],
 ): void {
   const env = new Map<string, TypeRef>();
+  const scopedTypes: NamedTypeContext = {
+    ...types,
+    genericConstraints: signature.typeParameterConstraints,
+  };
 
   signature.declaration.parameters.forEach((parameter, index) => {
     const type = signature.parameters[index];
@@ -196,7 +231,7 @@ function validateFunctionBody(
       signature,
       env,
       signatures,
-      types,
+      scopedTypes,
       diagnostics,
     );
 
@@ -514,7 +549,11 @@ function inferExpression(
           ? types.dataByName.get(objectType.name)
           : objectType.kind === "Protocol"
             ? types.protocolsByName.get(objectType.name)
-            : undefined;
+            : objectType.kind === "Generic"
+              ? types.protocolsByName.get(
+                  types.genericConstraints?.get(objectType.name) ?? "",
+                )
+              : undefined;
 
       if (!owner) {
         diagnostics.push({
@@ -967,6 +1006,40 @@ function inferExpression(
         return undefined;
       }
 
+      let constraintsValid = true;
+
+      for (const [typeParameter, protocolName] of callee.typeParameterConstraints) {
+        const actual = bindings.get(typeParameter);
+
+        if (
+          actual &&
+          !isAssignable(
+            actual,
+            { kind: "Protocol", name: protocolName },
+            types,
+          )
+        ) {
+          diagnostics.push({
+            code: "E2224",
+            severity: "error",
+            message:
+              "Generic type " +
+              describeType(actual) +
+              ' does not conform to protocol "' +
+              protocolName +
+              '" required by function "' +
+              expression.callee +
+              '".',
+            span: expression.span,
+            help:
+              "Pass a conforming data value or propagate the same protocol constraint on the calling generic.",
+          });
+          constraintsValid = false;
+        }
+      }
+
+      if (!constraintsValid) return undefined;
+
       return substituteGenerics(callee.returnType, bindings);
     }
   }
@@ -1045,10 +1118,6 @@ function bindGenericTypes(
     const existing = bindings.get(pattern.name);
 
     if (!existing) {
-      if (actual.kind === "Generic" && actual.name === pattern.name) {
-        return true;
-      }
-
       bindings.set(pattern.name, actual);
       return true;
     }
@@ -1124,13 +1193,21 @@ function isAssignable(
 ): boolean {
   if (sameType(actual, expected)) return true;
 
-  if (expected.kind === "Protocol" && actual.kind === "Named") {
-    const data = types.dataByName.get(actual.name);
-    return (
-      data?.conformances.some(
-        (conformance) => conformance.name === expected.name,
-      ) ?? false
-    );
+  if (expected.kind === "Protocol") {
+    if (actual.kind === "Named") {
+      const data = types.dataByName.get(actual.name);
+      return (
+        data?.conformances.some(
+          (conformance) => conformance.name === expected.name,
+        ) ?? false
+      );
+    }
+
+    if (actual.kind === "Generic") {
+      return (
+        types.genericConstraints?.get(actual.name) === expected.name
+      );
+    }
   }
 
   if (expected.kind === "Optional") {

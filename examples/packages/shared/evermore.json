@@ -1,0 +1,11 @@
+{
+  "name": "shared",
+  "version": "1.0.0",
+  "entry": "index.ever",
+  "dependencies": {
+    "contracts": {
+      "path": "../contracts",
+      "version": "1.0.0"
+    }
+  }
+}

@@ -17,6 +17,8 @@ import type {
   IncrementAction,
   LetStatement,
   ListExpression,
+  MapEntry,
+  MapExpression,
   MatchCase,
   MatchExpression,
   MemberExpression,
@@ -26,6 +28,7 @@ import type {
   ProtocolConformance,
   ProtocolDeclaration,
   ReturnStatement,
+  SetExpression,
   SetStatement,
   ScreenDeclaration,
   ScreenStatement,
@@ -634,6 +637,64 @@ class Parser {
       return expression;
     }
 
+    if (this.match("set")) {
+      const start = this.previous();
+      this.consume("lbracket", 'Expected "[" after set.');
+      const elements: Expression[] = [];
+
+      if (!this.check("rbracket")) {
+        do {
+          elements.push(this.parseExpression());
+        } while (this.match("comma"));
+      }
+
+      const close = this.consume(
+        "rbracket",
+        'Expected "]" after set elements.',
+      );
+
+      const expression: SetExpression = {
+        kind: "SetExpression",
+        elements,
+        span: spanFrom(start, close),
+      };
+      return expression;
+    }
+
+    if (this.match("map")) {
+      const start = this.previous();
+      this.consume("lbracket", 'Expected "[" after map.');
+      const entries: MapEntry[] = [];
+
+      if (!this.check("rbracket")) {
+        do {
+          const key = this.parseExpression();
+          this.consume("colon", 'Expected ":" between map key and value.');
+          const value = this.parseExpression();
+          entries.push({
+            key,
+            value,
+            span: {
+              start: key.span.start,
+              end: value.span.end,
+            },
+          });
+        } while (this.match("comma"));
+      }
+
+      const close = this.consume(
+        "rbracket",
+        'Expected "]" after map entries.',
+      );
+
+      const expression: MapExpression = {
+        kind: "MapExpression",
+        entries,
+        span: spanFrom(start, close),
+      };
+      return expression;
+    }
+
     if (this.match("identifier")) {
       const identifier = this.previous();
       const name = identifier.value ?? identifier.lexeme;
@@ -733,6 +794,39 @@ class Parser {
       };
     }
 
+    if (this.match("set")) {
+      const start = this.previous();
+      this.consume("of", 'Expected "of" after set.');
+      const elementType = this.parseTypeAnnotation();
+
+      return {
+        kind: "SetTypeAnnotation",
+        elementType,
+        span: {
+          start: start.span.start,
+          end: elementType.span.end,
+        },
+      };
+    }
+
+    if (this.match("map")) {
+      const start = this.previous();
+      this.consume("of", 'Expected "of" after map.');
+      const keyType = this.parseTypeAnnotation();
+      this.consume("to", 'Expected "to" between map key and value types.');
+      const valueType = this.parseTypeAnnotation();
+
+      return {
+        kind: "MapTypeAnnotation",
+        keyType,
+        valueType,
+        span: {
+          start: start.span.start,
+          end: valueType.span.end,
+        },
+      };
+    }
+
     if (this.match("identifier") || this.match("text")) {
       const token = this.previous();
 
@@ -747,7 +841,7 @@ class Parser {
       this.peek(),
       "E1008",
       "Expected a type.",
-      "Use text, number, boolean, id, a data type, list of <type>, or optional <type>.",
+      "Use a primitive/data type, list of <type>, set of <type>, map of <key> to <value>, or optional <type>.",
     );
   }
 

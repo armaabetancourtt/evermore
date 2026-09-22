@@ -89,6 +89,8 @@ export type IRExpression =
   | IRBooleanExpression
   | IRNoneExpression
   | IRListExpression
+  | IRSetExpression
+  | IRMapExpression
   | IRIfExpression
   | IRMatchExpression
   | IRMemberExpression
@@ -120,6 +122,21 @@ export type IRNoneExpression = {
 export type IRListExpression = {
   readonly kind: "List";
   readonly elements: readonly IRExpression[];
+};
+
+export type IRSetExpression = {
+  readonly kind: "Set";
+  readonly elements: readonly IRExpression[];
+};
+
+export type IRMapExpression = {
+  readonly kind: "Map";
+  readonly entries: readonly IRMapEntry[];
+};
+
+export type IRMapEntry = {
+  readonly key: IRExpression;
+  readonly value: IRExpression;
 };
 
 export type IRMatchExpression = {
@@ -403,6 +420,23 @@ function lowerExpression(
         elements: expression.elements.map((element) =>
           lowerExpression(element, model),
         ),
+      };
+
+    case "SetExpression":
+      return {
+        kind: "Set",
+        elements: expression.elements.map((element) =>
+          lowerExpression(element, model),
+        ),
+      };
+
+    case "MapExpression":
+      return {
+        kind: "Map",
+        entries: expression.entries.map((entry) => ({
+          key: lowerExpression(entry.key, model),
+          value: lowerExpression(entry.value, model),
+        })),
       };
 
     case "IfExpression":

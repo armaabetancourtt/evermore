@@ -50,6 +50,8 @@ export type DataField = {
 export type TypeAnnotation =
   | NamedTypeAnnotation
   | ListTypeAnnotation
+  | SetTypeAnnotation
+  | MapTypeAnnotation
   | OptionalTypeAnnotation;
 
 export type NamedTypeAnnotation = {
@@ -61,6 +63,19 @@ export type NamedTypeAnnotation = {
 export type ListTypeAnnotation = {
   readonly kind: "ListTypeAnnotation";
   readonly elementType: TypeAnnotation;
+  readonly span: SourceSpan;
+};
+
+export type SetTypeAnnotation = {
+  readonly kind: "SetTypeAnnotation";
+  readonly elementType: TypeAnnotation;
+  readonly span: SourceSpan;
+};
+
+export type MapTypeAnnotation = {
+  readonly kind: "MapTypeAnnotation";
+  readonly keyType: TypeAnnotation;
+  readonly valueType: TypeAnnotation;
   readonly span: SourceSpan;
 };
 
@@ -143,6 +158,8 @@ export type Expression =
   | BooleanExpression
   | NoneExpression
   | ListExpression
+  | SetExpression
+  | MapExpression
   | IfExpression
   | MatchExpression
   | MemberExpression
@@ -177,6 +194,24 @@ export type NoneExpression = {
 export type ListExpression = {
   readonly kind: "ListExpression";
   readonly elements: readonly Expression[];
+  readonly span: SourceSpan;
+};
+
+export type SetExpression = {
+  readonly kind: "SetExpression";
+  readonly elements: readonly Expression[];
+  readonly span: SourceSpan;
+};
+
+export type MapExpression = {
+  readonly kind: "MapExpression";
+  readonly entries: readonly MapEntry[];
+  readonly span: SourceSpan;
+};
+
+export type MapEntry = {
+  readonly key: Expression;
+  readonly value: Expression;
   readonly span: SourceSpan;
 };
 

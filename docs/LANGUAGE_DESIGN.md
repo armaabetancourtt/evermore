@@ -122,6 +122,8 @@ return_statement ::= "return" expression ;
 
 type_annotation  ::= "optional" type_annotation
                    | "list" "of" type_annotation
+                   | "set" "of" type_annotation
+                   | "map" "of" type_annotation "to" type_annotation
                    | type_atom ;
 type_atom        ::= "text" | identifier ;
 
@@ -154,12 +156,18 @@ primary          ::= integer
                    | "false"
                    | "none"
                    | list_literal
+                   | set_literal
+                   | map_literal
                    | identifier
                    | identifier "." identifier
                    | identifier "(" arguments? ")"
                    | "(" expression ")" ;
 
 list_literal     ::= "[" arguments? "]" ;
+set_literal      ::= "set" "[" arguments? "]" ;
+map_literal      ::= "map" "[" map_entries? "]" ;
+map_entries      ::= expression ":" expression
+                     ("," expression ":" expression)* ;
 arguments        ::= expression ("," expression)* ;
 
 component        ::= "component" identifier component_body ;
@@ -219,10 +227,10 @@ The checker currently supports:
 - protocol-typed values and member access through protocol contracts;
 - inferred generic function type parameters, including `generic T conforms Protocol`;
 - nominal `data` construction through `Type(field1, field2, ...)` in declaration order;
-- recursive `list of T` and `optional T` type annotations;
+- recursive `list of T`, `set of T`, `map of K to V` and `optional T` type annotations;
 - `none` with optional lifting;
-- homogeneous list-literal inference;
-- contextual typing of empty lists when a list type is already expected;
+- homogeneous list/set literal inference and compatible key/value inference for maps;
+- contextual typing of empty lists, sets and maps when the collection type is already expected;
 - generic-call inference from arguments and expected result context;
 - typed pure function signatures and forward calls;
 - local immutable `let` inference;
@@ -336,14 +344,24 @@ end
 
 Evermore infers generic substitutions from arguments and, where unambiguous, from the expected result type. Generic parameters may be constrained by declared protocols with `generic T conforms Named`. Generic data and choice declarations remain later M2 work.
 
-### Collections — partially implemented
+### Collections — implemented core families
 
-`list of T`, list literals, homogeneous element inference and contextual empty-list typing are executable today.
+Evermore has three typed collection families: `list of T`, `set of T`, and `map of K to V`. Their literals infer compatible element/key/value types, and empty literals use contextual typing.
 
 ~~~evermore
 function names
   returns list of text
   return ["Ada", "Grace"]
+end
+
+function tags
+  returns set of text
+  return set["compiler", "language"]
+end
+
+function scores
+  returns map of text to number
+  return map["Ada": 100, "Grace": 99]
 end
 
 function emptyNames
@@ -352,7 +370,7 @@ function emptyNames
 end
 ~~~
 
-Set, map, queue, tree, graph and broader collection APIs remain future work.
+Higher-level collection APIs and specialized structures such as queues, trees and graphs remain standard-library/ecosystem work rather than blockers for the M2 core collection families.
 
 ### Object-oriented programming
 

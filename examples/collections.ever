@@ -1,0 +1,40 @@
+app "Typed Collections"
+
+data Metric
+  name text
+  value number
+end
+
+function uniqueTags
+  returns set of text
+  return set["compiler", "types", "web"]
+end
+
+function featureScores
+  returns map of text to number
+  return map["parser": 100, "types": 100, "codegen": 100]
+end
+
+function emptyMetrics
+  returns map of text to Metric
+  return map[]
+end
+
+function preserveSet
+  generic T
+  takes values set of T
+  returns set of T
+  return values
+end
+
+function preserveMap
+  generic K
+  generic V
+  takes values map of K to V
+  returns map of K to V
+  return values
+end
+
+screen Home
+  title "List, set and map are typed collections"
+  text "Collections now preserve element, key and value types through inference and code generation."

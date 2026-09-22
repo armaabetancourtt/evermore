@@ -388,6 +388,17 @@ function emitFunctionExpression(
     case "Boolean":
       return expression.value ? "true" : "false";
 
+    case "List":
+      return (
+        "[" +
+        expression.elements
+          .map((element) =>
+            emitFunctionExpression(element, values, functions),
+          )
+          .join(", ") +
+        "]"
+      );
+
     case "Identifier": {
       const generated = values.get(expression.name);
 

@@ -249,9 +249,9 @@ The checker currently supports:
 - `none` with optional lifting;
 - homogeneous list/set literal inference and compatible key/value inference for maps;
 - contextual typing of empty lists, sets and maps when the collection type is already expected;
-- generic-call inference from arguments and expected result context;
+- bidirectional generic-call inference from arguments and expected result context, including context flowing back into ambiguous generic arguments;
 - typed pure function signatures and forward calls;
-- local immutable `let` inference;
+- local immutable `let` inference and mutable `var` initializer inference;
 - mutable local `var` storage with type-preserving `set` assignment;
 - numeric arithmetic and ordering;
 - compatible equality comparisons;
@@ -327,7 +327,7 @@ The compiler verifies field and method conformance before lowering to a target. 
 
 ### Algebraic data — partially implemented
 
-Nominal `data` records and payload-free `choice` types are executable today. Data declarations are also executable constructors: calling the data type name creates a value in field declaration order, with arity and field types checked before lowering. Payload-carrying algebraic cases and generic choices remain future M2 work.
+Nominal `data` records and payload-free `choice` types are executable today. Data declarations are also executable constructors: calling the data type name creates a value in field declaration order, with arity and field types checked before lowering. Payload-carrying general choices and generic nominal choices remain post-M2 language extensions.
 
 ~~~evermore
 data User
@@ -371,7 +371,29 @@ function identity
 end
 ~~~
 
-Evermore infers generic substitutions from arguments and, where unambiguous, from the expected result type. Generic parameters may be constrained by declared protocols with `generic T conforms Named`. Generic data and choice declarations remain later M2 work.
+Evermore infers generic substitutions from arguments and, where unambiguous, from the expected result type. Generic parameters may be constrained by declared protocols with `generic T conforms Named`. Generic data and choice declarations remain post-M2 language extensions.
+
+### Type inference — implemented M2 boundary
+
+Evermore uses bidirectional inference when the available evidence determines a unique type. Context flows both from arguments into generic parameters and from an expected result type back through a generic call into its arguments.
+
+~~~evermore
+function identity
+  generic T
+  takes value T
+  returns T
+  return value
+end
+
+function emptyNames
+  returns list of text
+  return identity([])
+end
+~~~
+
+The declared return type establishes `T = list of text`, which then provides the element context needed by the empty list. Repeated generic evidence is unified with the same common-type rules used by branches and collections, so compatible values such as `none` and `text` can infer `optional text`.
+
+Inference deliberately stops when evidence is ambiguous. A standalone `let values = []` remains an error rather than receiving a guessed element type.
 
 ### Collections — implemented core families
 

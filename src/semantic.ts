@@ -1,5 +1,6 @@
 import type {
   ChoiceDeclaration,
+  ClassDeclaration,
   ComponentDeclaration,
   DataDeclaration,
   Program,
@@ -23,6 +24,7 @@ import {
 export type SemanticModel = {
   readonly program: Program;
   readonly dataByName: ReadonlyMap<string, DataDeclaration>;
+  readonly classesByName: ReadonlyMap<string, ClassDeclaration>;
   readonly protocolsByName: ReadonlyMap<string, ProtocolDeclaration>;
   readonly choicesByName: ReadonlyMap<string, ChoiceDeclaration>;
   readonly functionsByName: ReadonlyMap<string, Program["functions"][number]>;
@@ -37,6 +39,7 @@ export function analyze(program: Program): {
 } {
   const diagnostics: Diagnostic[] = [];
   const dataByName = new Map<string, DataDeclaration>();
+  const classesByName = new Map<string, ClassDeclaration>();
   const protocolsByName = new Map<string, ProtocolDeclaration>();
   const choicesByName = new Map<string, ChoiceDeclaration>();
   const screens = new Map<string, ScreenDeclaration>();
@@ -74,6 +77,41 @@ export function analyze(program: Program): {
     dataByName.set(declaration.name, declaration);
   }
 
+  for (const declaration of program.classes) {
+    if (isPrimitiveTypeName(declaration.name)) {
+      diagnostics.push({
+        code: "E2503",
+        severity: "error",
+        message:
+          'Class "' +
+          declaration.name +
+          '" conflicts with a primitive type.',
+        span: declaration.span,
+        help: "Choose a non-primitive name for the class.",
+      });
+      continue;
+    }
+
+    if (
+      dataByName.has(declaration.name) ||
+      classesByName.has(declaration.name)
+    ) {
+      diagnostics.push({
+        code: "E2500",
+        severity: "error",
+        message:
+          'Class "' +
+          declaration.name +
+          '" conflicts with an existing nominal type.',
+        span: declaration.span,
+        help: "Give every data type and class a unique name.",
+      });
+      continue;
+    }
+
+    classesByName.set(declaration.name, declaration);
+  }
+
   for (const protocol of program.protocols) {
     if (isPrimitiveTypeName(protocol.name)) {
       diagnostics.push({
@@ -89,14 +127,14 @@ export function analyze(program: Program): {
       continue;
     }
 
-    if (dataByName.has(protocol.name)) {
+    if (dataByName.has(protocol.name) || classesByName.has(protocol.name)) {
       diagnostics.push({
         code: "E2402",
         severity: "error",
         message:
           'Protocol "' +
           protocol.name +
-          '" conflicts with an existing data type.',
+          '" conflicts with an existing nominal type.',
         span: protocol.span,
         help: "Every top-level type contract must have a unique name.",
       });
@@ -135,14 +173,17 @@ export function analyze(program: Program): {
       continue;
     }
 
-    if (dataByName.has(choice.name)) {
+    if (
+      dataByName.has(choice.name) ||
+      classesByName.has(choice.name)
+    ) {
       diagnostics.push({
         code: "E2302",
         severity: "error",
         message:
           'Choice type "' +
           choice.name +
-          '" conflicts with an existing data type.',
+          '" conflicts with an existing nominal type.',
         span: choice.span,
         help: "Every nominal type must have a unique name.",
       });
@@ -238,6 +279,7 @@ export function analyze(program: Program): {
       const unknownType = findUnknownType(
         field.type,
         dataByName,
+        classesByName,
         choicesByName,
       );
 
@@ -344,6 +386,7 @@ export function analyze(program: Program): {
       const unknownType = findUnknownType(
         field.type,
         dataByName,
+        classesByName,
         choicesByName,
       );
 
@@ -426,6 +469,258 @@ export function analyze(program: Program): {
             span: parameter.span,
             help:
               "Rename the parameter so field reads remain unambiguous.",
+          });
+        }
+      }
+    }
+  }
+
+  for (const declaration of program.classes) {
+    const fieldNames = new Set<string>();
+
+    for (const field of declaration.fields) {
+      if (fieldNames.has(field.name)) {
+        diagnostics.push({
+          code: "E2501",
+          severity: "error",
+          message:
+            'Class field "' +
+            declaration.name +
+            "." +
+            field.name +
+            '" is declared more than once.',
+          span: field.span,
+          help: "Give every class field a unique name.",
+        });
+      } else {
+        fieldNames.add(field.name);
+      }
+
+      const unknownType = findUnknownType(
+        field.type,
+        dataByName,
+        classesByName,
+        choicesByName,
+      );
+
+      if (unknownType) {
+        diagnostics.push({
+          code: "E2502",
+          severity: "error",
+          message:
+            'Class field "' +
+            declaration.name +
+            "." +
+            field.name +
+            '" references unknown type "' +
+            unknownType +
+            '".',
+          span: field.type.span,
+          help:
+            "Use a primitive type or a declared data, class, or choice type.",
+        });
+      }
+    }
+
+    const methodNames = new Set<string>();
+
+    for (const method of declaration.methods) {
+      if (methodNames.has(method.name) || fieldNames.has(method.name)) {
+        diagnostics.push({
+          code: "E2411",
+          severity: "error",
+          message:
+            'Class member "' +
+            declaration.name +
+            "." +
+            method.name +
+            '" is declared more than once or conflicts with a field.',
+          span: method.span,
+          help:
+            "Give every class field and method a unique member name.",
+        });
+      } else {
+        methodNames.add(method.name);
+      }
+
+      if (method.typeParameters.length > 0) {
+        diagnostics.push({
+          code: "E2413",
+          severity: "error",
+          message:
+            'Class method "' +
+            declaration.name +
+            "." +
+            method.name +
+            '" cannot declare generic parameters yet.',
+          span: method.span,
+          help:
+            "Move generic behavior to a protocol-constrained top-level function for now.",
+        });
+      }
+
+      for (const parameter of method.parameters) {
+        if (fieldNames.has(parameter.name)) {
+          diagnostics.push({
+            code: "E2414",
+            severity: "error",
+            message:
+              'Method parameter "' +
+              parameter.name +
+              '" conflicts with class field "' +
+              declaration.name +
+              "." +
+              parameter.name +
+              '".',
+            span: parameter.span,
+            help:
+              "Rename the parameter so field reads remain unambiguous.",
+          });
+        }
+      }
+    }
+  }
+
+  for (const declaration of program.classes) {
+    const seen = new Set<string>();
+    const fields = new Map(
+      declaration.fields.map((field) => [field.name, field] as const),
+    );
+    const methods = new Map(
+      declaration.methods.map((method) => [method.name, method] as const),
+    );
+
+    for (const conformance of declaration.conformances) {
+      if (seen.has(conformance.name)) {
+        diagnostics.push({
+          code: "E2404",
+          severity: "error",
+          message:
+            'Class "' +
+            declaration.name +
+            '" declares protocol "' +
+            conformance.name +
+            '" more than once.',
+          span: conformance.span,
+          help: "Keep each protocol conformance once.",
+        });
+        continue;
+      }
+
+      seen.add(conformance.name);
+      const protocol = protocolsByName.get(conformance.name);
+
+      if (!protocol) {
+        diagnostics.push({
+          code: "E2405",
+          severity: "error",
+          message:
+            'Class "' +
+            declaration.name +
+            '" conforms to unknown protocol "' +
+            conformance.name +
+            '".',
+          span: conformance.span,
+          help: "Declare the protocol before relying on its contract.",
+        });
+        continue;
+      }
+
+      for (const required of protocol.fields) {
+        const actual = fields.get(required.name);
+
+        if (!actual) {
+          diagnostics.push({
+            code: "E2406",
+            severity: "error",
+            message:
+              'Class "' +
+              declaration.name +
+              '" is missing field "' +
+              required.name +
+              '" required by protocol "' +
+              protocol.name +
+              '".',
+            span: conformance.span,
+            help: "Add the required public field.",
+          });
+          continue;
+        }
+
+        if (actual.visibility !== "public") {
+          diagnostics.push({
+            code: "E2506",
+            severity: "error",
+            message:
+              'Class field "' +
+              declaration.name +
+              "." +
+              required.name +
+              '" is private but protocol "' +
+              protocol.name +
+              '" requires it publicly.',
+            span: actual.span,
+            help: "Make the field public or remove the conformance.",
+          });
+          continue;
+        }
+
+        if (!sameTypeAnnotation(actual.type, required.type)) {
+          diagnostics.push({
+            code: "E2407",
+            severity: "error",
+            message:
+              'Field "' +
+              declaration.name +
+              "." +
+              required.name +
+              '" does not match protocol "' +
+              protocol.name +
+              '".',
+            span: actual.type.span,
+            help:
+              "Use the same field type required by the protocol contract.",
+          });
+        }
+      }
+
+      for (const required of protocol.methods) {
+        const actual = methods.get(required.name);
+
+        if (!actual) {
+          diagnostics.push({
+            code: "E2409",
+            severity: "error",
+            message:
+              'Class "' +
+              declaration.name +
+              '" is missing method "' +
+              required.name +
+              '" required by protocol "' +
+              protocol.name +
+              '".',
+            span: conformance.span,
+            help:
+              "Implement the required method with the protocol-declared signature.",
+          });
+          continue;
+        }
+
+        if (!sameMethodContract(actual, required)) {
+          diagnostics.push({
+            code: "E2410",
+            severity: "error",
+            message:
+              'Method "' +
+              declaration.name +
+              "." +
+              required.name +
+              '" does not match protocol "' +
+              protocol.name +
+              '".',
+            span: actual.span,
+            help:
+              "Use the same parameter and return types required by the protocol method.",
           });
         }
       }
@@ -566,14 +861,14 @@ export function analyze(program: Program): {
 
   const functionTypes = validateFunctions(
     program.functions,
-    { dataByName, protocolsByName, choicesByName },
+    { dataByName, classesByName, protocolsByName, choicesByName },
     diagnostics,
   );
 
   for (const protocol of program.protocols) {
     validateFunctions(
       protocol.methods,
-      { dataByName, protocolsByName, choicesByName },
+      { dataByName, classesByName, protocolsByName, choicesByName },
       diagnostics,
       { validateBodies: false },
     );
@@ -596,7 +891,33 @@ export function analyze(program: Program): {
 
     validateFunctions(
       declaration.methods,
-      { dataByName, protocolsByName, choicesByName },
+      { dataByName, classesByName, protocolsByName, choicesByName },
+      diagnostics,
+      {
+        initialValues,
+        bodyCallSignatures: functionTypes.signaturesByName,
+      },
+    );
+  }
+
+  for (const declaration of program.classes) {
+    const initialValues = new Map(
+      declaration.fields.map(
+        (field) =>
+          [
+            field.name,
+            typeRefFromAnnotation(
+              field.type,
+              new Set(),
+              new Set(protocolsByName.keys()),
+            ),
+          ] as const,
+      ),
+    );
+
+    validateFunctions(
+      declaration.methods,
+      { dataByName, classesByName, protocolsByName, choicesByName },
       diagnostics,
       {
         initialValues,
@@ -681,6 +1002,7 @@ export function analyze(program: Program): {
           model: {
             program,
             dataByName,
+            classesByName,
             protocolsByName,
             choicesByName,
             functionsByName: functionTypes.functionsByName,
@@ -1029,12 +1351,14 @@ function sameTypeAnnotation(
 function findUnknownType(
   annotation: TypeAnnotation,
   dataByName: ReadonlyMap<string, DataDeclaration>,
+  classesByName: ReadonlyMap<string, ClassDeclaration>,
   choicesByName: ReadonlyMap<string, ChoiceDeclaration>,
 ): string | undefined {
   switch (annotation.kind) {
     case "NamedTypeAnnotation":
       return !isPrimitiveTypeName(annotation.name) &&
         !dataByName.has(annotation.name) &&
+        !classesByName.has(annotation.name) &&
         !choicesByName.has(annotation.name)
         ? annotation.name
         : undefined;
@@ -1044,6 +1368,7 @@ function findUnknownType(
       return findUnknownType(
         annotation.elementType,
         dataByName,
+        classesByName,
         choicesByName,
       );
 
@@ -1052,11 +1377,13 @@ function findUnknownType(
         findUnknownType(
           annotation.keyType,
           dataByName,
+          classesByName,
           choicesByName,
         ) ??
         findUnknownType(
           annotation.valueType,
           dataByName,
+          classesByName,
           choicesByName,
         )
       );
@@ -1065,6 +1392,7 @@ function findUnknownType(
       return findUnknownType(
         annotation.valueType,
         dataByName,
+        classesByName,
         choicesByName,
       );
   }

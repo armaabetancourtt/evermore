@@ -19,6 +19,7 @@ import type {
   ListExpression,
   MatchCase,
   MatchExpression,
+  MemberExpression,
   NavigationAction,
   NumberExpression,
   Program,
@@ -600,25 +601,31 @@ class Parser {
         return expression;
       }
 
-      if (this.match("dot")) {
-        const caseToken = this.consume(
-          "identifier",
-          "Expected a choice case name after '.'.",
-        );
-
-        return {
-          kind: "ChoiceCaseExpression",
-          choiceName: name,
-          caseName: caseToken.value ?? caseToken.lexeme,
-          span: spanFrom(identifier, caseToken),
-        };
-      }
-
-      const expression: IdentifierExpression = {
+      let expression: Expression = {
         kind: "IdentifierExpression",
         name,
         span: identifier.span,
       };
+
+      while (this.match("dot")) {
+        const member = this.consume(
+          "identifier",
+          "Expected a member name after '.'.",
+        );
+
+        const memberExpression: MemberExpression = {
+          kind: "MemberExpression",
+          object: expression,
+          member: member.value ?? member.lexeme,
+          span: {
+            start: expression.span.start,
+            end: member.span.end,
+          },
+        };
+
+        expression = memberExpression;
+      }
+
       return expression;
     }
 

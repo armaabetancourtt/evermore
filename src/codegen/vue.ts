@@ -333,6 +333,22 @@ function emitTypeRef(
         ">"
       );
 
+    case "Set":
+      return (
+        "ReadonlySet<" +
+        emitTypeRef(type.elementType, genericNames) +
+        ">"
+      );
+
+    case "Map":
+      return (
+        "ReadonlyMap<" +
+        emitTypeRef(type.keyType, genericNames) +
+        ", " +
+        emitTypeRef(type.valueType, genericNames) +
+        ">"
+      );
+
     case "Optional":
       return (
         "(" +
@@ -353,7 +369,13 @@ function containsNamedType(type: TypeRef): boolean {
     case "Generic":
       return false;
     case "List":
+    case "Set":
       return containsNamedType(type.elementType);
+    case "Map":
+      return (
+        containsNamedType(type.keyType) ||
+        containsNamedType(type.valueType)
+      );
     case "Optional":
       return containsNamedType(type.valueType);
   }
@@ -554,6 +576,33 @@ function emitFunctionExpression(
           )
           .join(", ") +
         "]"
+      );
+
+    case "Set":
+      return (
+        "new Set([" +
+        expression.elements
+          .map((element) =>
+            emitFunctionExpression(element, values, functions),
+          )
+          .join(", ") +
+        "])"
+      );
+
+    case "Map":
+      return (
+        "new Map([" +
+        expression.entries
+          .map(
+            (entry) =>
+              "[" +
+              emitFunctionExpression(entry.key, values, functions) +
+              ", " +
+              emitFunctionExpression(entry.value, values, functions) +
+              "]",
+          )
+          .join(", ") +
+        "])"
       );
 
     case "If":

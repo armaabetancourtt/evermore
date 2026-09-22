@@ -30,6 +30,10 @@ export type TypeRef =
       readonly name: string;
     }
   | {
+      readonly kind: "Generic";
+      readonly name: string;
+    }
+  | {
       readonly kind: "List";
       readonly elementType: TypeRef;
     }
@@ -46,21 +50,30 @@ export function typeRef(name: string): TypeRef {
 
 export function typeRefFromAnnotation(
   annotation: TypeAnnotation,
+  genericNames: ReadonlySet<string> = new Set(),
 ): TypeRef {
   switch (annotation.kind) {
     case "NamedTypeAnnotation":
-      return typeRef(annotation.name);
+      return genericNames.has(annotation.name)
+        ? { kind: "Generic", name: annotation.name }
+        : typeRef(annotation.name);
 
     case "ListTypeAnnotation":
       return {
         kind: "List",
-        elementType: typeRefFromAnnotation(annotation.elementType),
+        elementType: typeRefFromAnnotation(
+          annotation.elementType,
+          genericNames,
+        ),
       };
 
     case "OptionalTypeAnnotation":
       return {
         kind: "Optional",
-        valueType: typeRefFromAnnotation(annotation.valueType),
+        valueType: typeRefFromAnnotation(
+          annotation.valueType,
+          genericNames,
+        ),
       };
   }
 }
@@ -71,6 +84,7 @@ export function describeTypeRef(type: TypeRef): string {
       return "none";
     case "Primitive":
     case "Named":
+    case "Generic":
       return type.name;
     case "List":
       return "list of " + describeTypeRef(type.elementType);

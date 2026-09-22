@@ -79,8 +79,43 @@ The executable M1 surface accepts the following EBNF-like grammar:
 ~~~text
 program          ::= "app" string declaration* EOF ;
 
-declaration      ::= component
+declaration      ::= data
+                   | function
+                   | component
                    | screen ;
+
+data             ::= "data" identifier data_body ;
+data_body        ::= "{" data_field* "}"
+                   | data_field* "end" ;
+data_field       ::= identifier type_name ;
+
+function         ::= "function" identifier function_body ;
+function_body    ::= "{" function_item* "}"
+                   | function_item* "end" ;
+function_item    ::= parameter
+                   | return_type
+                   | let_statement
+                   | return_statement ;
+parameter        ::= "takes" identifier type_name ;
+return_type      ::= "returns" type_name ;
+let_statement    ::= "let" identifier "=" expression ;
+return_statement ::= "return" expression ;
+
+expression       ::= additive ;
+additive         ::= multiplicative
+                     (("+" | "-") multiplicative)* ;
+multiplicative   ::= primary
+                     (("*" | "/") primary)* ;
+primary          ::= integer
+                   | string
+                   | "true"
+                   | "false"
+                   | identifier
+                   | identifier "(" arguments? ")"
+                   | "(" expression ")" ;
+arguments        ::= expression ("," expression)* ;
+
+type_name        ::= "text" | identifier ;
 
 component        ::= "component" identifier component_body ;
 
@@ -148,6 +183,8 @@ Reusable components are deliberately **stateless** in M1. They may contain text,
 
 The test suite requires natural and explicit forms to lower to equivalent generated artifacts for overlapping syntax. The Vue/Vite target is then compiled in CI.
 
+The current type checker recognizes primitive types `text`, `number`, `boolean` and `id`, plus nominal user-defined `data` types. Function signatures are checked before bodies, enabling forward calls and recursive references at the signature level. Local `let` values infer their type from expressions.
+
 This grammar remains intentionally narrow. A small executable language is more valuable than a broad fictional one.
 
 ---
@@ -156,20 +193,24 @@ This grammar remains intentionally narrow. A small executable language is more v
 
 These are design targets, not implemented claims.
 
-### Values
+### Values and functions — partially implemented
+
+Immutable local `let` bindings and pure typed functions are executable today:
 
 ~~~evermore
-let count = 0
-let name text = "Ada"
-let active boolean = true
+function add
+
+  takes a number
+  takes b number
+  returns number
+
+  let total = a + b
+  return total
+
+end
 ~~~
 
-### Functions
-
-~~~evermore
-function distance a Point, b Point -> number
-  ...
-~~~
+Broader value lifetimes, mutable variables and richer expression families remain M2 work.
 
 ### Algebraic data
 

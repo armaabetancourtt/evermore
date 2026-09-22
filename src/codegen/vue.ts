@@ -438,6 +438,15 @@ function emitTypeRef(
         ">"
       );
 
+    case "Result":
+      return (
+        '({ readonly tag: "success"; readonly value: ' +
+        emitTypeRef(type.successType, genericNames) +
+        '} | { readonly tag: "failure"; readonly error: ' +
+        emitTypeRef(type.failureType, genericNames) +
+        "})"
+      );
+
     case "Optional":
       return (
         "(" +
@@ -464,6 +473,11 @@ function containsNamedType(type: TypeRef): boolean {
       return (
         containsNamedType(type.keyType) ||
         containsNamedType(type.valueType)
+      );
+    case "Result":
+      return (
+        containsNamedType(type.successType) ||
+        containsNamedType(type.failureType)
       );
     case "Optional":
       return containsNamedType(type.valueType);
@@ -815,7 +829,67 @@ function emitFunctionExpression(
         ")"
       );
 
-    case "Match":
+    case "Result":
+      return expression.variant === "success"
+        ? '({ tag: "success", value: ' +
+            emitFunctionExpression(
+              expression.value,
+              values,
+              functions,
+            ) +
+            " } as const)"
+        : '({ tag: "failure", error: ' +
+            emitFunctionExpression(
+              expression.value,
+              values,
+              functions,
+            ) +
+            " } as const)";
+
+    case "Match": {
+      const isResultMatch = expression.cases.some(
+        (branch) => branch.bindingName !== undefined,
+      );
+
+      if (isResultMatch) {
+        return (
+          "(() => { const matchValue = " +
+          emitFunctionExpression(
+            expression.value,
+            values,
+            functions,
+          ) +
+          "; switch (matchValue.tag) { " +
+          expression.cases
+            .map((branch) => {
+              const branchValues = new Map(values);
+
+              if (branch.bindingName) {
+                branchValues.set(
+                  branch.bindingName,
+                  branch.caseName === "success"
+                    ? "matchValue.value"
+                    : "matchValue.error",
+                );
+              }
+
+              return (
+                "case " +
+                JSON.stringify(branch.caseName) +
+                ": return " +
+                emitFunctionExpression(
+                  branch.expression,
+                  branchValues,
+                  functions,
+                ) +
+                ";"
+              );
+            })
+            .join(" ") +
+          ' default: throw new Error("Unreachable Evermore result match"); } })()'
+        );
+      }
+
       return (
         "(() => { const matchValue = " +
         emitFunctionExpression(
@@ -840,6 +914,7 @@ function emitFunctionExpression(
           .join(" ") +
         ' default: throw new Error("Unreachable Evermore match"); } })()'
       );
+    }
 
     case "Member":
       return (

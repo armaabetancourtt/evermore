@@ -1,6 +1,7 @@
 export * from "./ast.js";
 export * from "./compiler.js";
 export * from "./diagnostics.js";
+export * from "./formatter.js";
 export * from "./ir.js";
 export * from "./lexer.js";
 export * from "./parser.js";

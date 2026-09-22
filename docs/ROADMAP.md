@@ -74,12 +74,12 @@ Goals:
 - [ ] variables and constants (immutable inferred local `let` implemented; broader value/storage model pending);
 - [x] expressions (literals, arithmetic, comparisons, calls, lists, conditionals and exhaustive matches);
 - [x] pure typed functions;
-- [x] nominal data structures;
+- [x] nominal data structures (typed field contracts, nominal construction and member access);
 - [x] enums / algebraic choices (nominal payload-free `choice` types);
 - [x] optionals (`optional T`, `none`, optional lifting);
 - [ ] collections (typed/list literals and recursive `list of T` implemented; broader collection families pending);
 - [x] generics (function type parameters with argument/context inference);
-- [ ] interfaces / protocols (field-contract `protocol` declarations and `data` conformance validation implemented; protocol-typed values and method requirements pending);
+- [ ] interfaces / protocols (field contracts, `data` conformance, protocol-typed values, member access and protocol-constrained generics implemented; method requirements pending);
 - [ ] classes and encapsulation;
 - [x] pattern matching (exhaustive matching over nominal choices);
 - [ ] error model;

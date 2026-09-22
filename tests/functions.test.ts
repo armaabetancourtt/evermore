@@ -64,7 +64,10 @@ test("generates strictly typed target functions", () => {
   assert.match(generated.content, /return \(arg_0 \+ arg_1\);/);
   assert.match(generated.content, /const local_0 = \(arg_0 \* 2\);/);
   assert.match(generated.content, /fn_0\(local_0, \(10 \/ 2\)\)/);
-  assert.match(generated.content, /import type \{ EvermoreModels \}/);
+  assert.match(
+    generated.content,
+    /import type \{ EvermoreModels, EvermoreProtocols \}/,
+  );
   assert.match(generated.content, /EvermoreModels\["User"\]/);
 });
 

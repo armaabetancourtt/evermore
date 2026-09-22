@@ -212,7 +212,9 @@ The checker currently supports:
 - primitive `text`, `number`, `boolean` and `id`;
 - nominal `data` and payload-free nominal `choice` types;
 - field-contract `protocol` declarations with statically checked `data` conformances;
-- inferred generic function type parameters declared with `generic T`;
+- protocol-typed values and member access through protocol contracts;
+- inferred generic function type parameters, including `generic T conforms Protocol`;
+- nominal `data` construction through `Type(field1, field2, ...)` in declaration order;
 - recursive `list of T` and `optional T` type annotations;
 - `none` with optional lifting;
 - homogeneous list-literal inference;
@@ -278,16 +280,22 @@ data User
 end
 ~~~
 
-The compiler verifies conformance before lowering to a target. Protocol-typed values, member-based protocol APIs and method requirements remain M2 work.
+The compiler verifies conformance before lowering to a target. Protocol-typed values, member access through protocol contracts, and protocol-constrained generics are executable today. Method requirements remain M2 work.
 
 ### Algebraic data — partially implemented
 
-Nominal `data` records and payload-free `choice` types are executable today. Payload-carrying algebraic cases and generic choices remain future M2 work.
+Nominal `data` records and payload-free `choice` types are executable today. Data declarations are also executable constructors: calling the data type name creates a value in field declaration order, with arity and field types checked before lowering. Payload-carrying algebraic cases and generic choices remain future M2 work.
 
 ~~~evermore
 data User
-  id id
   name text
+  active boolean
+end
+
+function makeUser
+  takes name text
+  returns User
+  return User(name, true)
 end
 
 choice Status
@@ -320,7 +328,7 @@ function identity
 end
 ~~~
 
-Evermore infers generic substitutions from arguments and, where unambiguous, from the expected result type. Generic data/choice declarations and constraints remain later M2 work.
+Evermore infers generic substitutions from arguments and, where unambiguous, from the expected result type. Generic parameters may be constrained by declared protocols with `generic T conforms Named`. Generic data and choice declarations remain later M2 work.
 
 ### Collections — partially implemented
 

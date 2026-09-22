@@ -880,6 +880,76 @@ function inferExpression(
 
     case "CallExpression": {
       const callee = signatures.get(expression.callee);
+      const constructor = types.dataByName.get(expression.callee);
+
+      if (!callee && constructor) {
+        if (expression.arguments.length !== constructor.fields.length) {
+          diagnostics.push({
+            code: "E2230",
+            severity: "error",
+            message:
+              'Data constructor "' +
+              constructor.name +
+              '" expects ' +
+              constructor.fields.length +
+              " argument(s) but received " +
+              expression.arguments.length +
+              ".",
+            span: expression.span,
+            help:
+              "Pass one value for each field in declaration order: " +
+              constructor.fields.map((field) => field.name).join(", ") +
+              ".",
+          });
+        }
+
+        expression.arguments.forEach((argument, index) => {
+          const field = constructor.fields[index];
+          const fieldType = field
+            ? typeRefFromAnnotation(
+                field.type,
+                new Set(),
+                new Set(types.protocolsByName.keys()),
+              )
+            : undefined;
+
+          const actual = inferExpression(
+            argument,
+            env,
+            signatures,
+            types,
+            diagnostics,
+            fieldType,
+          );
+
+          if (!actual || !field || !fieldType) return;
+
+          if (!isAssignable(actual, fieldType, types)) {
+            diagnostics.push({
+              code: "E2231",
+              severity: "error",
+              message:
+                'Field "' +
+                constructor.name +
+                "." +
+                field.name +
+                '" receives ' +
+                describeType(actual) +
+                " but expects " +
+                describeType(fieldType) +
+                ".",
+              span: argument.span,
+              help:
+                "Pass a value assignable to the declared field type.",
+            });
+          }
+        });
+
+        return {
+          kind: "Named",
+          name: constructor.name,
+        };
+      }
 
       if (!callee) {
         diagnostics.push({

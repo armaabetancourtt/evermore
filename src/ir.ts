@@ -80,6 +80,7 @@ export type IRExpression =
   | IRIfExpression
   | IRMatchExpression
   | IRMemberExpression
+  | IRConstructExpression
   | IRChoiceCaseExpression
   | IRIdentifierExpression
   | IRBinaryExpression
@@ -124,6 +125,17 @@ export type IRMemberExpression = {
   readonly kind: "Member";
   readonly object: IRExpression;
   readonly member: string;
+};
+
+export type IRConstructExpression = {
+  readonly kind: "Construct";
+  readonly typeName: string;
+  readonly fields: readonly IRConstructField[];
+};
+
+export type IRConstructField = {
+  readonly name: string;
+  readonly value: IRExpression;
 };
 
 export type IRChoiceCaseExpression = {
@@ -420,7 +432,23 @@ function lowerExpression(
         right: lowerExpression(expression.right, model),
       };
 
-    case "CallExpression":
+    case "CallExpression": {
+      const constructor =
+        model.functionsByName.has(expression.callee)
+          ? undefined
+          : model.dataByName.get(expression.callee);
+
+      if (constructor) {
+        return {
+          kind: "Construct",
+          typeName: constructor.name,
+          fields: constructor.fields.map((field, index) => ({
+            name: field.name,
+            value: lowerExpression(expression.arguments[index]!, model),
+          })),
+        };
+      }
+
       return {
         kind: "Call",
         callee: expression.callee,
@@ -428,6 +456,7 @@ function lowerExpression(
           lowerExpression(argument, model),
         ),
       };
+    }
   }
 }
 

@@ -1,0 +1,34 @@
+app "Constructors"
+
+protocol Named
+  name text
+end
+
+data Person
+  conforms Named
+  name text
+  age number
+end
+
+function makePerson
+  takes name text
+  takes age number
+  returns Person
+  return Person(name, age)
+end
+
+function displayName
+  takes person Named
+  returns text
+  return person.name
+end
+
+function example
+  returns text
+  let person = Person("Ada", 37)
+  return displayName(person)
+end
+
+screen Home
+  title "Domain values are real values"
+  text "Data declarations can now be constructed, passed through protocols, and inspected."

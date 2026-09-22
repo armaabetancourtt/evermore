@@ -77,6 +77,9 @@ jobs:
       - name: Check protocol values example
         run: npm run evermore -- check examples/protocol-values.ever
 
+      - name: Check data constructor example
+        run: npm run evermore -- check examples/constructors.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -240,3 +243,18 @@ jobs:
 
       - name: Verify generated protocol member access
         run: grep -q 'EvermoreProtocols\["Named"\]' /tmp/evermore-protocol-values/src/generated/functions.ts
+
+      - name: Generate data constructor application
+        run: npm run evermore -- build examples/constructors.ever --out /tmp/evermore-constructors
+
+      - name: Install data constructor application
+        working-directory: /tmp/evermore-constructors
+        run: npm install
+
+      - name: Build data constructor application
+        working-directory: /tmp/evermore-constructors
+        run: npm run build
+
+      - name: Verify generated data constructor
+        run: |
+          grep -q '"name": "Ada"' /tmp/evermore-constructors/src/generated/functions.ts

@@ -433,7 +433,10 @@ function lowerExpression(
       };
 
     case "CallExpression": {
-      const constructor = model.dataByName.get(expression.callee);
+      const constructor =
+        model.functionsByName.has(expression.callee)
+          ? undefined
+          : model.dataByName.get(expression.callee);
 
       if (constructor) {
         return {

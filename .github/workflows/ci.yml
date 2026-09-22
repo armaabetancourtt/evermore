@@ -65,6 +65,9 @@ jobs:
       - name: Check match example
         run: npm run evermore -- check examples/match.ever
 
+      - name: Check inference example
+        run: npm run evermore -- check examples/inference.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -172,3 +175,17 @@ jobs:
 
       - name: Verify generated exhaustive match
         run: grep -q 'Unreachable Evermore match' /tmp/evermore-match/src/generated/functions.ts
+
+      - name: Generate inference application
+        run: npm run evermore -- build examples/inference.ever --out /tmp/evermore-inference
+
+      - name: Install inference application
+        working-directory: /tmp/evermore-inference
+        run: npm install
+
+      - name: Build inference application
+        working-directory: /tmp/evermore-inference
+        run: npm run build
+
+      - name: Verify contextual empty-list generation
+        run: grep -q 'return \[\];' /tmp/evermore-inference/src/generated/functions.ts

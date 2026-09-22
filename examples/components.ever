@@ -1,0 +1,31 @@
+app "Components"
+
+component Actions
+
+  stack horizontal
+
+    button "Explore"
+      opens Details
+
+    button "Home"
+      opens Home
+
+  end
+
+end
+
+screen Home
+
+  title "Reusable by default"
+
+  text "Declare once. Use across screens."
+
+  use Actions
+
+screen Details
+
+  title "Still Evermore"
+
+  text "The component expands through Evermore IR."
+
+  use Actions

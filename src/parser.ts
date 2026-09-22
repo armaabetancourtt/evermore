@@ -1,6 +1,7 @@
 import type {
   ButtonAction,
   ButtonStatement,
+  ComponentDeclaration,
   IncrementAction,
   NavigationAction,
   Program,
@@ -13,6 +14,7 @@ import type {
   StateDeclaration,
   TextStatement,
   TitleStatement,
+  UseStatement,
   VisualStatement,
 } from "./ast.js";
 import {
@@ -38,11 +40,27 @@ class Parser {
     );
     const nameToken = this.consume("string", "Expected an application name.");
 
+    const components: ComponentDeclaration[] = [];
     const screens: ScreenDeclaration[] = [];
 
     while (!this.check("eof")) {
       try {
-        screens.push(this.parseScreen());
+        if (this.check("component")) {
+          components.push(this.parseComponent());
+          continue;
+        }
+
+        if (this.check("screen")) {
+          screens.push(this.parseScreen());
+          continue;
+        }
+
+        this.fail(
+          this.peek(),
+          "E1007",
+          "Expected a top-level declaration.",
+          "Declare a component or screen.",
+        );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
         this.record(error);
@@ -59,11 +77,44 @@ class Parser {
     return {
       kind: "Program",
       appName: nameToken.value ?? "",
+      components,
       screens,
       span: {
         start: appToken.span.start,
         end: eof.span.end,
       },
+    };
+  }
+
+  private parseComponent(): ComponentDeclaration {
+    const start = this.consume("component", "Expected a component declaration.");
+    const name = this.consume("identifier", "Expected a component name.");
+    const explicitBlock = this.match("lbrace");
+    const body: VisualStatement[] = [];
+
+    while (
+      !this.check("eof") &&
+      !(explicitBlock && this.check("rbrace")) &&
+      !(!explicitBlock && this.check("end"))
+    ) {
+      try {
+        body.push(this.parseVisualStatement());
+      } catch (error) {
+        if (!(error instanceof EvermoreDiagnosticError)) throw error;
+        this.record(error);
+        this.synchronizeVisual();
+      }
+    }
+
+    const end = explicitBlock
+      ? this.consume("rbrace", 'Expected "}" to close the component.')
+      : this.consume("end", 'Expected "end" to close the component.');
+
+    return {
+      kind: "ComponentDeclaration",
+      name: name.value ?? name.lexeme,
+      body,
+      span: spanFrom(start, end),
     };
   }
 
@@ -76,6 +127,7 @@ class Parser {
     while (
       !this.check("eof") &&
       !this.check("screen") &&
+      !this.check("component") &&
       !(explicitBlock && this.check("rbrace"))
     ) {
       try {
@@ -132,11 +184,15 @@ class Parser {
       return this.parseStack(this.previous());
     }
 
+    if (this.match("use")) {
+      return this.parseUse(this.previous());
+    }
+
     return this.fail(
       this.peek(),
       "E1004",
-      "Expected a screen statement.",
-      'Try state count starts 0, title "...", text "...", show count, button "...", or stack vertical.',
+      "Expected a visual statement.",
+      'Try text "...", show count, button "...", stack vertical, or use ComponentName.',
     );
   }
 
@@ -180,6 +236,19 @@ class Parser {
     };
   }
 
+  private parseUse(start: Token): UseStatement {
+    const component = this.consume(
+      "identifier",
+      "Expected a component name after use.",
+    );
+
+    return {
+      kind: "UseStatement",
+      componentName: component.value ?? component.lexeme,
+      span: spanFrom(start, component),
+    };
+  }
+
   private parseStack(start: Token): StackStatement {
     const directionToken = this.peek();
     let direction: StackDirection;
@@ -214,16 +283,9 @@ class Parser {
       }
     }
 
-    let end: Token;
-
-    if (explicitBlock) {
-      end = this.consume("rbrace", 'Expected "}" to close the stack.');
-    } else {
-      end = this.consume(
-        "end",
-        'Expected "end" to close the natural stack.',
-      );
-    }
+    const end = explicitBlock
+      ? this.consume("rbrace", 'Expected "}" to close the stack.')
+      : this.consume("end", 'Expected "end" to close the natural stack.');
 
     return {
       kind: "StackStatement",
@@ -322,7 +384,8 @@ class Parser {
       this.check("state") ||
       this.check("title") ||
       this.isVisualBoundary() ||
-      this.check("screen")
+      this.check("screen") ||
+      this.check("component")
     );
   }
 
@@ -332,6 +395,7 @@ class Parser {
       this.check("show") ||
       this.check("button") ||
       this.check("stack") ||
+      this.check("use") ||
       this.check("end") ||
       this.check("rbrace") ||
       this.check("eof")
@@ -339,11 +403,21 @@ class Parser {
   }
 
   private synchronizeTopLevel(): void {
-    if (this.check("screen") || this.check("eof")) return;
+    if (
+      this.check("screen") ||
+      this.check("component") ||
+      this.check("eof")
+    ) {
+      return;
+    }
 
     this.advance();
 
-    while (!this.check("eof") && !this.check("screen")) {
+    while (
+      !this.check("eof") &&
+      !this.check("screen") &&
+      !this.check("component")
+    ) {
       this.advance();
     }
   }

@@ -396,7 +396,7 @@ export function analyze(program: Program): {
 
   const functionTypes = validateFunctions(
     program.functions,
-    { dataByName, choicesByName },
+    { dataByName, protocolsByName, choicesByName },
     diagnostics,
   );
 

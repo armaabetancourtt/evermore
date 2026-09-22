@@ -60,6 +60,7 @@ export function validateFunctions(
     const parameterTypes: TypeRef[] = [];
     const parameterNames = new Set<string>();
     const genericNames = new Set<string>();
+    const genericConstraints = new Map<string, string>();
     let signatureValid = true;
 
     for (const parameter of fn.typeParameters) {
@@ -101,6 +102,30 @@ export function validateFunctions(
       }
 
       genericNames.add(parameter.name);
+
+      if (parameter.constraintName) {
+        if (!types.protocolsByName.has(parameter.constraintName)) {
+          diagnostics.push({
+            code: "E2223",
+            severity: "error",
+            message:
+              'Generic type "' +
+              parameter.name +
+              '" is constrained by unknown protocol "' +
+              parameter.constraintName +
+              '".',
+            span: parameter.span,
+            help:
+              "Generic constraints must name a declared protocol.",
+          });
+          signatureValid = false;
+        } else {
+          genericConstraints.set(
+            parameter.name,
+            parameter.constraintName,
+          );
+        }
+      }
     }
 
     for (const parameter of fn.parameters) {
@@ -127,6 +152,7 @@ export function validateFunctions(
         types,
         diagnostics,
         genericNames,
+        genericConstraints,
       );
 
       if (!resolved) {
@@ -142,6 +168,7 @@ export function validateFunctions(
       types,
       diagnostics,
       genericNames,
+      genericConstraints,
     );
 
     if (!returnType) {
@@ -514,7 +541,9 @@ function inferExpression(
           ? types.dataByName.get(objectType.name)
           : objectType.kind === "Protocol"
             ? types.protocolsByName.get(objectType.name)
-            : undefined;
+            : objectType.kind === "Generic" && objectType.constraint
+              ? types.protocolsByName.get(objectType.constraint)
+              : undefined;
 
       if (!owner) {
         diagnostics.push({
@@ -541,7 +570,7 @@ function inferExpression(
           severity: "error",
           message:
             'Type "' +
-            objectType.name +
+            describeType(objectType) +
             '" has no member "' +
             expression.member +
             '".',
@@ -978,6 +1007,7 @@ function resolveType(
   types: NamedTypeContext,
   diagnostics: Diagnostic[],
   genericNames: ReadonlySet<string>,
+  genericConstraints: ReadonlyMap<string, string>,
 ): TypeRef | undefined {
   const unknown = findUnknownType(
     annotation,
@@ -1001,6 +1031,7 @@ function resolveType(
     annotation,
     genericNames,
     new Set(types.protocolsByName.keys()),
+    genericConstraints,
   );
 }
 
@@ -1042,13 +1073,20 @@ function bindGenericTypes(
   types: NamedTypeContext,
 ): boolean {
   if (pattern.kind === "Generic") {
+    if (
+      pattern.constraint &&
+      !isAssignable(
+        actual,
+        { kind: "Protocol", name: pattern.constraint },
+        types,
+      )
+    ) {
+      return false;
+    }
+
     const existing = bindings.get(pattern.name);
 
     if (!existing) {
-      if (actual.kind === "Generic" && actual.name === pattern.name) {
-        return true;
-      }
-
       bindings.set(pattern.name, actual);
       return true;
     }
@@ -1124,13 +1162,19 @@ function isAssignable(
 ): boolean {
   if (sameType(actual, expected)) return true;
 
-  if (expected.kind === "Protocol" && actual.kind === "Named") {
-    const data = types.dataByName.get(actual.name);
-    return (
-      data?.conformances.some(
-        (conformance) => conformance.name === expected.name,
-      ) ?? false
-    );
+  if (expected.kind === "Protocol") {
+    if (actual.kind === "Named") {
+      const data = types.dataByName.get(actual.name);
+      return (
+        data?.conformances.some(
+          (conformance) => conformance.name === expected.name,
+        ) ?? false
+      );
+    }
+
+    if (actual.kind === "Generic" && actual.constraint) {
+      return actual.constraint === expected.name;
+    }
   }
 
   if (expected.kind === "Optional") {

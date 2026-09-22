@@ -1,0 +1,18 @@
+module Domain
+import "./contracts.ever"
+
+data User
+  conforms Named
+  name text
+
+  function display
+    returns text
+    return name
+  end
+end
+
+function makeUser
+  takes name text
+  returns User
+  return User(name)
+end

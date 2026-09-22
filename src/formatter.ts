@@ -156,6 +156,13 @@ function formatTypeAnnotation(
         " to " +
         formatTypeAnnotation(annotation.valueType)
       );
+    case "ResultTypeAnnotation":
+      return (
+        "result of " +
+        formatTypeAnnotation(annotation.okType) +
+        " error " +
+        formatTypeAnnotation(annotation.errorType)
+      );
     case "OptionalTypeAnnotation":
       return "optional " + formatTypeAnnotation(annotation.valueType);
   }
@@ -383,6 +390,7 @@ function formatExpression(
               indent(depth + 1) +
               "case " +
               branch.caseName +
+              (branch.bindingName ? " " + branch.bindingName : "") +
               " then " +
               formatExpression(
                 branch.expression,

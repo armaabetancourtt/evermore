@@ -132,6 +132,7 @@ type_annotation  ::= "optional" type_annotation
                    | "list" "of" type_annotation
                    | "set" "of" type_annotation
                    | "map" "of" type_annotation "to" type_annotation
+                   | "result" "of" type_annotation "error" type_annotation
                    | type_atom ;
 type_atom        ::= "text" | identifier ;
 
@@ -146,7 +147,8 @@ if_expression    ::= "if" comparison
 match_expression ::= "match" comparison
                      match_case*
                      "end" ;
-match_case       ::= "case" identifier "then" expression ;
+match_case       ::= "case" (identifier | "ok" | "error")
+                     identifier? "then" expression ;
 
 comparison       ::= additive
                      (("==" | "!=" | ">" | ">=" | "<" | "<=")
@@ -163,6 +165,8 @@ primary          ::= integer
                    | "true"
                    | "false"
                    | "none"
+                   | "ok" "(" expression ")"
+                   | "error" "(" expression ")"
                    | list_literal
                    | set_literal
                    | map_literal
@@ -247,9 +251,11 @@ The checker currently supports:
 - numeric arithmetic and ordering;
 - compatible equality comparisons;
 - typed `if` expressions;
-- exhaustive `match` expressions over choices.
+- exhaustive `match` expressions over choices and typed results;
+- explicit `result of T error E` values with contextual `ok(...)` and `error(...)`;
+- payload bindings for result branches such as `case ok value then ...`.
 
-A `match` fails semantic analysis when a choice case is missing, repeated or unknown. Branch result types must have a compatible common type.
+A `match` fails semantic analysis when a choice/result case is missing, repeated or unknown. Branch result types must have a compatible common type. Result constructors are intentionally contextual: the surrounding declared result type determines the opposite side of the result instead of silently inventing it.
 
 ### M1 component rule
 
@@ -389,6 +395,31 @@ end
 ~~~
 
 Higher-level collection APIs and specialized structures such as queues, trees and graphs remain standard-library/ecosystem work rather than blockers for the M2 core collection families.
+
+### Error model — implemented core
+
+Failures are ordinary typed values rather than implicit exceptions:
+
+~~~evermore
+function findUser
+  takes exists boolean
+  returns result of User error text
+  return if exists then ok(User("Ada")) else error("user-not-found")
+end
+
+function displayUser
+  takes outcome result of User error text
+  returns text
+  return match outcome
+    case ok user then user.name
+    case error reason then reason
+  end
+end
+~~~
+
+`result of T error E` preserves both success and failure types through function signatures, generics, collections and generated TypeScript. `ok(...)` and `error(...)` are checked against contextual result types. Matching a result is exhaustive over exactly `ok` and `error`, and each branch may bind its typed payload.
+
+The M2 model deliberately favors explicit propagation through return values and matching. Implicit exception throwing/catching and automatic propagation syntax are not required for the core error contract.
 
 ### Classes and encapsulation — implemented core
 

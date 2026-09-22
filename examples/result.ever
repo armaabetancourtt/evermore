@@ -1,0 +1,31 @@
+app "Typed Results"
+
+data User
+  name text
+end
+
+function findUser
+  takes exists boolean
+  returns result of User error text
+  return if exists then ok(User("Ada")) else error("user-not-found")
+end
+
+function displayUser
+  takes outcome result of User error text
+  returns text
+  return match outcome
+    case ok user then user.name
+    case error reason then reason
+  end
+end
+
+function genericSuccess
+  generic T
+  takes value T
+  returns result of T error text
+  return ok(value)
+end
+
+screen Home
+  title "Errors are values"
+  text "Success and failure stay explicit in signatures, values, matching, and generated code."

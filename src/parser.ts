@@ -572,18 +572,37 @@ class Parser {
 
       while (this.match("case")) {
         const caseStart = this.previous();
-        const caseName = this.consume(
-          "identifier",
-          "Expected a choice case name after case.",
-        );
+        let caseName: Token;
+
+        if (
+          this.match("identifier") ||
+          this.match("ok") ||
+          this.match("error")
+        ) {
+          caseName = this.previous();
+        } else {
+          caseName = this.consume(
+            "identifier",
+            "Expected a choice/result case name after case.",
+          );
+        }
+
+        let bindingName: string | undefined;
+
+        if (this.check("identifier")) {
+          const binding = this.advance();
+          bindingName = binding.value ?? binding.lexeme;
+        }
+
         this.consume(
           "then",
-          'Expected "then" after the match case name.',
+          'Expected "then" after the match case name or payload binding.',
         );
         const expression = this.parseExpression();
 
         cases.push({
           caseName: caseName.value ?? caseName.lexeme,
+          ...(bindingName ? { bindingName } : {}),
           expression,
           span: {
             start: caseStart.span.start,
@@ -791,6 +810,33 @@ class Parser {
       return expression;
     }
 
+    if (this.match("ok") || this.match("error")) {
+      const constructor = this.previous();
+      this.consume(
+        "lparen",
+        'Expected "(" after ' + constructor.lexeme + ".",
+      );
+      const args: Expression[] = [];
+
+      if (!this.check("rparen")) {
+        do {
+          args.push(this.parseExpression());
+        } while (this.match("comma"));
+      }
+
+      const close = this.consume(
+        "rparen",
+        'Expected ")" after result payload.',
+      );
+
+      return {
+        kind: "CallExpression",
+        callee: constructor.lexeme,
+        arguments: args,
+        span: spanFrom(constructor, close),
+      };
+    }
+
     if (this.match("identifier")) {
       const identifier = this.previous();
       const name = identifier.value ?? identifier.lexeme;
@@ -952,6 +998,27 @@ class Parser {
       };
     }
 
+    if (this.match("result")) {
+      const start = this.previous();
+      this.consume("of", 'Expected "of" after result.');
+      const okType = this.parseTypeAnnotation();
+      this.consume(
+        "error",
+        'Expected "error" between result success and error types.',
+      );
+      const errorType = this.parseTypeAnnotation();
+
+      return {
+        kind: "ResultTypeAnnotation",
+        okType,
+        errorType,
+        span: {
+          start: start.span.start,
+          end: errorType.span.end,
+        },
+      };
+    }
+
     if (this.match("identifier") || this.match("text")) {
       const token = this.previous();
 
@@ -966,7 +1033,7 @@ class Parser {
       this.peek(),
       "E1008",
       "Expected a type.",
-      "Use a primitive/data type, list of <type>, set of <type>, map of <key> to <value>, or optional <type>.",
+      "Use a primitive/nominal type, collection, result of <ok> error <error>, or optional <type>.",
     );
   }
 

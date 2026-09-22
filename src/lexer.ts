@@ -177,7 +177,7 @@ class Lexer {
     return {
       kind,
       lexeme,
-      value: kind === "identifier" ? lexeme : undefined,
+      ...(kind === "identifier" ? { value: lexeme } : {}),
       span: { start, end: this.position() },
     };
   }

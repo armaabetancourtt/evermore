@@ -10,6 +10,7 @@ export type TokenKind =
   | "list"
   | "of"
   | "optional"
+  | "none"
   | "let"
   | "return"
   | "true"
@@ -62,6 +63,7 @@ const keywords = new Map<string, TokenKind>([
   ["list", "list"],
   ["of", "of"],
   ["optional", "optional"],
+  ["none", "none"],
   ["let", "let"],
   ["return", "return"],
   ["true", "true"],

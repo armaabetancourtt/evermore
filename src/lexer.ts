@@ -5,6 +5,7 @@ export type TokenKind =
   | "app"
   | "screen"
   | "title"
+  | "text"
   | "button"
   | "opens"
   | "identifier"
@@ -24,6 +25,7 @@ const keywords = new Map<string, TokenKind>([
   ["app", "app"],
   ["screen", "screen"],
   ["title", "title"],
+  ["text", "text"],
   ["button", "button"],
   ["opens", "opens"],
 ]);

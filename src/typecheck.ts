@@ -260,6 +260,137 @@ function inferExpression(
     case "NoneExpression":
       return { kind: "None" };
 
+    case "MatchExpression": {
+      const valueType = inferExpression(
+        expression.value,
+        env,
+        signatures,
+        types,
+        diagnostics,
+      );
+
+      const choice =
+        valueType?.kind === "Named"
+          ? types.choicesByName.get(valueType.name)
+          : undefined;
+
+      if (valueType && !choice) {
+        diagnostics.push({
+          code: "E2310",
+          severity: "error",
+          message:
+            "Match requires a choice value, but found " +
+            describeType(valueType) +
+            ".",
+          span: expression.value.span,
+          help: "Match over a declared choice type.",
+        });
+      }
+
+      const seen = new Set<string>();
+      let resultType: TypeRef | undefined;
+      let branchesCompatible = true;
+
+      for (const branch of expression.cases) {
+        if (seen.has(branch.caseName)) {
+          diagnostics.push({
+            code: "E2312",
+            severity: "error",
+            message:
+              'Match case "' +
+              branch.caseName +
+              '" is handled more than once.',
+            span: branch.span,
+            help: "Keep exactly one branch for each choice case.",
+          });
+        } else {
+          seen.add(branch.caseName);
+        }
+
+        if (
+          choice &&
+          !choice.cases.some((item) => item.name === branch.caseName)
+        ) {
+          diagnostics.push({
+            code: "E2311",
+            severity: "error",
+            message:
+              'Choice "' +
+              choice.name +
+              '" has no case "' +
+              branch.caseName +
+              '" in this match.',
+            span: branch.span,
+            help:
+              "Use one of: " +
+              choice.cases.map((item) => item.name).join(", ") +
+              ".",
+          });
+        }
+
+        const branchType = inferExpression(
+          branch.expression,
+          env,
+          signatures,
+          types,
+          diagnostics,
+        );
+
+        if (!branchType) continue;
+
+        if (!resultType) {
+          resultType = branchType;
+          continue;
+        }
+
+        const merged = commonType(resultType, branchType);
+
+        if (!merged) {
+          diagnostics.push({
+            code: "E2313",
+            severity: "error",
+            message:
+              "Match branches must have compatible types. Found " +
+              describeType(resultType) +
+              " and " +
+              describeType(branchType) +
+              ".",
+            span: branch.span,
+            help:
+              "Return compatible values from every match branch.",
+          });
+          branchesCompatible = false;
+          continue;
+        }
+
+        resultType = merged;
+      }
+
+      if (choice) {
+        const missing = choice.cases
+          .map((item) => item.name)
+          .filter((name) => !seen.has(name));
+
+        if (missing.length > 0) {
+          diagnostics.push({
+            code: "E2314",
+            severity: "error",
+            message:
+              'Match over choice "' +
+              choice.name +
+              '" is not exhaustive. Missing: ' +
+              missing.join(", ") +
+              ".",
+            span: expression.span,
+            help:
+              "Add one case branch for every missing choice case.",
+          });
+        }
+      }
+
+      return branchesCompatible ? resultType : undefined;
+    }
+
     case "ChoiceCaseExpression": {
       const choice = types.choicesByName.get(expression.choiceName);
 

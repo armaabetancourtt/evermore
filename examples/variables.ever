@@ -1,0 +1,22 @@
+app "Mutable Locals"
+
+function countUp
+  takes start number
+  returns number
+
+  var current = start
+  set current = current + 1
+  set current = current + 1
+  return current
+end
+
+function stable
+  returns text
+
+  let message = "Immutable by default"
+  return message
+end
+
+screen Home
+  title "Mutation is explicit"
+  text "Use let by default. Reach for var and set only when state must change."

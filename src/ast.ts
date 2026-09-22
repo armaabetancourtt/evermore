@@ -105,6 +105,7 @@ export type Expression =
   | NoneExpression
   | ListExpression
   | IfExpression
+  | MatchExpression
   | ChoiceCaseExpression
   | IdentifierExpression
   | BinaryExpression
@@ -136,6 +137,19 @@ export type NoneExpression = {
 export type ListExpression = {
   readonly kind: "ListExpression";
   readonly elements: readonly Expression[];
+  readonly span: SourceSpan;
+};
+
+export type MatchExpression = {
+  readonly kind: "MatchExpression";
+  readonly value: Expression;
+  readonly cases: readonly MatchCase[];
+  readonly span: SourceSpan;
+};
+
+export type MatchCase = {
+  readonly caseName: string;
+  readonly expression: Expression;
   readonly span: SourceSpan;
 };
 

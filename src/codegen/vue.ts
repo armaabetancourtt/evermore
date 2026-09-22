@@ -229,6 +229,9 @@ function emitDataModels(
 
 function emitTypeRef(type: TypeRef): string {
   switch (type.kind) {
+    case "None":
+      return "null";
+
     case "Named":
       return "EvermoreModels[" + JSON.stringify(type.name) + "]";
 
@@ -253,6 +256,8 @@ function emitTypeRef(type: TypeRef): string {
 
 function containsNamedType(type: TypeRef): boolean {
   switch (type.kind) {
+    case "None":
+      return false;
     case "Named":
       return true;
     case "Primitive":
@@ -387,6 +392,9 @@ function emitFunctionExpression(
 
     case "Boolean":
       return expression.value ? "true" : "false";
+
+    case "None":
+      return "null";
 
     case "List":
       return (

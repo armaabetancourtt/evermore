@@ -1,6 +1,7 @@
 import type {
   ButtonStatement,
   ComponentDeclaration,
+  DataDeclaration,
   Program,
   ScreenDeclaration,
   ScreenStatement,
@@ -22,6 +23,9 @@ export function formatProgram(
   style: FormatStyle = "natural",
 ): string {
   const declarations = [
+    ...program.data.map((declaration) =>
+      formatData(declaration, style),
+    ),
     ...program.components.map((component) =>
       formatComponent(component, style),
     ),
@@ -36,6 +40,36 @@ export function formatProgram(
   ];
 
   return parts.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+}
+
+function formatData(
+  declaration: DataDeclaration,
+  style: FormatStyle,
+): string {
+  const body = declaration.fields
+    .map(
+      (field) =>
+        indent(1) + field.name + " " + field.typeName,
+    )
+    .join("\n");
+
+  if (style === "explicit") {
+    return (
+      "data " +
+      declaration.name +
+      " {\n" +
+      (body ? body + "\n" : "") +
+      "}"
+    );
+  }
+
+  return (
+    "data " +
+    declaration.name +
+    "\n" +
+    (body ? "\n" + body + "\n" : "") +
+    "end"
+  );
 }
 
 function formatComponent(

@@ -101,6 +101,9 @@ jobs:
       - name: Check multi-file modules example
         run: npm run evermore -- check examples/modules/main.ever
 
+      - name: Check local package graph
+        run: npm run evermore -- check examples/packages/app/evermore.json
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -384,5 +387,24 @@ jobs:
           grep -q '"User": EvermoreProtocols\["Named"\]' /tmp/evermore-modules/src/generated/models.ts
           grep -q '"makeUser"' /tmp/evermore-modules/src/generated/functions.ts
           grep -q '\["display"\]()' /tmp/evermore-modules/src/generated/functions.ts
+
+      - name: Generate local package application
+        run: npm run evermore -- build examples/packages/app/evermore.json --out /tmp/evermore-package
+
+      - name: Install local package application
+        working-directory: /tmp/evermore-package
+        run: npm install
+
+      - name: Build local package application
+        working-directory: /tmp/evermore-package
+        run: npm run build
+
+      - name: Verify generated package graph
+        run: |
+          test -f /tmp/evermore-package/src/generated/evermore.package.json
+          grep -q '"name": "package-app"' /tmp/evermore-package/src/generated/evermore.package.json
+          grep -q '"shared": "1.0.0"' /tmp/evermore-package/src/generated/evermore.package.json
+          grep -q '"contracts": "1.0.0"' /tmp/evermore-package/src/generated/evermore.package.json
+          grep -q '"makeUser"' /tmp/evermore-package/src/generated/functions.ts
 
 

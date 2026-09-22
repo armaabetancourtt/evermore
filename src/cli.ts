@@ -3,13 +3,17 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { compileProject } from "./compiler.js";
+import {
+  compilePackage,
+  compileProject,
+} from "./compiler.js";
 import {
   EvermoreDiagnosticError,
   formatDiagnostic,
 } from "./diagnostics.js";
 import { formatSource, type FormatStyle } from "./formatter.js";
 import { parse } from "./parser.js";
+import { loadPackageProject } from "./package.js";
 import { loadProject } from "./project.js";
 import { analyze } from "./semantic.js";
 
@@ -26,13 +30,45 @@ async function main(): Promise<void> {
   }
 
   const absoluteSource = path.resolve(sourcePath);
-  const source = await readFile(absoluteSource, "utf8");
+  const packageInput =
+    path.basename(absoluteSource) === "evermore.json";
 
   switch (command) {
     case "check": {
+      const readSource = (filePath: string) =>
+        readFile(filePath, "utf8");
+
+      if (packageInput) {
+        const project = await loadPackageProject(
+          absoluteSource,
+          readSource,
+        );
+        const analysis = analyze(project.program);
+
+        for (const diagnostic of analysis.diagnostics) {
+          console.log(formatDiagnostic(diagnostic, sourcePath));
+        }
+
+        if (!analysis.model) process.exitCode = 1;
+        else {
+          console.log(
+            "✓ package " +
+              project.rootPackage.manifest.name +
+              "@" +
+              project.rootPackage.manifest.version +
+              " is semantically valid across " +
+              project.packages.length +
+              " package(s) and " +
+              project.units.length +
+              " source file(s).",
+          );
+        }
+        return;
+      }
+
       const project = await loadProject(
         absoluteSource,
-        (filePath) => readFile(filePath, "utf8"),
+        readSource,
       );
       const analysis = analyze(project.program);
 
@@ -54,11 +90,23 @@ async function main(): Promise<void> {
     }
 
     case "ast": {
+      if (packageInput) {
+        throw new Error(
+          "ast expects an Evermore source file, not evermore.json.",
+        );
+      }
+      const source = await readFile(absoluteSource, "utf8");
       console.log(JSON.stringify(parse(source), null, 2));
       return;
     }
 
     case "format": {
+      if (packageInput) {
+        throw new Error(
+          "format expects an Evermore source file, not evermore.json.",
+        );
+      }
+      const source = await readFile(absoluteSource, "utf8");
       const style = readFormatStyle(rest);
       const formatted = formatSource(source, style);
 
@@ -74,11 +122,19 @@ async function main(): Promise<void> {
 
     case "build": {
       const out = readOption(rest, "--out") ?? "evermore-build";
-      const result = await compileProject(
-        absoluteSource,
-        (filePath) => readFile(filePath, "utf8"),
-        { target: "vue" },
-      );
+      const readSource = (filePath: string) =>
+        readFile(filePath, "utf8");
+      const result = packageInput
+        ? await compilePackage(
+            absoluteSource,
+            readSource,
+            { target: "vue" },
+          )
+        : await compileProject(
+            absoluteSource,
+            readSource,
+            { target: "vue" },
+          );
 
       for (const diagnostic of result.diagnostics) {
         console.log(formatDiagnostic(diagnostic, sourcePath));
@@ -134,16 +190,20 @@ function printHelp(): void {
       "Evermore compiler",
       "",
       "Usage:",
-      "  evermore check <entry.ever>",
+      "  evermore check <entry.ever|evermore.json>",
       "  evermore ast <file.ever>",
       "  evermore format <file.ever> [--style natural|explicit] [--write]",
-      "  evermore build <entry.ever> [--out directory]",
+      "  evermore build <entry.ever|evermore.json> [--out directory]",
       "",
       "",
       "Modules:",
       '  entry files start with app "Name"',
       "  imported files start with module Name",
       '  import "./relative-module.ever"',
+      "",
+      "Packages:",
+      "  evermore.json declares name, exact version, entry, and local dependencies",
+      '  package import example: import "shared/models"',
       "",
       "Current backend:",
       "  vue    Vue 3 + Vite application generation",

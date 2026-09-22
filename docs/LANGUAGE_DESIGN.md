@@ -235,7 +235,7 @@ Whitespace and indentation are trivia. They improve readability but do not deter
 
 ### Current type semantics
 
-The compiler currently supports relative multi-file modules: an entry file begins with `app "Name"`, imported files begin with `module Name`, and imports appear immediately after the header as `import "./relative.ever"`. Imported declarations are composed into one project-wide semantic scope before typechecking and lowering. Module imports are recursively resolved, deduplicated by physical path, checked for cycles, and required to use unique module names. Bare/package imports are intentionally reserved for package semantics.
+The compiler supports relative multi-file modules and local package imports. An entry file begins with `app "Name"`, imported files begin with `module Name`, and imports appear immediately after the header. Relative imports use paths such as `import "./relative.ever"`. When compiling through an `evermore.json` manifest, bare imports such as `import "shared/models"` resolve through declared exact local package dependencies. Imported declarations are composed into one project-wide semantic scope before typechecking and lowering.
 
 The checker currently supports:
 
@@ -434,6 +434,42 @@ end
 The `app` file is the single project entrypoint. Imported files must use a `module` header. Relative imports are resolved from the importing file, optional `.ever` extensions are normalized, repeated physical imports are deduplicated, cycles are rejected, and all declarations participate in one semantic/typechecking pass.
 
 M2 modules deliberately use a project-wide declaration namespace. Namespaced imports, visibility/export controls, external package lookup and version resolution belong to package semantics rather than being silently approximated here.
+
+### Package semantics — implemented local core
+
+M2 packages use a small explicit JSON manifest:
+
+~~~json
+{
+  "name": "atlas-app",
+  "version": "0.1.0",
+  "entry": "main.ever",
+  "dependencies": {
+    "shared": {
+      "path": "../shared",
+      "version": "1.2.3"
+    }
+  }
+}
+~~~
+
+Package names are stable lowercase identities and package versions are exact semantic versions. Dependencies are intentionally local and exact in M2: each dependency declares a relative path and the exact version expected at that path. The compiler validates package name/version identity before source loading.
+
+A package-aware source may import a dependency entrypoint:
+
+~~~evermore
+import "shared"
+~~~
+
+or a module inside the dependency:
+
+~~~evermore
+import "shared/models"
+~~~
+
+Dependencies may themselves declare dependencies. The compiler resolves the complete local package graph, rejects package cycles, undeclared package imports, identity/version mismatches and paths that escape a dependency root, then composes all reachable source modules into one typed project.
+
+Package compilation emits `src/generated/evermore.package.json`, a deterministic package graph containing every resolved package identity and its exact dependency versions. Network registries, version ranges, publishing, integrity hashes and remote fetching are deliberately deferred to later registry/tooling milestones rather than hidden behind M2 behavior.
 
 ### Error model — implemented core
 

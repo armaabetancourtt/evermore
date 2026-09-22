@@ -54,6 +54,14 @@ function maybeUser
 
 end
 
+function numbers
+
+  returns list of number
+
+  return [1, 2, 3]
+
+end
+
 function greeting
 
   returns text

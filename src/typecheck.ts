@@ -251,6 +251,62 @@ function inferExpression(
     case "BooleanExpression":
       return typeRef("boolean");
 
+    case "ListExpression": {
+      if (expression.elements.length === 0) {
+        diagnostics.push({
+          code: "E2212",
+          severity: "error",
+          message: "Cannot infer the type of an empty list yet.",
+          span: expression.span,
+          help:
+            "Add at least one element. Contextual empty-list typing is planned for M2.",
+        });
+        return undefined;
+      }
+
+      const first = inferExpression(
+        expression.elements[0]!,
+        env,
+        signatures,
+        dataByName,
+        diagnostics,
+      );
+
+      if (!first) return undefined;
+
+      let valid = true;
+
+      for (const element of expression.elements.slice(1)) {
+        const type = inferExpression(
+          element,
+          env,
+          signatures,
+          dataByName,
+          diagnostics,
+        );
+
+        if (type && !sameType(type, first)) {
+          diagnostics.push({
+            code: "E2211",
+            severity: "error",
+            message:
+              "List elements must share one type. Expected " +
+              describeType(first) +
+              " but found " +
+              describeType(type) +
+              ".",
+            span: element.span,
+            help: "Use elements with the same type.",
+          });
+          valid = false;
+        }
+      }
+
+      return valid
+        ? { kind: "List", elementType: first }
+        : undefined;
+    }
+
     case "IdentifierExpression": {
       const resolved = env.get(expression.name);
 

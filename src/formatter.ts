@@ -236,6 +236,26 @@ function formatFunctionStatement(
     );
   }
 
+  if (statement.kind === "VarStatement") {
+    return (
+      indent(depth) +
+      "var " +
+      statement.name +
+      " = " +
+      formatExpression(statement.expression, 0, false, depth)
+    );
+  }
+
+  if (statement.kind === "SetStatement") {
+    return (
+      indent(depth) +
+      "set " +
+      statement.name +
+      " = " +
+      formatExpression(statement.expression, 0, false, depth)
+    );
+  }
+
   return (
     indent(depth) +
     "return " +

@@ -68,6 +68,9 @@ jobs:
       - name: Check inference example
         run: npm run evermore -- check examples/inference.ever
 
+      - name: Check generics example
+        run: npm run evermore -- check examples/generics.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -189,3 +192,17 @@ jobs:
 
       - name: Verify contextual empty-list generation
         run: grep -q 'return \[\];' /tmp/evermore-inference/src/generated/functions.ts
+
+      - name: Generate generics application
+        run: npm run evermore -- build examples/generics.ever --out /tmp/evermore-generics
+
+      - name: Install generics application
+        working-directory: /tmp/evermore-generics
+        run: npm install
+
+      - name: Build generics application
+        working-directory: /tmp/evermore-generics
+        run: npm run build
+
+      - name: Verify generated generic functions
+        run: grep -q 'function fn_0<T0>' /tmp/evermore-generics/src/generated/functions.ts

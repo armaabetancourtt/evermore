@@ -8,11 +8,17 @@ import type {
   VisualStatement,
 } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
+import {
+  validateFunctions,
+  type FunctionSignature,
+} from "./typecheck.js";
 import { isPrimitiveTypeName } from "./types.js";
 
 export type SemanticModel = {
   readonly program: Program;
   readonly dataByName: ReadonlyMap<string, DataDeclaration>;
+  readonly functionsByName: ReadonlyMap<string, Program["functions"][number]>;
+  readonly functionSignaturesByName: ReadonlyMap<string, FunctionSignature>;
   readonly screensByName: ReadonlyMap<string, ScreenDeclaration>;
   readonly componentsByName: ReadonlyMap<string, ComponentDeclaration>;
 };
@@ -104,6 +110,12 @@ export function analyze(program: Program): {
     }
   }
 
+  const functionTypes = validateFunctions(
+    program.functions,
+    dataByName,
+    diagnostics,
+  );
+
   for (const component of program.components) {
     if (components.has(component.name)) {
       diagnostics.push({
@@ -180,6 +192,8 @@ export function analyze(program: Program): {
           model: {
             program,
             dataByName,
+            functionsByName: functionTypes.functionsByName,
+            functionSignaturesByName: functionTypes.signaturesByName,
             screensByName: screens,
             componentsByName: components,
           },

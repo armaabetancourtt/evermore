@@ -98,6 +98,15 @@ function formatTypeAnnotation(
       return annotation.name;
     case "ListTypeAnnotation":
       return "list of " + formatTypeAnnotation(annotation.elementType);
+    case "SetTypeAnnotation":
+      return "set of " + formatTypeAnnotation(annotation.elementType);
+    case "MapTypeAnnotation":
+      return (
+        "map of " +
+        formatTypeAnnotation(annotation.keyType) +
+        " to " +
+        formatTypeAnnotation(annotation.valueType)
+      );
     case "OptionalTypeAnnotation":
       return "optional " + formatTypeAnnotation(annotation.valueType);
   }
@@ -277,6 +286,29 @@ function formatExpression(
         "[" +
         expression.elements
           .map((element) => formatExpression(element, 0, false, depth))
+          .join(", ") +
+        "]"
+      );
+
+    case "SetExpression":
+      return (
+        "set[" +
+        expression.elements
+          .map((element) => formatExpression(element, 0, false, depth))
+          .join(", ") +
+        "]"
+      );
+
+    case "MapExpression":
+      return (
+        "map[" +
+        expression.entries
+          .map(
+            (entry) =>
+              formatExpression(entry.key, 0, false, depth) +
+              ": " +
+              formatExpression(entry.value, 0, false, depth),
+          )
           .join(", ") +
         "]"
       );

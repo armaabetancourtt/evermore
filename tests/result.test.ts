@@ -75,7 +75,7 @@ test("formatter preserves result and payload-match syntax", () => {
   const formatted = formatSource(source);
 
   assert.match(formatted, /returns result of User error text/);
-  assert.match(formatted, /return ok\(User\("Ada"\)\)/);
+  assert.match(formatted, /then ok\(User\("Ada"\)\)/);
   assert.match(formatted, /else error\("not-found"\)/);
   assert.match(formatted, /case ok user then user\.name/);
   assert.match(formatted, /case error reason then reason/);

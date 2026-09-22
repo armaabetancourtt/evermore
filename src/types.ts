@@ -43,6 +43,15 @@ export type TypeRef =
       readonly elementType: TypeRef;
     }
   | {
+      readonly kind: "Set";
+      readonly elementType: TypeRef;
+    }
+  | {
+      readonly kind: "Map";
+      readonly keyType: TypeRef;
+      readonly valueType: TypeRef;
+    }
+  | {
       readonly kind: "Optional";
       readonly valueType: TypeRef;
     };
@@ -87,6 +96,34 @@ export function typeRefFromAnnotation(
         ),
       };
 
+    case "SetTypeAnnotation":
+      return {
+        kind: "Set",
+        elementType: typeRefFromAnnotation(
+          annotation.elementType,
+          genericNames,
+          protocolNames,
+          genericConstraints,
+        ),
+      };
+
+    case "MapTypeAnnotation":
+      return {
+        kind: "Map",
+        keyType: typeRefFromAnnotation(
+          annotation.keyType,
+          genericNames,
+          protocolNames,
+          genericConstraints,
+        ),
+        valueType: typeRefFromAnnotation(
+          annotation.valueType,
+          genericNames,
+          protocolNames,
+          genericConstraints,
+        ),
+      };
+
     case "OptionalTypeAnnotation":
       return {
         kind: "Optional",
@@ -111,6 +148,15 @@ export function describeTypeRef(type: TypeRef): string {
       return type.name;
     case "List":
       return "list of " + describeTypeRef(type.elementType);
+    case "Set":
+      return "set of " + describeTypeRef(type.elementType);
+    case "Map":
+      return (
+        "map of " +
+        describeTypeRef(type.keyType) +
+        " to " +
+        describeTypeRef(type.valueType)
+      );
     case "Optional":
       return "optional " + describeTypeRef(type.valueType);
   }

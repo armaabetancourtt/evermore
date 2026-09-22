@@ -133,12 +133,12 @@ button "Continue"
 
 ### Explicit mode
 
-Advanced developers should be able to express the same program with more formal control:
+The implemented subset can express the same semantics with explicit delimiters:
 
 ~~~evermore
-component ContinueButton {
-  on tap {
-    navigate Dashboard
+screen Home {
+  button "Continue" {
+    opens Dashboard
   }
 }
 ~~~
@@ -531,9 +531,19 @@ Advanced styling remains possible, but beautiful and usable should be the defaul
 
 # Current implementation
 
-Evermore is at the **compiler-foundation / pre-alpha** stage.
+Evermore has completed its **M0 compiler foundation** and is now in early **M1: human syntax + web vertical slice**.
 
-The first executable milestone focuses deliberately on a narrow vertical slice:
+Implemented today:
+
+- natural and explicit screen syntax;
+- indentation-independent parsing;
+- title, text, buttons and navigation;
+- parser multi-error recovery;
+- canonical formatter;
+- semantic navigation validation;
+- framework-neutral Evermore IR;
+- complete Vue 3 + Vite application generation;
+- golden tests and generated-target compilation in CI.
 
 ~~~text
 Evermore source
@@ -546,10 +556,14 @@ AST
    ↓
 semantic checks
    ↓
-Vue-oriented prototype backend
+Evermore IR
+   ↓
+Vue/Vite backend
+   ↓
+real target build in CI
 ~~~
 
-The repository will not claim framework, AI or infrastructure support until an executable implementation exists.
+The repository will not claim AI, mobile, data or infrastructure support until executable implementations exist.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone definitions.
 

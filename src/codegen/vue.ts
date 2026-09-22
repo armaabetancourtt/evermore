@@ -1,4 +1,4 @@
-import type { IRProgram, IRScreen } from "../ir.js";
+import type { IRElement, IRProgram, IRScreen } from "../ir.js";
 
 export type GeneratedFile = {
   readonly path: string;
@@ -145,13 +145,8 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
 }
 
 function emitScreen(screen: IRScreen): string {
-  const needsRouter = screen.elements.some(
-    (element) =>
-      element.kind === "Button" &&
-      element.action?.kind === "Navigate",
-  );
+  const needsRouter = hasNavigation(screen.elements);
   const needsState = screen.states.length > 0;
-
   const scriptLines: string[] = [];
 
   if (needsState) {
@@ -197,53 +192,7 @@ function emitScreen(screen: IRScreen): string {
     body.push("    <h1>" + escapeHtml(screen.title) + "</h1>");
   }
 
-  for (const element of screen.elements) {
-    if (element.kind === "Text") {
-      body.push(
-        '    <p class="evermore-text">' +
-          escapeHtml(element.value) +
-          "</p>",
-      );
-      continue;
-    }
-
-    if (element.kind === "StateValue") {
-      body.push(
-        '    <output class="evermore-value">{{ ' +
-          stateIdentifier(element.stateName) +
-          " }}</output>",
-      );
-      continue;
-    }
-
-    let action = "";
-
-    if (element.action?.kind === "Navigate") {
-      action =
-        ' @click="go(' +
-        "'" +
-        escapeAttribute(element.action.target) +
-        "'" +
-        ')"';
-    }
-
-    if (element.action?.kind === "Increment") {
-      action =
-        ' @click="' +
-        stateIdentifier(element.action.stateName) +
-        " += " +
-        String(element.action.amount) +
-        '"';
-    }
-
-    body.push(
-      '    <button class="evermore-button" type="button"' +
-        action +
-        ">" +
-        escapeHtml(element.label) +
-        "</button>",
-    );
-  }
+  body.push(...emitElements(screen.elements, 2));
 
   return (
     script +
@@ -255,6 +204,93 @@ function emitScreen(screen: IRScreen): string {
     "  </main>\n" +
     "</template>\n"
   );
+}
+
+function emitElements(
+  elements: readonly IRElement[],
+  depth: number,
+): string[] {
+  return elements.flatMap((element) => emitElement(element, depth));
+}
+
+function emitElement(element: IRElement, depth: number): string[] {
+  const pad = "  ".repeat(depth);
+
+  if (element.kind === "Text") {
+    return [
+      pad +
+        '<p class="evermore-text">' +
+        escapeHtml(element.value) +
+        "</p>",
+    ];
+  }
+
+  if (element.kind === "StateValue") {
+    return [
+      pad +
+        '<output class="evermore-value" aria-live="polite">{{ ' +
+        stateIdentifier(element.stateName) +
+        " }}</output>",
+    ];
+  }
+
+  if (element.kind === "Stack") {
+    const directionClass =
+      element.direction === "horizontal"
+        ? "evermore-stack--horizontal"
+        : "evermore-stack--vertical";
+
+    return [
+      pad +
+        '<div class="evermore-stack ' +
+        directionClass +
+        '">',
+      ...emitElements(element.elements, depth + 1),
+      pad + "</div>",
+    ];
+  }
+
+  let action = "";
+
+  if (element.action?.kind === "Navigate") {
+    action =
+      ' @click="go(' +
+      "'" +
+      escapeAttribute(element.action.target) +
+      "'" +
+      ')"';
+  }
+
+  if (element.action?.kind === "Increment") {
+    action =
+      ' @click="' +
+      stateIdentifier(element.action.stateName) +
+      " += " +
+      String(element.action.amount) +
+      '"';
+  }
+
+  return [
+    pad +
+      '<button class="evermore-button" type="button"' +
+      action +
+      ">" +
+      escapeHtml(element.label) +
+      "</button>",
+  ];
+}
+
+function hasNavigation(elements: readonly IRElement[]): boolean {
+  return elements.some((element) => {
+    if (element.kind === "Stack") {
+      return hasNavigation(element.elements);
+    }
+
+    return (
+      element.kind === "Button" &&
+      element.action?.kind === "Navigate"
+    );
+  });
 }
 
 function stateIdentifier(name: string): string {
@@ -326,6 +362,21 @@ h1 {
   font-weight: 700;
   line-height: 0.9;
   letter-spacing: -0.055em;
+}
+
+.evermore-stack {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.evermore-stack--vertical {
+  flex-direction: column;
+}
+
+.evermore-stack--horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
 }
 
 .evermore-button {

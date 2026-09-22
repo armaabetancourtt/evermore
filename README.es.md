@@ -789,7 +789,10 @@ Implementado hoy:
 - Evermore IR independiente del framework;
 - generación completa de aplicaciones Vue 3 + Vite;
 - defaults de accesibilidad: focus visible, reduced motion, tamaño táctil y anuncios live para estado;
-- builds reales del target generado dentro de CI, incluyendo un showcase M1 de tres pantallas.
+- builds reales del target generado dentro de CI, incluyendo un showcase M1 de tres pantallas;
+- declaraciones nominales `data` con tipos primitivos y definidos por el usuario;
+- funciones puras tipadas con parámetros, returns declarados, `let` local inferido, precedencia aritmética y llamadas tipadas;
+- generación TypeScript estricta de modelos y funciones, validada con `vue-tsc`.
 
 Un ejemplo ejecutable completo ya puede escribirse así:
 
@@ -1001,7 +1004,7 @@ Los targets pueden cambiar debajo.
 
 ## Estado
 
-**Experimental · Pre-alpha · Vertical slice web M1 completo; núcleo M2 en desarrollo**
+**Experimental · Pre-alpha · M1 completo; núcleo tipado M2 en desarrollo**
 
 Todavía no uses Evermore para producción.
 

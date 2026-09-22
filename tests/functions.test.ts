@@ -224,3 +224,44 @@ screen Home
     },
   );
 });
+
+
+test("supports list and optional types in function signatures", () => {
+  const source = String.raw`
+app "Compound"
+
+data User
+  id id
+end
+
+function keepUsers
+  takes users list of User
+  returns list of User
+  return users
+end
+
+function maybeUser
+  takes user optional User
+  returns optional User
+  return user
+end
+
+screen Home
+  title "Compound"
+`;
+
+  const result = compile(source);
+  const generated = result.files.find(
+    (file) => file.path === "src/generated/functions.ts",
+  );
+
+  assert.ok(generated);
+  assert.match(
+    generated.content,
+    /ReadonlyArray<EvermoreModels\["User"\]>/,
+  );
+  assert.match(
+    generated.content,
+    /\(EvermoreModels\["User"\] \| null\)/,
+  );
+});

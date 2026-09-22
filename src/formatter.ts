@@ -129,6 +129,12 @@ function formatFunction(
 ): string {
   const lines: string[] = [];
 
+  for (const parameter of fn.typeParameters) {
+    lines.push(
+      indent(1) + "generic " + parameter.name,
+    );
+  }
+
   for (const parameter of fn.parameters) {
     lines.push(
       indent(1) +

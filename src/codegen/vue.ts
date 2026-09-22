@@ -242,13 +242,28 @@ function emitModels(
   return lines.join("\n");
 }
 
-function emitTypeRef(type: TypeRef): string {
+function emitTypeRef(
+  type: TypeRef,
+  genericNames: ReadonlyMap<string, string> = new Map(),
+): string {
   switch (type.kind) {
     case "None":
       return "null";
 
     case "Named":
       return "EvermoreModels[" + JSON.stringify(type.name) + "]";
+
+    case "Generic": {
+      const generated = genericNames.get(type.name);
+
+      if (!generated) {
+        throw new Error(
+          'Missing generated generic type for "' + type.name + '".',
+        );
+      }
+
+      return generated;
+    }
 
     case "Primitive":
       switch (type.name) {
@@ -262,10 +277,18 @@ function emitTypeRef(type: TypeRef): string {
       }
 
     case "List":
-      return "ReadonlyArray<" + emitTypeRef(type.elementType) + ">";
+      return (
+        "ReadonlyArray<" +
+        emitTypeRef(type.elementType, genericNames) +
+        ">"
+      );
 
     case "Optional":
-      return "(" + emitTypeRef(type.valueType) + " | null)";
+      return (
+        "(" +
+        emitTypeRef(type.valueType, genericNames) +
+        " | null)"
+      );
   }
 }
 
@@ -276,6 +299,7 @@ function containsNamedType(type: TypeRef): boolean {
     case "Named":
       return true;
     case "Primitive":
+    case "Generic":
       return false;
     case "List":
       return containsNamedType(type.elementType);
@@ -322,6 +346,21 @@ function emitFunctions(
     }
 
     const values = new Map<string, string>();
+    const genericNames = new Map<string, string>();
+
+    fn.typeParameters.forEach((name, index) => {
+      genericNames.set(name, "T" + index);
+    });
+
+    const genericClause =
+      fn.typeParameters.length > 0
+        ? "<" +
+          fn.typeParameters
+            .map((name) => genericNames.get(name))
+            .join(", ") +
+          ">"
+        : "";
+
     const params = fn.parameters.map((parameter, parameterIndex) => {
       const generatedParameter = "arg_" + parameterIndex;
       values.set(parameter.name, generatedParameter);
@@ -329,17 +368,18 @@ function emitFunctions(
       return (
         generatedParameter +
         ": " +
-        emitTypeRef(parameter.type)
+        emitTypeRef(parameter.type, genericNames)
       );
     });
 
     lines.push(
       "function " +
         generatedName +
+        genericClause +
         "(" +
         params.join(", ") +
         "): " +
-        emitTypeRef(fn.returnType) +
+        emitTypeRef(fn.returnType, genericNames) +
         " {",
     );
 

@@ -1,5 +1,6 @@
 import type {
   ButtonStatement,
+  ChoiceDeclaration,
   ComponentDeclaration,
   DataDeclaration,
   Expression,
@@ -29,6 +30,9 @@ export function formatProgram(
   const declarations = [
     ...program.data.map((declaration) =>
       formatData(declaration, style),
+    ),
+    ...program.choices.map((choice) =>
+      formatChoice(choice, style),
     ),
     ...program.functions.map((fn) =>
       formatFunction(fn, style),
@@ -90,6 +94,33 @@ function formatTypeAnnotation(
     case "OptionalTypeAnnotation":
       return "optional " + formatTypeAnnotation(annotation.valueType);
   }
+}
+
+function formatChoice(
+  choice: ChoiceDeclaration,
+  style: FormatStyle,
+): string {
+  const body = choice.cases
+    .map((item) => indent(1) + item.name)
+    .join("\n");
+
+  if (style === "explicit") {
+    return (
+      "choice " +
+      choice.name +
+      " {\n" +
+      (body ? body + "\n" : "") +
+      "}"
+    );
+  }
+
+  return (
+    "choice " +
+    choice.name +
+    "\n" +
+    (body ? "\n" + body + "\n" : "") +
+    "end"
+  );
 }
 
 function formatFunction(
@@ -187,6 +218,9 @@ function formatExpression(
           .join(", ") +
         "]"
       );
+
+    case "ChoiceCaseExpression":
+      return expression.choiceName + "." + expression.caseName;
 
     case "IdentifierExpression":
       return expression.name;

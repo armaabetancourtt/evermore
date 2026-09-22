@@ -81,8 +81,8 @@ Goals:
 - [x] generics (function type parameters with argument/context inference);
 - [x] interfaces / protocols (field and method contracts, `data` conformance, protocol-typed values, member/method access and protocol-constrained generics);
 - [x] classes and encapsulation (nominal classes, public/private constructor fields, executable methods, protocol conformance, and enforced private-field access);
-- [x] pattern matching (exhaustive matching over nominal choices);
-- [ ] error model;
+- [x] pattern matching (exhaustive matching over nominal choices and typed results with payload bindings);
+- [x] error model (`result of T error E`, contextual `ok(...)`/`error(...)`, exhaustive result matching and typed payload bindings);
 - [ ] modules;
 - [ ] package semantics;
 - [ ] type inference where unambiguous (local `let`, homogeneous lists, optional branch lifting, contextual empty-list inference and generic call inference implemented; broader inference pending).

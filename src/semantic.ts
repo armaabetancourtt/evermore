@@ -4,6 +4,7 @@ import type {
   Program,
   ScreenDeclaration,
   StateDeclaration,
+  TypeAnnotation,
   UseStatement,
   VisualStatement,
 } from "./ast.js";
@@ -85,10 +86,12 @@ export function analyze(program: Program): {
         fieldNames.add(field.name);
       }
 
-      if (
-        !isPrimitiveTypeName(field.typeName) &&
-        !dataByName.has(field.typeName)
-      ) {
+      const unknownType = findUnknownType(
+        field.type,
+        dataByName,
+      );
+
+      if (unknownType) {
         diagnostics.push({
           code: "E2102",
           severity: "error",
@@ -98,12 +101,12 @@ export function analyze(program: Program): {
             "." +
             field.name +
             '" references unknown type "' +
-            field.typeName +
+            unknownType +
             '".',
-          span: field.span,
+          span: field.type.span,
           help:
             "Use a primitive type (text, number, boolean, id) or declare data " +
-            field.typeName +
+            unknownType +
             ".",
         });
       }
@@ -471,6 +474,25 @@ function validateScreenVisual(
         diagnostics,
       );
     }
+  }
+}
+
+function findUnknownType(
+  annotation: TypeAnnotation,
+  dataByName: ReadonlyMap<string, DataDeclaration>,
+): string | undefined {
+  switch (annotation.kind) {
+    case "NamedTypeAnnotation":
+      return !isPrimitiveTypeName(annotation.name) &&
+        !dataByName.has(annotation.name)
+        ? annotation.name
+        : undefined;
+
+    case "ListTypeAnnotation":
+      return findUnknownType(annotation.elementType, dataByName);
+
+    case "OptionalTypeAnnotation":
+      return findUnknownType(annotation.valueType, dataByName);
   }
 }
 

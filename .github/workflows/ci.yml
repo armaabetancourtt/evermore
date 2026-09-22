@@ -43,7 +43,7 @@ jobs:
 
       - name: Verify canonical formatter
         run: |
-          npm run evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
+          npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
           cmp examples/natural.ever /tmp/natural.formatted.ever
 
       - name: Generate Vue application

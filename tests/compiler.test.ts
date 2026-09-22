@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { compile } from "../src/compiler.js";
@@ -30,18 +31,38 @@ test("parses an application with screens and navigation", () => {
   assert.equal(program.screens[1]?.name, "Dashboard");
 });
 
-test("generates a Vue-oriented target", () => {
+test("generates a complete Vue/Vite target", () => {
   const result = compile(hello);
 
   assert.equal(result.target, "vue");
-  assert.ok(
-    result.files.some(
-      (file) => file.path === "src/generated/screens/HomeScreen.vue",
-    ),
+
+  const paths = new Set(result.files.map((file) => file.path));
+
+  assert.ok(paths.has("package.json"));
+  assert.ok(paths.has("index.html"));
+  assert.ok(paths.has("vite.config.ts"));
+  assert.ok(paths.has("src/main.ts"));
+  assert.ok(paths.has("src/App.vue"));
+  assert.ok(paths.has("src/style.css"));
+  assert.ok(paths.has("src/generated/screens/HomeScreen.vue"));
+  assert.ok(paths.has("src/generated/routes.ts"));
+  assert.ok(paths.has("src/generated/evermore.manifest.json"));
+});
+
+test("generated manifest matches the golden contract", () => {
+  const result = compile(hello);
+  const manifest = result.files.find(
+    (file) => file.path === "src/generated/evermore.manifest.json",
   );
-  assert.ok(
-    result.files.some((file) => file.path === "src/generated/routes.ts"),
+
+  assert.ok(manifest);
+
+  const golden = readFileSync(
+    new URL("./golden/hello.manifest.json", import.meta.url),
+    "utf8",
   );
+
+  assert.equal(manifest.content, golden);
 });
 
 test("rejects navigation to an unknown screen", () => {

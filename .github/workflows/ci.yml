@@ -256,4 +256,5 @@ jobs:
         run: npm run build
 
       - name: Verify generated data constructor
-        run: grep -q '"name": "Ada"' /tmp/evermore-constructors/src/generated/functions.ts
+        run: |
+          grep -q '"name": "Ada"' /tmp/evermore-constructors/src/generated/functions.ts

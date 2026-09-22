@@ -35,11 +35,19 @@ jobs:
       - name: Build compiler
         run: npm run build
 
-      - name: Check example
+      - name: Check explicit example
         run: npm run evermore -- check examples/hello.ever
 
+      - name: Check natural example
+        run: npm run evermore -- check examples/natural.ever
+
+      - name: Verify canonical formatter
+        run: |
+          npm run evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
+          cmp examples/natural.ever /tmp/natural.formatted.ever
+
       - name: Generate Vue application
-        run: npm run evermore -- build examples/hello.ever --out /tmp/evermore-example
+        run: npm run evermore -- build examples/natural.ever --out /tmp/evermore-example
 
       - name: Verify generated manifest
         run: test -f /tmp/evermore-example/src/generated/evermore.manifest.json

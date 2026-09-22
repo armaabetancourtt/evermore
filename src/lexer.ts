@@ -4,6 +4,7 @@ import { EvermoreDiagnosticError } from "./diagnostics.js";
 export type TokenKind =
   | "app"
   | "data"
+  | "choice"
   | "function"
   | "takes"
   | "returns"
@@ -43,6 +44,7 @@ export type TokenKind =
   | "lbracket"
   | "rbracket"
   | "comma"
+  | "dot"
   | "equal"
   | "eqeq"
   | "neq"
@@ -66,6 +68,7 @@ export type Token = {
 const keywords = new Map<string, TokenKind>([
   ["app", "app"],
   ["data", "data"],
+  ["choice", "choice"],
   ["function", "function"],
   ["takes", "takes"],
   ["returns", "returns"],
@@ -146,6 +149,12 @@ class Lexer {
       if (char === ",") {
         this.advance();
         tokens.push(this.token("comma", ",", start));
+        continue;
+      }
+
+      if (char === ".") {
+        this.advance();
+        tokens.push(this.token("dot", ".", start));
         continue;
       }
 

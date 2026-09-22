@@ -28,7 +28,30 @@ export type DataDeclaration = {
 
 export type DataField = {
   readonly name: string;
-  readonly typeName: string;
+  readonly type: TypeAnnotation;
+  readonly span: SourceSpan;
+};
+
+export type TypeAnnotation =
+  | NamedTypeAnnotation
+  | ListTypeAnnotation
+  | OptionalTypeAnnotation;
+
+export type NamedTypeAnnotation = {
+  readonly kind: "NamedTypeAnnotation";
+  readonly name: string;
+  readonly span: SourceSpan;
+};
+
+export type ListTypeAnnotation = {
+  readonly kind: "ListTypeAnnotation";
+  readonly elementType: TypeAnnotation;
+  readonly span: SourceSpan;
+};
+
+export type OptionalTypeAnnotation = {
+  readonly kind: "OptionalTypeAnnotation";
+  readonly valueType: TypeAnnotation;
   readonly span: SourceSpan;
 };
 
@@ -36,14 +59,14 @@ export type FunctionDeclaration = {
   readonly kind: "FunctionDeclaration";
   readonly name: string;
   readonly parameters: readonly FunctionParameter[];
-  readonly returnTypeName: string;
+  readonly returnType: TypeAnnotation;
   readonly body: readonly FunctionStatement[];
   readonly span: SourceSpan;
 };
 
 export type FunctionParameter = {
   readonly name: string;
-  readonly typeName: string;
+  readonly type: TypeAnnotation;
   readonly span: SourceSpan;
 };
 

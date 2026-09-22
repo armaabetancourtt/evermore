@@ -265,3 +265,86 @@ screen Home
     /\(EvermoreModels\["User"\] \| null\)/,
   );
 });
+
+
+test("infers homogeneous list literal types", () => {
+  const source = String.raw`
+app "Lists"
+
+function numbers
+  returns list of number
+  return [1, 2, 3]
+end
+
+screen Home
+  title "Lists"
+`;
+
+  const result = compile(source);
+  const generated = result.files.find(
+    (file) => file.path === "src/generated/functions.ts",
+  );
+
+  assert.ok(generated);
+  assert.match(generated.content, /ReadonlyArray<number>/);
+  assert.match(generated.content, /return \[1, 2, 3\];/);
+});
+
+test("rejects heterogeneous list literals", () => {
+  const invalid = String.raw`
+app "Broken"
+
+function mixed
+  returns list of number
+  return [1, "two", 3]
+end
+
+screen Home
+  title "Broken"
+`;
+
+  assert.throws(
+    () => compile(invalid),
+    (error: unknown) => {
+      assert.ok(error instanceof EvermoreDiagnosticError);
+      assert.ok(
+        error.diagnostics.some((diagnostic) => diagnostic.code === "E2211"),
+      );
+      return true;
+    },
+  );
+});
+
+test("rejects empty lists until contextual typing exists", () => {
+  const invalid = String.raw`
+app "Broken"
+
+function empty
+  returns list of number
+  return []
+end
+
+screen Home
+  title "Broken"
+`;
+
+  assert.throws(
+    () => compile(invalid),
+    (error: unknown) => {
+      assert.ok(error instanceof EvermoreDiagnosticError);
+      assert.ok(
+        error.diagnostics.some((diagnostic) => diagnostic.code === "E2212"),
+      );
+      return true;
+    },
+  );
+});
+
+test("formatter canonicalizes list literals", () => {
+  const formatted = formatSource(
+    'app "Lists" function values { returns list of number return [1,2,3] } screen Home { title "Lists" }',
+  );
+
+  assert.match(formatted, /returns list of number/);
+  assert.match(formatted, /return \[1, 2, 3\]/);
+});

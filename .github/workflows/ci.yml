@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evermore-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compiler:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type check
+        run: npm run check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build compiler
+        run: npm run build
+
+      - name: Check example
+        run: npm run evermore -- check examples/hello.ever
+
+      - name: Generate Vue artifacts
+        run: npm run evermore -- build examples/hello.ever --out /tmp/evermore-example
+
+      - name: Verify generated manifest
+        run: test -f /tmp/evermore-example/src/generated/evermore.manifest.json

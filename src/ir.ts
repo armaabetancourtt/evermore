@@ -1,3 +1,4 @@
+import type { VisualStatement } from "./ast.js";
 import type { SemanticModel } from "./semantic.js";
 
 export type IRProgram = {
@@ -18,7 +19,7 @@ export type IRState = {
   readonly initialValue: number;
 };
 
-export type IRElement = IRText | IRStateValue | IRButton;
+export type IRElement = IRText | IRStateValue | IRButton | IRStack;
 
 export type IRText = {
   readonly kind: "Text";
@@ -34,6 +35,12 @@ export type IRButton = {
   readonly kind: "Button";
   readonly label: string;
   readonly action?: IRAction;
+};
+
+export type IRStack = {
+  readonly kind: "Stack";
+  readonly direction: "vertical" | "horizontal";
+  readonly elements: readonly IRElement[];
 };
 
 export type IRAction = IRNavigateAction | IRIncrementAction;
@@ -62,53 +69,19 @@ export function lowerToIR(model: SemanticModel): IRProgram {
       const elements: IRElement[] = [];
 
       for (const statement of screen.body) {
-        switch (statement.kind) {
-          case "StateDeclaration":
-            states.push({
-              name: statement.name,
-              initialValue: statement.initialValue,
-            });
-            break;
-
-          case "TitleStatement":
-            break;
-
-          case "TextStatement":
-            elements.push({
-              kind: "Text",
-              value: statement.text,
-            });
-            break;
-
-          case "ShowStatement":
-            elements.push({
-              kind: "StateValue",
-              stateName: statement.stateName,
-            });
-            break;
-
-          case "ButtonStatement":
-            elements.push({
-              kind: "Button",
-              label: statement.label,
-              ...(statement.action
-                ? {
-                    action:
-                      statement.action.kind === "NavigationAction"
-                        ? {
-                            kind: "Navigate" as const,
-                            target: statement.action.target,
-                          }
-                        : {
-                            kind: "Increment" as const,
-                            stateName: statement.action.stateName,
-                            amount: statement.action.amount,
-                          },
-                  }
-                : {}),
-            });
-            break;
+        if (statement.kind === "StateDeclaration") {
+          states.push({
+            name: statement.name,
+            initialValue: statement.initialValue,
+          });
+          continue;
         }
+
+        if (statement.kind === "TitleStatement") {
+          continue;
+        }
+
+        elements.push(lowerVisual(statement));
       }
 
       return {
@@ -119,4 +92,48 @@ export function lowerToIR(model: SemanticModel): IRProgram {
       };
     }),
   };
+}
+
+function lowerVisual(statement: VisualStatement): IRElement {
+  switch (statement.kind) {
+    case "TextStatement":
+      return {
+        kind: "Text",
+        value: statement.text,
+      };
+
+    case "ShowStatement":
+      return {
+        kind: "StateValue",
+        stateName: statement.stateName,
+      };
+
+    case "ButtonStatement":
+      return {
+        kind: "Button",
+        label: statement.label,
+        ...(statement.action
+          ? {
+              action:
+                statement.action.kind === "NavigationAction"
+                  ? {
+                      kind: "Navigate" as const,
+                      target: statement.action.target,
+                    }
+                  : {
+                      kind: "Increment" as const,
+                      stateName: statement.action.stateName,
+                      amount: statement.action.amount,
+                    },
+            }
+          : {}),
+      };
+
+    case "StackStatement":
+      return {
+        kind: "Stack",
+        direction: statement.direction,
+        elements: statement.body.map(lowerVisual),
+      };
+  }
 }

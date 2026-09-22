@@ -8,9 +8,12 @@ import type {
   ScreenStatement,
   ShowStatement,
   SourceSpan,
+  StackDirection,
+  StackStatement,
   StateDeclaration,
   TextStatement,
   TitleStatement,
+  VisualStatement,
 } from "./ast.js";
 import {
   EvermoreDiagnosticError,
@@ -109,6 +112,10 @@ class Parser {
       return this.parseTitle(this.previous());
     }
 
+    return this.parseVisualStatement();
+  }
+
+  private parseVisualStatement(): VisualStatement {
     if (this.match("text")) {
       return this.parseText(this.previous());
     }
@@ -121,11 +128,15 @@ class Parser {
       return this.parseButton(this.previous());
     }
 
+    if (this.match("stack")) {
+      return this.parseStack(this.previous());
+    }
+
     return this.fail(
       this.peek(),
       "E1004",
       "Expected a screen statement.",
-      'Try state count starts 0, title "...", text "...", show count, or button "...".',
+      'Try state count starts 0, title "...", text "...", show count, button "...", or stack vertical.',
     );
   }
 
@@ -166,6 +177,59 @@ class Parser {
       kind: "ShowStatement",
       stateName: state.value ?? state.lexeme,
       span: spanFrom(start, state),
+    };
+  }
+
+  private parseStack(start: Token): StackStatement {
+    const directionToken = this.peek();
+    let direction: StackDirection;
+
+    if (this.match("vertical")) {
+      direction = "vertical";
+    } else if (this.match("horizontal")) {
+      direction = "horizontal";
+    } else {
+      return this.fail(
+        directionToken,
+        "E1006",
+        "Expected a stack direction.",
+        "Use stack vertical or stack horizontal.",
+      );
+    }
+
+    const explicitBlock = this.match("lbrace");
+    const body: VisualStatement[] = [];
+
+    while (
+      !this.check("eof") &&
+      !(explicitBlock && this.check("rbrace")) &&
+      !(!explicitBlock && this.check("end"))
+    ) {
+      try {
+        body.push(this.parseVisualStatement());
+      } catch (error) {
+        if (!(error instanceof EvermoreDiagnosticError)) throw error;
+        this.record(error);
+        this.synchronizeVisual();
+      }
+    }
+
+    let end: Token;
+
+    if (explicitBlock) {
+      end = this.consume("rbrace", 'Expected "}" to close the stack.');
+    } else {
+      end = this.consume(
+        "end",
+        'Expected "end" to close the natural stack.',
+      );
+    }
+
+    return {
+      kind: "StackStatement",
+      direction,
+      body,
+      span: spanFrom(start, end),
     };
   }
 
@@ -220,7 +284,6 @@ class Parser {
         "identifier",
         "Expected the state name to increase.",
       );
-
       return increment(increases, state);
     }
 
@@ -228,29 +291,48 @@ class Parser {
       this.peek(),
       "E1005",
       "Expected a button action.",
-      'Try opens ScreenName or increases stateName.',
+      "Try opens ScreenName or increases stateName.",
     );
   }
 
   private synchronizeScreen(): void {
-    if (this.isStatementBoundary()) return;
+    if (this.isScreenBoundary()) return;
 
     this.advance();
 
     while (!this.check("eof")) {
-      if (this.isStatementBoundary()) return;
+      if (this.isScreenBoundary()) return;
       this.advance();
     }
   }
 
-  private isStatementBoundary(): boolean {
+  private synchronizeVisual(): void {
+    if (this.isVisualBoundary()) return;
+
+    this.advance();
+
+    while (!this.check("eof")) {
+      if (this.isVisualBoundary()) return;
+      this.advance();
+    }
+  }
+
+  private isScreenBoundary(): boolean {
     return (
       this.check("state") ||
       this.check("title") ||
+      this.isVisualBoundary() ||
+      this.check("screen")
+    );
+  }
+
+  private isVisualBoundary(): boolean {
+    return (
       this.check("text") ||
       this.check("show") ||
       this.check("button") ||
-      this.check("screen") ||
+      this.check("stack") ||
+      this.check("end") ||
       this.check("rbrace") ||
       this.check("eof")
     );

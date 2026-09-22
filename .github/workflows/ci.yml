@@ -62,6 +62,9 @@ jobs:
       - name: Check choice example
         run: npm run evermore -- check examples/choices.ever
 
+      - name: Check match example
+        run: npm run evermore -- check examples/match.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -155,3 +158,17 @@ jobs:
 
       - name: Verify generated choice model
         run: grep -q '"Status"' /tmp/evermore-choices/src/generated/models.ts
+
+      - name: Generate match application
+        run: npm run evermore -- build examples/match.ever --out /tmp/evermore-match
+
+      - name: Install match application
+        working-directory: /tmp/evermore-match
+        run: npm install
+
+      - name: Build match application
+        working-directory: /tmp/evermore-match
+        run: npm run build
+
+      - name: Verify generated exhaustive match
+        run: grep -q 'Unreachable Evermore match' /tmp/evermore-match/src/generated/functions.ts

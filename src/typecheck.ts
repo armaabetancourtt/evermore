@@ -447,17 +447,19 @@ function inferExpression(
         valueType?.kind === "Named"
           ? types.choicesByName.get(valueType.name)
           : undefined;
+      const resultValue =
+        valueType?.kind === "Result" ? valueType : undefined;
 
-      if (valueType && !choice) {
+      if (valueType && !choice && !resultValue) {
         diagnostics.push({
           code: "E2310",
           severity: "error",
           message:
-            "Match requires a choice value, but found " +
+            "Match requires a choice or result value, but found " +
             describeType(valueType) +
             ".",
           span: expression.value.span,
-          help: "Match over a declared choice type.",
+          help: "Match over a declared choice or typed result value.",
         });
       }
 
@@ -475,36 +477,77 @@ function inferExpression(
               branch.caseName +
               '" is handled more than once.',
             span: branch.span,
-            help: "Keep exactly one branch for each choice case.",
+            help: "Keep exactly one branch for each match case.",
           });
         } else {
           seen.add(branch.caseName);
         }
 
-        if (
-          choice &&
-          !choice.cases.some((item) => item.name === branch.caseName)
-        ) {
-          diagnostics.push({
-            code: "E2311",
-            severity: "error",
-            message:
-              'Choice "' +
-              choice.name +
-              '" has no case "' +
-              branch.caseName +
-              '" in this match.',
-            span: branch.span,
-            help:
-              "Use one of: " +
-              choice.cases.map((item) => item.name).join(", ") +
-              ".",
-          });
+        let payloadType: TypeRef | undefined;
+
+        if (choice) {
+          if (
+            !choice.cases.some((item) => item.name === branch.caseName)
+          ) {
+            diagnostics.push({
+              code: "E2311",
+              severity: "error",
+              message:
+                'Choice "' +
+                choice.name +
+                '" has no case "' +
+                branch.caseName +
+                '" in this match.',
+              span: branch.span,
+              help:
+                "Use one of: " +
+                choice.cases.map((item) => item.name).join(", ") +
+                ".",
+            });
+          }
+
+          if (branch.bindingName) {
+            diagnostics.push({
+              code: "E2344",
+              severity: "error",
+              message:
+                'Choice case "' +
+                branch.caseName +
+                '" has no payload to bind.',
+              span: branch.span,
+              help:
+                "Payload bindings are currently available for result ok/error cases.",
+            });
+          }
+        }
+
+        if (resultValue) {
+          if (branch.caseName === "ok") {
+            payloadType = resultValue.okType;
+          } else if (branch.caseName === "error") {
+            payloadType = resultValue.errorType;
+          } else {
+            diagnostics.push({
+              code: "E2343",
+              severity: "error",
+              message:
+                'Result has no case "' +
+                branch.caseName +
+                '".',
+              span: branch.span,
+              help: 'Use "ok" or "error" when matching a result.',
+            });
+          }
+        }
+
+        const branchEnv = new Map(env);
+        if (branch.bindingName && payloadType) {
+          branchEnv.set(branch.bindingName, payloadType);
         }
 
         const branchType = inferExpression(
           branch.expression,
-          env,
+          branchEnv,
           signatures,
           types,
           diagnostics,
@@ -541,26 +584,26 @@ function inferExpression(
         resultType = merged;
       }
 
-      if (choice) {
-        const missing = choice.cases
-          .map((item) => item.name)
-          .filter((name) => !seen.has(name));
+      const expectedCases = choice
+        ? choice.cases.map((item) => item.name)
+        : resultValue
+          ? ["ok", "error"]
+          : [];
 
-        if (missing.length > 0) {
-          diagnostics.push({
-            code: "E2314",
-            severity: "error",
-            message:
-              'Match over choice "' +
-              choice.name +
-              '" is not exhaustive. Missing: ' +
-              missing.join(", ") +
-              ".",
-            span: expression.span,
-            help:
-              "Add one case branch for every missing choice case.",
-          });
-        }
+      const missing = expectedCases.filter((name) => !seen.has(name));
+
+      if (missing.length > 0) {
+        diagnostics.push({
+          code: "E2314",
+          severity: "error",
+          message:
+            "Match is not exhaustive. Missing: " +
+            missing.join(", ") +
+            ".",
+          span: expression.span,
+          help:
+            "Add one case branch for every missing case.",
+        });
       }
 
       return branchesCompatible ? resultType : undefined;
@@ -1337,6 +1380,89 @@ function inferExpression(
     }
 
     case "CallExpression": {
+      if (
+        expression.callee === "ok" ||
+        expression.callee === "error"
+      ) {
+        if (expression.arguments.length !== 1) {
+          diagnostics.push({
+            code: "E2341",
+            severity: "error",
+            message:
+              'Result constructor "' +
+              expression.callee +
+              '" expects exactly one payload.',
+            span: expression.span,
+            help: "Pass one success or error value.",
+          });
+        }
+
+        if (!expected || expected.kind !== "Result") {
+          for (const argument of expression.arguments) {
+            inferExpression(
+              argument,
+              env,
+              signatures,
+              types,
+              diagnostics,
+            );
+          }
+
+          diagnostics.push({
+            code: "E2340",
+            severity: "error",
+            message:
+              'Cannot infer the complete result type for "' +
+              expression.callee +
+              '" without result context.',
+            span: expression.span,
+            help:
+              'Use ok(...) or error(...) where a "result of T error E" type is expected.',
+          });
+          return undefined;
+        }
+
+        const payloadExpected =
+          expression.callee === "ok"
+            ? expected.okType
+            : expected.errorType;
+        const payload = expression.arguments[0];
+
+        if (payload) {
+          const actual = inferExpression(
+            payload,
+            env,
+            signatures,
+            types,
+            diagnostics,
+            payloadExpected,
+          );
+
+          if (
+            actual &&
+            !isAssignable(actual, payloadExpected, types)
+          ) {
+            diagnostics.push({
+              code: "E2342",
+              severity: "error",
+              message:
+                'Result "' +
+                expression.callee +
+                '" payload has type ' +
+                describeType(actual) +
+                " but expects " +
+                describeType(payloadExpected) +
+                ".",
+              span: payload.span,
+              help:
+                "Return a payload assignable to the declared result side.",
+            });
+          }
+        }
+
+        return expected;
+      }
+
       const callee = signatures.get(expression.callee);
       const constructor =
         types.dataByName.get(expression.callee) ??
@@ -1595,6 +1721,12 @@ function findUnknownType(
         findUnknownType(annotation.valueType, types, genericNames)
       );
 
+    case "ResultTypeAnnotation":
+      return (
+        findUnknownType(annotation.okType, types, genericNames) ??
+        findUnknownType(annotation.errorType, types, genericNames)
+      );
+
     case "OptionalTypeAnnotation":
       return findUnknownType(
         annotation.valueType,
@@ -1674,6 +1806,24 @@ function bindGenericTypes(
     );
   }
 
+  if (pattern.kind === "Result") {
+    return (
+      actual.kind === "Result" &&
+      bindGenericTypes(
+        pattern.okType,
+        actual.okType,
+        bindings,
+        types,
+      ) &&
+      bindGenericTypes(
+        pattern.errorType,
+        actual.errorType,
+        bindings,
+        types,
+      )
+    );
+  }
+
   if (pattern.kind === "Optional") {
     if (actual.kind === "None") return true;
 
@@ -1720,6 +1870,13 @@ function substituteGenerics(
         kind: "Map",
         keyType: substituteGenerics(type.keyType, bindings),
         valueType: substituteGenerics(type.valueType, bindings),
+      };
+
+    case "Result":
+      return {
+        kind: "Result",
+        okType: substituteGenerics(type.okType, bindings),
+        errorType: substituteGenerics(type.errorType, bindings),
       };
 
     case "Optional":
@@ -1785,6 +1942,13 @@ function isAssignable(
     return (
       isAssignable(actual.keyType, expected.keyType, types) &&
       isAssignable(actual.valueType, expected.valueType, types)
+    );
+  }
+
+  if (actual.kind === "Result" && expected.kind === "Result") {
+    return (
+      isAssignable(actual.okType, expected.okType, types) &&
+      isAssignable(actual.errorType, expected.errorType, types)
     );
   }
 
@@ -1855,6 +2019,19 @@ function commonType(
       : undefined;
   }
 
+  if (left.kind === "Result" && right.kind === "Result") {
+    const okType = commonType(left.okType, right.okType, types);
+    const errorType = commonType(
+      left.errorType,
+      right.errorType,
+      types,
+    );
+
+    return okType && errorType
+      ? { kind: "Result", okType, errorType }
+      : undefined;
+  }
+
   if (isAssignable(left, right, types)) return right;
   if (isAssignable(right, left, types)) return left;
 
@@ -1893,6 +2070,13 @@ function sameType(left: TypeRef, right: TypeRef): boolean {
         sameType(left.valueType, right.valueType)
       );
 
+    case "Result":
+      return (
+        right.kind === "Result" &&
+        sameType(left.okType, right.okType) &&
+        sameType(left.errorType, right.errorType)
+      );
+
     case "Optional":
       return (
         right.kind === "Optional" &&
@@ -1924,6 +2108,14 @@ function describeType(type: TypeRef): string {
         describeType(type.keyType) +
         " to " +
         describeType(type.valueType)
+      );
+
+    case "Result":
+      return (
+        "result of " +
+        describeType(type.okType) +
+        " error " +
+        describeType(type.errorType)
       );
 
     case "Optional":

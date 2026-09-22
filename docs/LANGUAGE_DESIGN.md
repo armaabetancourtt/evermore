@@ -109,11 +109,15 @@ function_item    ::= generic_parameter
                    | parameter
                    | return_type
                    | let_statement
+                   | var_statement
+                   | set_statement
                    | return_statement ;
-generic_parameter ::= "generic" identifier ;
+generic_parameter ::= "generic" identifier ("conforms" identifier)? ;
 parameter        ::= "takes" identifier type_annotation ;
 return_type      ::= "returns" type_annotation ;
 let_statement    ::= "let" identifier "=" expression ;
+var_statement    ::= "var" identifier "=" expression ;
+set_statement    ::= "set" identifier "=" expression ;
 return_statement ::= "return" expression ;
 
 type_annotation  ::= "optional" type_annotation
@@ -222,6 +226,7 @@ The checker currently supports:
 - generic-call inference from arguments and expected result context;
 - typed pure function signatures and forward calls;
 - local immutable `let` inference;
+- mutable local `var` storage with type-preserving `set` assignment;
 - numeric arithmetic and ordering;
 - compatible equality comparisons;
 - typed `if` expressions;
@@ -245,9 +250,9 @@ This grammar remains intentionally narrower than the long-term language. Executa
 
 These are design targets, not implemented claims.
 
-### Values and functions — partially implemented
+### Values and functions — implemented local storage core
 
-Immutable local `let` bindings and pure typed functions are executable today:
+Immutable `let`, explicitly mutable `var`, type-preserving `set` assignment and pure typed functions are executable today:
 
 ~~~evermore
 function add
@@ -256,13 +261,14 @@ function add
   takes b number
   returns number
 
-  let total = a + b
+  var total = a + b
+  set total = total + 1
   return total
 
 end
 ~~~
 
-Broader value lifetimes, mutable variables and richer expression families remain M2 work.
+`let` is immutable by default. `var` opts into mutation, and every `set` must remain assignable to the variable's inferred storage type. Parameters remain immutable. Broader module/global lifetimes are deliberately deferred to module semantics rather than being implicit mutable globals.
 
 ### Protocol contracts — partially implemented
 

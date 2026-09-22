@@ -32,6 +32,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Reproduce M1 syntax study
+        run: npm run research:m1
+
       - name: Build compiler
         run: npm run build
 
@@ -79,6 +82,9 @@ jobs:
 
       - name: Check data constructor example
         run: npm run evermore -- check examples/constructors.ever
+
+      - name: Check mutable values example
+        run: npm run evermore -- check examples/mutable-values.ever
 
       - name: Verify canonical formatter
         run: |
@@ -258,3 +264,20 @@ jobs:
       - name: Verify generated data constructor
         run: |
           grep -q '"name": "Ada"' /tmp/evermore-constructors/src/generated/functions.ts
+
+      - name: Generate mutable values application
+        run: npm run evermore -- build examples/mutable-values.ever --out /tmp/evermore-mutable
+
+      - name: Install mutable values application
+        working-directory: /tmp/evermore-mutable
+        run: npm install
+
+      - name: Build mutable values application
+        working-directory: /tmp/evermore-mutable
+        run: npm run build
+
+      - name: Verify generated mutable assignment
+        run: |
+          grep -q 'let local_0 = arg_0;' /tmp/evermore-mutable/src/generated/functions.ts
+
+

@@ -104,10 +104,28 @@ export type FunctionParameter = {
   readonly span: SourceSpan;
 };
 
-export type FunctionStatement = LetStatement | ReturnStatement;
+export type FunctionStatement =
+  | LetStatement
+  | VarStatement
+  | SetStatement
+  | ReturnStatement;
 
 export type LetStatement = {
   readonly kind: "LetStatement";
+  readonly name: string;
+  readonly expression: Expression;
+  readonly span: SourceSpan;
+};
+
+export type VarStatement = {
+  readonly kind: "VarStatement";
+  readonly name: string;
+  readonly expression: Expression;
+  readonly span: SourceSpan;
+};
+
+export type SetStatement = {
+  readonly kind: "SetStatement";
   readonly name: string;
   readonly expression: Expression;
   readonly span: SourceSpan;

@@ -26,6 +26,7 @@ import type {
   ProtocolConformance,
   ProtocolDeclaration,
   ReturnStatement,
+  SetStatement,
   ScreenDeclaration,
   ScreenStatement,
   ShowStatement,
@@ -39,6 +40,7 @@ import type {
   TypeAnnotation,
   TypeParameter,
   UseStatement,
+  VarStatement,
   VisualStatement,
 } from "./ast.js";
 import {
@@ -351,6 +353,16 @@ class Parser {
           continue;
         }
 
+        if (this.match("var")) {
+          body.push(this.parseVar(this.previous()));
+          continue;
+        }
+
+        if (this.match("set")) {
+          body.push(this.parseSet(this.previous()));
+          continue;
+        }
+
         if (this.match("return")) {
           body.push(this.parseReturn(this.previous()));
           continue;
@@ -360,7 +372,7 @@ class Parser {
           this.peek(),
           "E1010",
           "Expected a function declaration item or statement.",
-          "Use generic, takes, returns, let, or return.",
+          "Use generic, takes, returns, let, var, set, or return.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -400,6 +412,38 @@ class Parser {
 
     return {
       kind: "LetStatement",
+      name: name.value ?? name.lexeme,
+      expression,
+      span: {
+        start: start.span.start,
+        end: expression.span.end,
+      },
+    };
+  }
+
+  private parseVar(start: Token): VarStatement {
+    const name = this.consume("identifier", "Expected a mutable local name.");
+    this.consume("equal", 'Expected "=" after the mutable local name.');
+    const expression = this.parseExpression();
+
+    return {
+      kind: "VarStatement",
+      name: name.value ?? name.lexeme,
+      expression,
+      span: {
+        start: start.span.start,
+        end: expression.span.end,
+      },
+    };
+  }
+
+  private parseSet(start: Token): SetStatement {
+    const name = this.consume("identifier", "Expected a local name after set.");
+    this.consume("equal", 'Expected "=" after the local name.');
+    const expression = this.parseExpression();
+
+    return {
+      kind: "SetStatement",
       name: name.value ?? name.lexeme,
       expression,
       span: {
@@ -994,6 +1038,8 @@ class Parser {
       this.check("takes") ||
       this.check("returns") ||
       this.check("let") ||
+      this.check("var") ||
+      this.check("set") ||
       this.check("return") ||
       this.check("end") ||
       this.check("rbrace") ||
@@ -1059,6 +1105,7 @@ class Parser {
   private isTopLevelStart(): boolean {
     return (
       this.check("data") ||
+      this.check("protocol") ||
       this.check("choice") ||
       this.check("function") ||
       this.check("component") ||

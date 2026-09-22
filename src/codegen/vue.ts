@@ -456,10 +456,11 @@ function emitFunctions(
     let localIndex = 0;
 
     for (const statement of fn.body) {
-      if (statement.kind === "Let") {
+      if (statement.kind === "Let" || statement.kind === "Var") {
         const generatedLocal = "local_" + localIndex++;
         lines.push(
-          "  const " +
+          "  " +
+            (statement.kind === "Let" ? "const " : "let ") +
             generatedLocal +
             " = " +
             emitFunctionExpression(
@@ -470,6 +471,29 @@ function emitFunctions(
             ";",
         );
         values.set(statement.name, generatedLocal);
+        continue;
+      }
+
+      if (statement.kind === "Assign") {
+        const generatedLocal = values.get(statement.name);
+
+        if (!generatedLocal) {
+          throw new Error(
+            'IR assigns unknown local "' + statement.name + '".',
+          );
+        }
+
+        lines.push(
+          "  " +
+            generatedLocal +
+            " = " +
+            emitFunctionExpression(
+              statement.expression,
+              values,
+              functionNames,
+            ) +
+            ";",
+        );
         continue;
       }
 

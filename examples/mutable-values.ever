@@ -1,0 +1,21 @@
+app "Mutable Values"
+
+function countdownStep
+  takes start number
+  returns number
+
+  var remaining = start
+  set remaining = remaining - 1
+  return remaining
+end
+
+function stable
+  returns text
+
+  let message = "Immutable by default"
+  return message
+end
+
+screen Home
+  title "Explicit mutation"
+  text "let stays immutable. var opts into typed mutation."

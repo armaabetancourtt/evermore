@@ -92,6 +92,9 @@ jobs:
       - name: Check protocol methods example
         run: npm run evermore -- check examples/protocol-methods.ever
 
+      - name: Check classes example
+        run: npm run evermore -- check examples/classes.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -320,5 +323,24 @@ jobs:
           grep -q 'readonly "display": () => string;' /tmp/evermore-protocol-methods/src/generated/models.ts
           grep -q '"display": (): string => {' /tmp/evermore-protocol-methods/src/generated/functions.ts
           grep -q '\["display"\]()' /tmp/evermore-protocol-methods/src/generated/functions.ts
+
+      - name: Generate classes application
+        run: npm run evermore -- build examples/classes.ever --out /tmp/evermore-classes
+
+      - name: Install classes application
+        working-directory: /tmp/evermore-classes
+        run: npm install
+
+      - name: Build classes application
+        working-directory: /tmp/evermore-classes
+        run: npm run build
+
+      - name: Verify generated encapsulation
+        run: |
+          grep -q '"Account": EvermoreProtocols\["Named"\]' /tmp/evermore-classes/src/generated/models.ts
+          grep -q 'readonly "name": string;' /tmp/evermore-classes/src/generated/models.ts
+          ! grep -q 'readonly "accessToken": string;' /tmp/evermore-classes/src/generated/models.ts
+          grep -q 'const field_1 = "internal-token";' /tmp/evermore-classes/src/generated/functions.ts
+          ! grep -q '"accessToken": field_1' /tmp/evermore-classes/src/generated/functions.ts
 
 

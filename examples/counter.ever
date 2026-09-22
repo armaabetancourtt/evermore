@@ -1,0 +1,14 @@
+app "Counter"
+
+screen Home
+
+  title "Count without ceremony"
+
+  text "State should read like intent."
+
+  state count starts 0
+
+  show count
+
+  button "Add"
+    increases count

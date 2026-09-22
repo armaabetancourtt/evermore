@@ -80,7 +80,7 @@ Goals:
 - [x] collections (`list of T`, `set of T`, `map of K to V`, typed literals, recursive composition and contextual empty-collection inference);
 - [x] generics (function type parameters with argument/context inference);
 - [x] interfaces / protocols (field and method contracts, `data` conformance, protocol-typed values, member/method access and protocol-constrained generics);
-- [ ] classes and encapsulation;
+- [x] classes and encapsulation (nominal classes, public/private constructor fields, executable methods, protocol conformance, and enforced private-field access);
 - [x] pattern matching (exhaustive matching over nominal choices);
 - [ ] error model;
 - [ ] modules;

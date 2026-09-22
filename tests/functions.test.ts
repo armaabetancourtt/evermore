@@ -348,3 +348,131 @@ test("formatter canonicalizes list literals", () => {
   assert.match(formatted, /returns list of number/);
   assert.match(formatted, /return \[1, 2, 3\]/);
 });
+
+
+test("none is assignable to optional return types", () => {
+  const source = String.raw`
+app "Optional"
+
+function missing
+  returns optional number
+  return none
+end
+
+screen Home
+  title "Optional"
+`;
+
+  const result = compile(source);
+  const generated = result.files.find(
+    (file) => file.path === "src/generated/functions.ts",
+  );
+
+  assert.ok(generated);
+  assert.match(generated.content, /\): \(number \| null\)/);
+  assert.match(generated.content, /return null;/);
+});
+
+test("plain values lift into optional return types", () => {
+  const source = String.raw`
+app "Optional"
+
+function maybe
+  takes value number
+  returns optional number
+  return value
+end
+
+screen Home
+  title "Optional"
+`;
+
+  assert.doesNotThrow(() => compile(source));
+});
+
+test("none and values infer an optional list element type", () => {
+  const source = String.raw`
+app "Optional Lists"
+
+function values
+  returns list of optional number
+  return [1, none, 3]
+end
+
+screen Home
+  title "Optional Lists"
+`;
+
+  const result = compile(source);
+  const generated = result.files.find(
+    (file) => file.path === "src/generated/functions.ts",
+  );
+
+  assert.ok(generated);
+  assert.match(
+    generated.content,
+    /ReadonlyArray<\(number \| null\)>/,
+  );
+  assert.match(generated.content, /return \[1, null, 3\];/);
+});
+
+test("none is rejected for non-optional returns", () => {
+  const invalid = String.raw`
+app "Broken"
+
+function wrong
+  returns number
+  return none
+end
+
+screen Home
+  title "Broken"
+`;
+
+  assert.throws(
+    () => compile(invalid),
+    (error: unknown) => {
+      assert.ok(error instanceof EvermoreDiagnosticError);
+      assert.ok(
+        error.diagnostics.some((diagnostic) => diagnostic.code === "E2206"),
+      );
+      return true;
+    },
+  );
+});
+
+test("optional parameters accept none and plain values", () => {
+  const source = String.raw`
+app "Optional Calls"
+
+function keep
+  takes value optional number
+  returns optional number
+  return value
+end
+
+function absent
+  returns optional number
+  return keep(none)
+end
+
+function present
+  returns optional number
+  return keep(42)
+end
+
+screen Home
+  title "Optional Calls"
+`;
+
+  assert.doesNotThrow(() => compile(source));
+});
+
+test("formatter canonicalizes none", () => {
+  const formatted = formatSource(
+    'app "Optional" function missing { returns optional number return none } screen Home { title "Optional" }',
+  );
+
+  assert.match(formatted, /returns optional number/);
+  assert.match(formatted, /return none/);
+});

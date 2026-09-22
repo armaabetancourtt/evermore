@@ -903,7 +903,7 @@ function emitFunctionExpression(
       return (
         "(() => { const matchValue = " +
         source +
-        '; const matchCase = typeof matchValue === "object" && matchValue !== null && "kind" in matchValue ? matchValue.kind : matchValue;' +
+        '; const matchCase = typeof matchValue === "object" && matchValue !== null ? (matchValue as unknown as { readonly kind: string }).kind : matchValue;' +
         " switch (matchCase) { " +
         expression.cases
           .map(

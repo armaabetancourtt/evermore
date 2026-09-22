@@ -16,6 +16,7 @@ import type {
   FunctionParameter,
   FunctionStatement,
   IdentifierExpression,
+  ImportDeclaration,
   IncrementAction,
   LetStatement,
   ListExpression,
@@ -66,11 +67,51 @@ class Parser {
   constructor(private readonly tokens: readonly Token[]) {}
 
   parseProgram(): Program {
-    const appToken = this.consume(
-      "app",
-      'Every Evermore program starts with app "Name".',
-    );
-    const nameToken = this.consume("string", "Expected an application name.");
+    let header: Token;
+    let unitKind: "app" | "module";
+    let appName: string;
+    let moduleName: string | undefined;
+
+    if (this.match("app")) {
+      header = this.previous();
+      unitKind = "app";
+      const nameToken = this.consume(
+        "string",
+        "Expected an application name.",
+      );
+      appName = nameToken.value ?? "";
+    } else if (this.match("module")) {
+      header = this.previous();
+      unitKind = "module";
+      const nameToken = this.consume(
+        "identifier",
+        "Expected a module name.",
+      );
+      moduleName = nameToken.value ?? nameToken.lexeme;
+      appName = moduleName;
+    } else {
+      return this.fail(
+        this.peek(),
+        "E1000",
+        'Every Evermore source starts with app "Name" or module Name.',
+        "Use app for the project entrypoint and module for imported source files.",
+      );
+    }
+
+    const imports: ImportDeclaration[] = [];
+
+    while (this.match("import")) {
+      const importToken = this.previous();
+      const source = this.consume(
+        "string",
+        "Expected a relative module path after import.",
+      );
+
+      imports.push({
+        path: source.value ?? "",
+        span: spanFrom(importToken, source),
+      });
+    }
 
     const data: DataDeclaration[] = [];
     const classes: ClassDeclaration[] = [];
@@ -121,7 +162,7 @@ class Parser {
           this.peek(),
           "E1007",
           "Expected a top-level declaration.",
-          "Declare data, a class, a protocol, a choice, a function, a component, or a screen.",
+          "Imports must appear immediately after the app/module header; otherwise declare data, a class, a protocol, a choice, a function, a component, or a screen.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -138,7 +179,10 @@ class Parser {
 
     return {
       kind: "Program",
-      appName: nameToken.value ?? "",
+      unitKind,
+      appName,
+      ...(moduleName ? { moduleName } : {}),
+      imports,
       data,
       classes,
       protocols,
@@ -147,7 +191,7 @@ class Parser {
       components,
       screens,
       span: {
-        start: appToken.span.start,
+        start: header.span.start,
         end: eof.span.end,
       },
     };
@@ -1391,6 +1435,7 @@ class Parser {
   private isTopLevelStart(): boolean {
     return (
       this.check("data") ||
+      this.check("class") ||
       this.check("protocol") ||
       this.check("choice") ||
       this.check("function") ||

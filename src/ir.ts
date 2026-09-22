@@ -58,10 +58,22 @@ export type IRFunctionParameter = {
   readonly type: TypeRef;
 };
 
-export type IRFunctionStatement = IRLet | IRReturn;
+export type IRFunctionStatement = IRLet | IRVar | IRAssign | IRReturn;
 
 export type IRLet = {
   readonly kind: "Let";
+  readonly name: string;
+  readonly expression: IRExpression;
+};
+
+export type IRVar = {
+  readonly kind: "Var";
+  readonly name: string;
+  readonly expression: IRExpression;
+};
+
+export type IRAssign = {
+  readonly kind: "Assign";
   readonly name: string;
   readonly expression: IRExpression;
 };
@@ -341,6 +353,22 @@ function lowerFunctionStatement(
   if (statement.kind === "LetStatement") {
     return {
       kind: "Let",
+      name: statement.name,
+      expression: lowerExpression(statement.expression, model),
+    };
+  }
+
+  if (statement.kind === "VarStatement") {
+    return {
+      kind: "Var",
+      name: statement.name,
+      expression: lowerExpression(statement.expression, model),
+    };
+  }
+
+  if (statement.kind === "SetStatement") {
+    return {
+      kind: "Assign",
       name: statement.name,
       expression: lowerExpression(statement.expression, model),
     };

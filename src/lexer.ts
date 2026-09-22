@@ -16,7 +16,7 @@ export type TokenKind =
 export type Token = {
   readonly kind: TokenKind;
   readonly lexeme: string;
-  readonly value?: string;
+  readonly value?: string | undefined;
   readonly span: SourceSpan;
 };
 

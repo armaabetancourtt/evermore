@@ -56,6 +56,7 @@ export type IRExpression =
   | IRNumberExpression
   | IRStringExpression
   | IRBooleanExpression
+  | IRNoneExpression
   | IRListExpression
   | IRIdentifierExpression
   | IRBinaryExpression
@@ -74,6 +75,10 @@ export type IRStringExpression = {
 export type IRBooleanExpression = {
   readonly kind: "Boolean";
   readonly value: boolean;
+};
+
+export type IRNoneExpression = {
+  readonly kind: "None";
 };
 
 export type IRListExpression = {
@@ -229,6 +234,9 @@ function lowerExpression(expression: Expression): IRExpression {
 
     case "BooleanExpression":
       return { kind: "Boolean", value: expression.value };
+
+    case "NoneExpression":
+      return { kind: "None" };
 
     case "ListExpression":
       return {

@@ -74,6 +74,9 @@ jobs:
       - name: Check protocol example
         run: npm run evermore -- check examples/protocols.ever
 
+      - name: Check protocol values example
+        run: npm run evermore -- check examples/protocol-values.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -223,3 +226,17 @@ jobs:
 
       - name: Verify generated protocol contracts
         run: grep -q 'EvermoreProtocols' /tmp/evermore-protocols/src/generated/models.ts
+
+      - name: Generate protocol values application
+        run: npm run evermore -- build examples/protocol-values.ever --out /tmp/evermore-protocol-values
+
+      - name: Install protocol values application
+        working-directory: /tmp/evermore-protocol-values
+        run: npm install
+
+      - name: Build protocol values application
+        working-directory: /tmp/evermore-protocol-values
+        run: npm run build
+
+      - name: Verify generated protocol member access
+        run: grep -q 'EvermoreProtocols\["Named"\]' /tmp/evermore-protocol-values/src/generated/functions.ts

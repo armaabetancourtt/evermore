@@ -1,0 +1,39 @@
+app "Protocols"
+
+protocol Identified
+
+  id id
+
+end
+
+protocol Named
+
+  name text
+
+end
+
+data User
+
+  conforms Identified
+  conforms Named
+
+  id id
+  name text
+  age number
+
+end
+
+data Team
+
+  conforms Named
+
+  name text
+  members list of User
+
+end
+
+screen Home
+
+  title "Contracts before implementation"
+
+  text "Protocols define required data shape in Evermore."

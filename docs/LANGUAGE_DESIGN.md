@@ -79,15 +79,22 @@ The executable M1 + current M2 surface accepts the following EBNF-like grammar:
 ~~~text
 program          ::= "app" string declaration* EOF ;
 
-declaration      ::= data
+declaration      ::= protocol
+                   | data
                    | choice
                    | function
                    | component
                    | screen ;
 
-data             ::= "data" identifier data_body ;
-data_body        ::= "{" data_field* "}"
+protocol         ::= "protocol" identifier protocol_body ;
+protocol_body    ::= "{" data_field* "}"
                    | data_field* "end" ;
+
+data             ::= "data" identifier data_body ;
+data_body        ::= "{" data_item* "}"
+                   | data_item* "end" ;
+data_item        ::= conformance | data_field ;
+conformance      ::= "conforms" identifier ;
 data_field       ::= identifier type_annotation ;
 
 choice           ::= "choice" identifier choice_body ;
@@ -98,10 +105,12 @@ choice_case      ::= identifier ;
 function         ::= "function" identifier function_body ;
 function_body    ::= "{" function_item* "}"
                    | function_item* "end" ;
-function_item    ::= parameter
+function_item    ::= generic_parameter
+                   | parameter
                    | return_type
                    | let_statement
                    | return_statement ;
+generic_parameter ::= "generic" identifier ;
 parameter        ::= "takes" identifier type_annotation ;
 return_type      ::= "returns" type_annotation ;
 let_statement    ::= "let" identifier "=" expression ;
@@ -202,10 +211,13 @@ The checker currently supports:
 
 - primitive `text`, `number`, `boolean` and `id`;
 - nominal `data` and payload-free nominal `choice` types;
+- field-contract `protocol` declarations with statically checked `data` conformances;
+- inferred generic function type parameters declared with `generic T`;
 - recursive `list of T` and `optional T` type annotations;
 - `none` with optional lifting;
 - homogeneous list-literal inference;
 - contextual typing of empty lists when a list type is already expected;
+- generic-call inference from arguments and expected result context;
 - typed pure function signatures and forward calls;
 - local immutable `let` inference;
 - numeric arithmetic and ordering;
@@ -250,6 +262,24 @@ end
 
 Broader value lifetimes, mutable variables and richer expression families remain M2 work.
 
+### Protocol contracts — partially implemented
+
+Field contracts are executable today:
+
+~~~evermore
+protocol Named
+  name text
+end
+
+data User
+  conforms Named
+  name text
+  age number
+end
+~~~
+
+The compiler verifies conformance before lowering to a target. Protocol-typed values, member-based protocol APIs and method requirements remain M2 work.
+
 ### Algebraic data — partially implemented
 
 Nominal `data` records and payload-free `choice` types are executable today. Payload-carrying algebraic cases and generic choices remain future M2 work.
@@ -276,6 +306,21 @@ return match status
   case archived then "Archived"
 end
 ~~~
+
+### Generics — implemented for functions
+
+Generic function parameters are declared once and inferred at call sites:
+
+~~~evermore
+function identity
+  generic T
+  takes value T
+  returns T
+  return value
+end
+~~~
+
+Evermore infers generic substitutions from arguments and, where unambiguous, from the expected result type. Generic data/choice declarations and constraints remain later M2 work.
 
 ### Collections — partially implemented
 

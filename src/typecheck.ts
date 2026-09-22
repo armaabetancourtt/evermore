@@ -1578,6 +1578,15 @@ function inferExpression(
 
       const bindings = new Map<string, TypeRef>();
 
+      if (expected) {
+        bindGenericTypes(
+          callee.returnType,
+          expected,
+          bindings,
+          types,
+        );
+      }
+
       expression.arguments.forEach((argument, index) => {
         const parameterType = callee.parameters[index];
         const contextualExpected = parameterType
@@ -1621,15 +1630,6 @@ function inferExpression(
           });
         }
       });
-
-      if (expected) {
-        bindGenericTypes(
-          callee.returnType,
-          expected,
-          bindings,
-          types,
-        );
-      }
 
       const unresolved = callee.typeParameters.filter(
         (name) => !bindings.has(name),
@@ -1761,7 +1761,29 @@ function bindGenericTypes(
       return true;
     }
 
-    return sameType(existing, actual);
+    if (sameType(existing, actual)) {
+      return true;
+    }
+
+    const unified = commonType(existing, actual, types);
+
+    if (!unified) {
+      return false;
+    }
+
+    if (
+      pattern.constraint &&
+      !isAssignable(
+        unified,
+        { kind: "Protocol", name: pattern.constraint },
+        types,
+      )
+    ) {
+      return false;
+    }
+
+    bindings.set(pattern.name, unified);
+    return true;
   }
 
   if (pattern.kind === "List") {

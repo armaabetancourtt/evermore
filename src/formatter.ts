@@ -270,11 +270,13 @@ function formatFunction(
     );
   }
 
-  lines.push(
-    indent(depth + 1) +
-      "returns " +
-      formatTypeAnnotation(fn.returnType),
-  );
+  if (fn.returnType) {
+    lines.push(
+      indent(depth + 1) +
+        "returns " +
+        formatTypeAnnotation(fn.returnType),
+    );
+  }
 
   if (fn.body.length > 0) {
     lines.push("");

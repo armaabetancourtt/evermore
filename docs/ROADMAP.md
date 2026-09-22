@@ -38,7 +38,7 @@ Exit condition:
 
 ## M1 — Human syntax + Web vertical slice
 
-**Status: vertical slice complete ✅ · research follow-up ongoing**
+**Status: complete ✅**
 
 Goals:
 
@@ -55,8 +55,8 @@ Goals:
 
 Research:
 
-- [ ] natural syntax ambiguity study;
-- [ ] source readability study;
+- [x] natural syntax ambiguity study (reproducible natural/explicit target-equivalence corpus);
+- [x] source readability study (reproducible source-ergonomics proxies; no unsupported human-subject claim);
 - [x] AST/IR equivalence between natural and explicit modes.
 
 Exit condition:
@@ -71,7 +71,7 @@ Exit condition:
 
 Goals:
 
-- [ ] variables and constants (immutable inferred local `let` implemented; broader value/storage model pending);
+- [x] variables and constants (immutable inferred `let`, explicitly mutable inferred `var`, and type-preserving `set` assignment);
 - [x] expressions (literals, arithmetic, comparisons, calls, lists, conditionals and exhaustive matches);
 - [x] pure typed functions;
 - [x] nominal data structures (typed field contracts, nominal construction and member access);

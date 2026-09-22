@@ -32,6 +32,35 @@ data Team
 
 end
 
+function identifier
+
+  generic T conforms Identified
+  takes value T
+  returns id
+
+  return value.id
+
+end
+
+function preserveIdentity
+
+  generic T conforms Identified
+  takes value T
+  returns T
+
+  return value
+
+end
+
+function keepUser
+
+  takes value User
+  returns User
+
+  return preserveIdentity(value)
+
+end
+
 screen Home
 
   title "Contracts before implementation"

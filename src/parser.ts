@@ -1,12 +1,23 @@
 import type {
+  BinaryExpression,
+  BinaryOperator,
   ButtonAction,
   ButtonStatement,
+  CallExpression,
   ComponentDeclaration,
   DataDeclaration,
   DataField,
+  Expression,
+  FunctionDeclaration,
+  FunctionParameter,
+  FunctionStatement,
+  IdentifierExpression,
   IncrementAction,
+  LetStatement,
   NavigationAction,
+  NumberExpression,
   Program,
+  ReturnStatement,
   ScreenDeclaration,
   ScreenStatement,
   ShowStatement,
@@ -14,6 +25,7 @@ import type {
   StackDirection,
   StackStatement,
   StateDeclaration,
+  StringExpression,
   TextStatement,
   TitleStatement,
   UseStatement,
@@ -43,6 +55,7 @@ class Parser {
     const nameToken = this.consume("string", "Expected an application name.");
 
     const data: DataDeclaration[] = [];
+    const functions: FunctionDeclaration[] = [];
     const components: ComponentDeclaration[] = [];
     const screens: ScreenDeclaration[] = [];
 
@@ -50,6 +63,11 @@ class Parser {
       try {
         if (this.check("data")) {
           data.push(this.parseData());
+          continue;
+        }
+
+        if (this.check("function")) {
+          functions.push(this.parseFunction());
           continue;
         }
 
@@ -67,7 +85,7 @@ class Parser {
           this.peek(),
           "E1007",
           "Expected a top-level declaration.",
-          "Declare data, a component, or a screen.",
+          "Declare data, a function, a component, or a screen.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -86,6 +104,7 @@ class Parser {
       kind: "Program",
       appName: nameToken.value ?? "",
       data,
+      functions,
       components,
       screens,
       span: {
@@ -131,6 +150,232 @@ class Parser {
     };
   }
 
+  private parseFunction(): FunctionDeclaration {
+    const start = this.consume("function", "Expected a function declaration.");
+    const name = this.consume("identifier", "Expected a function name.");
+    const explicitBlock = this.match("lbrace");
+    const parameters: FunctionParameter[] = [];
+    const body: FunctionStatement[] = [];
+    let returnTypeName: string | undefined;
+
+    while (
+      !this.check("eof") &&
+      !(explicitBlock && this.check("rbrace")) &&
+      !(!explicitBlock && this.check("end"))
+    ) {
+      try {
+        if (this.match("takes")) {
+          const parameterName = this.consume(
+            "identifier",
+            "Expected a parameter name after takes.",
+          );
+          const typeToken = this.consumeTypeName();
+
+          parameters.push({
+            name: parameterName.value ?? parameterName.lexeme,
+            typeName: typeToken.lexeme,
+            span: spanFrom(parameterName, typeToken),
+          });
+          continue;
+        }
+
+        if (this.match("returns")) {
+          const typeToken = this.consumeTypeName();
+
+          if (returnTypeName !== undefined) {
+            this.fail(
+              typeToken,
+              "E1009",
+              "Function return type is declared more than once.",
+              "Keep a single returns declaration.",
+            );
+          }
+
+          returnTypeName = typeToken.lexeme;
+          continue;
+        }
+
+        if (this.match("let")) {
+          body.push(this.parseLet(this.previous()));
+          continue;
+        }
+
+        if (this.match("return")) {
+          body.push(this.parseReturn(this.previous()));
+          continue;
+        }
+
+        this.fail(
+          this.peek(),
+          "E1010",
+          "Expected a function declaration item or statement.",
+          "Use takes, returns, let, or return.",
+        );
+      } catch (error) {
+        if (!(error instanceof EvermoreDiagnosticError)) throw error;
+        this.record(error);
+        this.synchronizeFunction();
+      }
+    }
+
+    const end = explicitBlock
+      ? this.consume("rbrace", 'Expected "}" to close the function.')
+      : this.consume("end", 'Expected "end" to close the function.');
+
+    if (returnTypeName === undefined) {
+      this.fail(
+        name,
+        "E1011",
+        'Function "' + (name.value ?? name.lexeme) + '" has no return type.',
+        "Add returns <type> before the function body completes.",
+      );
+    }
+
+    return {
+      kind: "FunctionDeclaration",
+      name: name.value ?? name.lexeme,
+      parameters,
+      returnTypeName,
+      body,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseLet(start: Token): LetStatement {
+    const name = this.consume("identifier", "Expected a local variable name.");
+    this.consume("equal", 'Expected "=" after the local variable name.');
+    const expression = this.parseExpression();
+
+    return {
+      kind: "LetStatement",
+      name: name.value ?? name.lexeme,
+      expression,
+      span: {
+        start: start.span.start,
+        end: expression.span.end,
+      },
+    };
+  }
+
+  private parseReturn(start: Token): ReturnStatement {
+    const expression = this.parseExpression();
+    return {
+      kind: "ReturnStatement",
+      expression,
+      span: {
+        start: start.span.start,
+        end: expression.span.end,
+      },
+    };
+  }
+
+  private parseExpression(): Expression {
+    return this.parseAdditive();
+  }
+
+  private parseAdditive(): Expression {
+    let expression = this.parseMultiplicative();
+
+    while (this.check("plus") || this.check("minus")) {
+      const operator = this.advance();
+      const right = this.parseMultiplicative();
+      expression = binaryExpression(expression, operator, right);
+    }
+
+    return expression;
+  }
+
+  private parseMultiplicative(): Expression {
+    let expression = this.parsePrimary();
+
+    while (this.check("star") || this.check("slash")) {
+      const operator = this.advance();
+      const right = this.parsePrimary();
+      expression = binaryExpression(expression, operator, right);
+    }
+
+    return expression;
+  }
+
+  private parsePrimary(): Expression {
+    if (this.match("number")) {
+      const token = this.previous();
+      const expression: NumberExpression = {
+        kind: "NumberExpression",
+        value: Number(token.value ?? token.lexeme),
+        span: token.span,
+      };
+      return expression;
+    }
+
+    if (this.match("string")) {
+      const token = this.previous();
+      const expression: StringExpression = {
+        kind: "StringExpression",
+        value: token.value ?? "",
+        span: token.span,
+      };
+      return expression;
+    }
+
+    if (this.match("true") || this.match("false")) {
+      const token = this.previous();
+      return {
+        kind: "BooleanExpression",
+        value: token.kind === "true",
+        span: token.span,
+      };
+    }
+
+    if (this.match("identifier")) {
+      const identifier = this.previous();
+      const name = identifier.value ?? identifier.lexeme;
+
+      if (this.match("lparen")) {
+        const args: Expression[] = [];
+
+        if (!this.check("rparen")) {
+          do {
+            args.push(this.parseExpression());
+          } while (this.match("comma"));
+        }
+
+        const close = this.consume(
+          "rparen",
+          'Expected ")" after function arguments.',
+        );
+
+        const expression: CallExpression = {
+          kind: "CallExpression",
+          callee: name,
+          arguments: args,
+          span: spanFrom(identifier, close),
+        };
+        return expression;
+      }
+
+      const expression: IdentifierExpression = {
+        kind: "IdentifierExpression",
+        name,
+        span: identifier.span,
+      };
+      return expression;
+    }
+
+    if (this.match("lparen")) {
+      const expression = this.parseExpression();
+      this.consume("rparen", 'Expected ")" after the expression.');
+      return expression;
+    }
+
+    return this.fail(
+      this.peek(),
+      "E1012",
+      "Expected an expression.",
+      "Use a literal, variable, function call, or arithmetic expression.",
+    );
+  }
+
   private consumeTypeName(): Token {
     if (this.check("identifier") || this.check("text")) {
       return this.advance();
@@ -139,7 +384,7 @@ class Parser {
     return this.fail(
       this.peek(),
       "E1008",
-      "Expected a field type.",
+      "Expected a type.",
       "Use a primitive type such as text, number, boolean, id, or another data type.",
     );
   }
@@ -184,9 +429,7 @@ class Parser {
 
     while (
       !this.check("eof") &&
-      !this.check("screen") &&
-      !this.check("component") &&
-      !this.check("data") &&
+      !this.isTopLevelStart() &&
       !(explicitBlock && this.check("rbrace"))
     ) {
       try {
@@ -416,6 +659,30 @@ class Parser {
     );
   }
 
+  private synchronizeFunction(): void {
+    if (this.isFunctionBoundary()) return;
+
+    this.advance();
+
+    while (!this.check("eof")) {
+      if (this.isFunctionBoundary()) return;
+      this.advance();
+    }
+  }
+
+  private isFunctionBoundary(): boolean {
+    return (
+      this.check("takes") ||
+      this.check("returns") ||
+      this.check("let") ||
+      this.check("return") ||
+      this.check("end") ||
+      this.check("rbrace") ||
+      this.isTopLevelStart() ||
+      this.check("eof")
+    );
+  }
+
   private synchronizeScreen(): void {
     if (this.isScreenBoundary()) return;
 
@@ -443,9 +710,7 @@ class Parser {
       this.check("state") ||
       this.check("title") ||
       this.isVisualBoundary() ||
-      this.check("screen") ||
-      this.check("component") ||
-      this.check("data")
+      this.isTopLevelStart()
     );
   }
 
@@ -463,25 +728,22 @@ class Parser {
   }
 
   private synchronizeTopLevel(): void {
-    if (
-      this.check("screen") ||
-      this.check("component") ||
-      this.check("data") ||
-      this.check("eof")
-    ) {
-      return;
-    }
+    if (this.isTopLevelStart() || this.check("eof")) return;
 
     this.advance();
 
-    while (
-      !this.check("eof") &&
-      !this.check("screen") &&
-      !this.check("component") &&
-      !this.check("data")
-    ) {
+    while (!this.check("eof") && !this.isTopLevelStart()) {
       this.advance();
     }
+  }
+
+  private isTopLevelStart(): boolean {
+    return (
+      this.check("data") ||
+      this.check("function") ||
+      this.check("component") ||
+      this.check("screen")
+    );
   }
 
   private record(error: EvermoreDiagnosticError): void {
@@ -549,6 +811,36 @@ class Parser {
     }
     return token;
   }
+}
+
+function binaryExpression(
+  left: Expression,
+  operator: Token,
+  right: Expression,
+): BinaryExpression {
+  const operatorMap: Partial<Record<TokenKind, BinaryOperator>> = {
+    plus: "+",
+    minus: "-",
+    star: "*",
+    slash: "/",
+  };
+
+  const mapped = operatorMap[operator.kind];
+
+  if (!mapped) {
+    throw new Error("Invalid binary operator token: " + operator.kind);
+  }
+
+  return {
+    kind: "BinaryExpression",
+    operator: mapped,
+    left,
+    right,
+    span: {
+      start: left.span.start,
+      end: right.span.end,
+    },
+  };
 }
 
 function navigation(opens: Token, target: Token): NavigationAction {

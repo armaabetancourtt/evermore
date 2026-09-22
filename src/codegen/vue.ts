@@ -1,25 +1,24 @@
-import type { UIStatement } from "../ast.js";
-import type { SemanticModel } from "../semantic.js";
+import type { IRProgram, IRScreen } from "../ir.js";
 
 export type GeneratedFile = {
   readonly path: string;
   readonly content: string;
 };
 
-export function emitVue(model: SemanticModel): readonly GeneratedFile[] {
+export function emitVue(program: IRProgram): readonly GeneratedFile[] {
   const files: GeneratedFile[] = [];
   const routes: string[] = [];
 
-  for (const screen of model.program.screens) {
+  for (const screen of program.screens) {
     const componentName = screen.name + "Screen";
-    const path =
+    const routePath =
       screen.name === "Home"
         ? "/"
         : "/" + screen.name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 
     routes.push(
       "  { path: " +
-        JSON.stringify(path) +
+        JSON.stringify(routePath) +
         ", name: " +
         JSON.stringify(screen.name) +
         ", component: () => import(" +
@@ -29,7 +28,7 @@ export function emitVue(model: SemanticModel): readonly GeneratedFile[] {
 
     files.push({
       path: "src/generated/screens/" + componentName + ".vue",
-      content: emitScreen(screen.body),
+      content: emitScreen(screen),
     });
   }
 
@@ -47,10 +46,11 @@ export function emitVue(model: SemanticModel): readonly GeneratedFile[] {
     content:
       JSON.stringify(
         {
-          app: model.program.appName,
+          app: program.appName,
           target: "vue",
+          irVersion: "0.0.1",
           generatedBy: "Evermore 0.0.1",
-          screens: model.program.screens.map((screen) => screen.name),
+          screens: program.screens.map((screen) => screen.name),
         },
         null,
         2,
@@ -60,10 +60,9 @@ export function emitVue(model: SemanticModel): readonly GeneratedFile[] {
   return files;
 }
 
-function emitScreen(statements: readonly UIStatement[]): string {
-  const needsRouter = statements.some(
-    (statement) =>
-      statement.kind === "ButtonStatement" && Boolean(statement.action),
+function emitScreen(screen: IRScreen): string {
+  const needsRouter = screen.controls.some(
+    (control) => control.action?.kind === "Navigate",
   );
 
   const script = needsRouter
@@ -74,33 +73,36 @@ function emitScreen(statements: readonly UIStatement[]): string {
       "</script>\n\n"
     : "";
 
-  const body = statements
-    .map((statement) => {
-      switch (statement.kind) {
-        case "TitleStatement":
-          return "    <h1>" + escapeHtml(statement.text) + "</h1>";
+  const body: string[] = [];
 
-        case "ButtonStatement": {
-          const action = statement.action
-            ? ' @click="go(' + "'" + escapeAttribute(statement.action.target) + "'" + ')"'
-            : "";
-          return (
-            "    <button type=\"button\"" +
-            action +
-            ">" +
-            escapeHtml(statement.label) +
-            "</button>"
-          );
-        }
-      }
-    })
-    .join("\n");
+  if (screen.title) {
+    body.push("    <h1>" + escapeHtml(screen.title) + "</h1>");
+  }
+
+  for (const control of screen.controls) {
+    const action =
+      control.action?.kind === "Navigate"
+        ? ' @click="go(' +
+          "'" +
+          escapeAttribute(control.action.target) +
+          "'" +
+          ')"'
+        : "";
+
+    body.push(
+      "    <button type=\"button\"" +
+        action +
+        ">" +
+        escapeHtml(control.label) +
+        "</button>",
+    );
+  }
 
   return (
     script +
     "<template>\n" +
     '  <main class="evermore-screen">\n' +
-    body +
+    body.join("\n") +
     "\n  </main>\n" +
     "</template>\n\n" +
     "<style scoped>\n" +

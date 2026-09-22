@@ -434,6 +434,66 @@ function inferExpression(
     case "NoneExpression":
       return { kind: "None" };
 
+    case "ResultExpression": {
+      if (expected?.kind !== "Result") {
+        inferExpression(
+          expression.value,
+          env,
+          signatures,
+          types,
+          diagnostics,
+        );
+        diagnostics.push({
+          code: "E2240",
+          severity: "error",
+          message:
+            'Cannot infer the complete type of "' +
+            expression.variant +
+            '" without result context.',
+          span: expression.span,
+          help:
+            'Use success(...) or failure(...) where a "result of <success> or <failure>" type is already expected.',
+        });
+        return undefined;
+      }
+
+      const payloadExpected =
+        expression.variant === "success"
+          ? expected.successType
+          : expected.failureType;
+      const payload = inferExpression(
+        expression.value,
+        env,
+        signatures,
+        types,
+        diagnostics,
+        payloadExpected,
+      );
+
+      if (
+        payload &&
+        !isAssignable(payload, payloadExpected, types)
+      ) {
+        diagnostics.push({
+          code: "E2241",
+          severity: "error",
+          message:
+            'Result "' +
+            expression.variant +
+            '" payload has type ' +
+            describeType(payload) +
+            " but expects " +
+            describeType(payloadExpected) +
+            ".",
+          span: expression.value.span,
+          help:
+            "Return a payload assignable to the corresponding result type.",
+        });
+      }
+
+      return expected;
+    }
+
     case "MatchExpression": {
       const valueType = inferExpression(
         expression.value,
@@ -447,17 +507,19 @@ function inferExpression(
         valueType?.kind === "Named"
           ? types.choicesByName.get(valueType.name)
           : undefined;
+      const resultValue =
+        valueType?.kind === "Result" ? valueType : undefined;
 
-      if (valueType && !choice) {
+      if (valueType && !choice && !resultValue) {
         diagnostics.push({
           code: "E2310",
           severity: "error",
           message:
-            "Match requires a choice value, but found " +
+            "Match requires a choice or result value, but found " +
             describeType(valueType) +
             ".",
           span: expression.value.span,
-          help: "Match over a declared choice type.",
+          help: "Match over a declared choice or typed result value.",
         });
       }
 
@@ -475,36 +537,96 @@ function inferExpression(
               branch.caseName +
               '" is handled more than once.',
             span: branch.span,
-            help: "Keep exactly one branch for each choice case.",
+            help: "Keep exactly one branch for each match case.",
           });
         } else {
           seen.add(branch.caseName);
         }
 
-        if (
-          choice &&
-          !choice.cases.some((item) => item.name === branch.caseName)
-        ) {
-          diagnostics.push({
-            code: "E2311",
-            severity: "error",
-            message:
-              'Choice "' +
-              choice.name +
-              '" has no case "' +
-              branch.caseName +
-              '" in this match.',
-            span: branch.span,
-            help:
-              "Use one of: " +
-              choice.cases.map((item) => item.name).join(", ") +
-              ".",
-          });
+        let branchEnv: ReadonlyMap<string, TypeRef> = env;
+
+        if (choice) {
+          if (
+            !choice.cases.some(
+              (item) => item.name === branch.caseName,
+            )
+          ) {
+            diagnostics.push({
+              code: "E2311",
+              severity: "error",
+              message:
+                'Choice "' +
+                choice.name +
+                '" has no case "' +
+                branch.caseName +
+                '" in this match.',
+              span: branch.span,
+              help:
+                "Use one of: " +
+                choice.cases.map((item) => item.name).join(", ") +
+                ".",
+            });
+          }
+
+          if (branch.bindingName) {
+            diagnostics.push({
+              code: "E2243",
+              severity: "error",
+              message:
+                'Choice case "' +
+                branch.caseName +
+                '" has no payload to bind.',
+              span: branch.span,
+              help:
+                "Payload bindings are currently supported by typed result cases.",
+            });
+          }
+        }
+
+        if (resultValue) {
+          const validVariant =
+            branch.caseName === "success" ||
+            branch.caseName === "failure";
+
+          if (!validVariant) {
+            diagnostics.push({
+              code: "E2242",
+              severity: "error",
+              message:
+                'Result has no case "' +
+                branch.caseName +
+                '".',
+              span: branch.span,
+              help: 'Use "success" or "failure".',
+            });
+          } else if (!branch.bindingName) {
+            diagnostics.push({
+              code: "E2244",
+              severity: "error",
+              message:
+                'Result case "' +
+                branch.caseName +
+                '" must bind its payload.',
+              span: branch.span,
+              help:
+                'Write "case ' +
+                branch.caseName +
+                ' value then ..." to bind the payload.',
+            });
+          } else {
+            const payloadType =
+              branch.caseName === "success"
+                ? resultValue.successType
+                : resultValue.failureType;
+            const scoped = new Map(env);
+            scoped.set(branch.bindingName, payloadType);
+            branchEnv = scoped;
+          }
         }
 
         const branchType = inferExpression(
           branch.expression,
-          env,
+          branchEnv,
           signatures,
           types,
           diagnostics,
@@ -559,6 +681,26 @@ function inferExpression(
             span: expression.span,
             help:
               "Add one case branch for every missing choice case.",
+          });
+        }
+      }
+
+      if (resultValue) {
+        const missing = ["success", "failure"].filter(
+          (name) => !seen.has(name),
+        );
+
+        if (missing.length > 0) {
+          diagnostics.push({
+            code: "E2314",
+            severity: "error",
+            message:
+              "Match over result is not exhaustive. Missing: " +
+              missing.join(", ") +
+              ".",
+            span: expression.span,
+            help:
+              "Handle both success and failure result cases.",
           });
         }
       }
@@ -1552,7 +1694,7 @@ function resolveType(
       message: 'Unknown function type "' + unknown + '".',
       span,
       help:
-        "Use a primitive type, collection/optional composition, or a declared data/class/protocol/choice type.",
+        "Use a primitive type, collection/result/optional composition, or a declared data/class/protocol/choice type.",
     });
     return undefined;
   }
@@ -1593,6 +1735,12 @@ function findUnknownType(
       return (
         findUnknownType(annotation.keyType, types, genericNames) ??
         findUnknownType(annotation.valueType, types, genericNames)
+      );
+
+    case "ResultTypeAnnotation":
+      return (
+        findUnknownType(annotation.successType, types, genericNames) ??
+        findUnknownType(annotation.failureType, types, genericNames)
       );
 
     case "OptionalTypeAnnotation":
@@ -1674,6 +1822,24 @@ function bindGenericTypes(
     );
   }
 
+  if (pattern.kind === "Result") {
+    return (
+      actual.kind === "Result" &&
+      bindGenericTypes(
+        pattern.successType,
+        actual.successType,
+        bindings,
+        types,
+      ) &&
+      bindGenericTypes(
+        pattern.failureType,
+        actual.failureType,
+        bindings,
+        types,
+      )
+    );
+  }
+
   if (pattern.kind === "Optional") {
     if (actual.kind === "None") return true;
 
@@ -1720,6 +1886,19 @@ function substituteGenerics(
         kind: "Map",
         keyType: substituteGenerics(type.keyType, bindings),
         valueType: substituteGenerics(type.valueType, bindings),
+      };
+
+    case "Result":
+      return {
+        kind: "Result",
+        successType: substituteGenerics(
+          type.successType,
+          bindings,
+        ),
+        failureType: substituteGenerics(
+          type.failureType,
+          bindings,
+        ),
       };
 
     case "Optional":
@@ -1785,6 +1964,21 @@ function isAssignable(
     return (
       isAssignable(actual.keyType, expected.keyType, types) &&
       isAssignable(actual.valueType, expected.valueType, types)
+    );
+  }
+
+  if (actual.kind === "Result" && expected.kind === "Result") {
+    return (
+      isAssignable(
+        actual.successType,
+        expected.successType,
+        types,
+      ) &&
+      isAssignable(
+        actual.failureType,
+        expected.failureType,
+        types,
+      )
     );
   }
 
@@ -1855,6 +2049,23 @@ function commonType(
       : undefined;
   }
 
+  if (left.kind === "Result" && right.kind === "Result") {
+    const successType = commonType(
+      left.successType,
+      right.successType,
+      types,
+    );
+    const failureType = commonType(
+      left.failureType,
+      right.failureType,
+      types,
+    );
+
+    return successType && failureType
+      ? { kind: "Result", successType, failureType }
+      : undefined;
+  }
+
   if (isAssignable(left, right, types)) return right;
   if (isAssignable(right, left, types)) return left;
 
@@ -1893,6 +2104,13 @@ function sameType(left: TypeRef, right: TypeRef): boolean {
         sameType(left.valueType, right.valueType)
       );
 
+    case "Result":
+      return (
+        right.kind === "Result" &&
+        sameType(left.successType, right.successType) &&
+        sameType(left.failureType, right.failureType)
+      );
+
     case "Optional":
       return (
         right.kind === "Optional" &&
@@ -1924,6 +2142,14 @@ function describeType(type: TypeRef): string {
         describeType(type.keyType) +
         " to " +
         describeType(type.valueType)
+      );
+
+    case "Result":
+      return (
+        "result of " +
+        describeType(type.successType) +
+        " or " +
+        describeType(type.failureType)
       );
 
     case "Optional":

@@ -1,0 +1,19 @@
+{
+  "name": "evermore-language",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Human-first, AI-native programming language and software construction platform.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx src/cli.ts",
+    "test": "tsx --test tests/**/*.test.ts",
+    "evermore": "tsx src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

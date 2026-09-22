@@ -4,6 +4,7 @@ import type {
   Expression,
   FunctionDeclaration,
   FunctionStatement,
+  ProtocolDeclaration,
   TypeAnnotation,
 } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
@@ -28,6 +29,7 @@ export type FunctionTypeModel = {
 
 export type NamedTypeContext = {
   readonly dataByName: ReadonlyMap<string, DataDeclaration>;
+  readonly protocolsByName: ReadonlyMap<string, ProtocolDeclaration>;
   readonly choicesByName: ReadonlyMap<string, ChoiceDeclaration>;
 };
 
@@ -81,6 +83,7 @@ export function validateFunctions(
       if (
         isPrimitiveTypeName(parameter.name) ||
         types.dataByName.has(parameter.name) ||
+        types.protocolsByName.has(parameter.name) ||
         types.choicesByName.has(parameter.name)
       ) {
         diagnostics.push({
@@ -268,7 +271,10 @@ function validateFunctionStatement(
     signature.returnType,
   );
 
-  if (returned && !isAssignable(returned, signature.returnType)) {
+  if (
+    returned &&
+    !isAssignable(returned, signature.returnType, types)
+  ) {
     diagnostics.push({
       code: "E2206",
       severity: "error",
@@ -391,7 +397,7 @@ function inferExpression(
           continue;
         }
 
-        const merged = commonType(resultType, branchType);
+        const merged = commonType(resultType, branchType, types);
 
         if (!merged) {
           diagnostics.push({
@@ -437,6 +443,120 @@ function inferExpression(
       }
 
       return branchesCompatible ? resultType : undefined;
+    }
+
+    case "MemberExpression": {
+      if (expression.object.kind === "IdentifierExpression") {
+        const choice = types.choicesByName.get(
+          expression.object.name,
+        );
+
+        if (choice) {
+          if (
+            !choice.cases.some(
+              (item) => item.name === expression.member,
+            )
+          ) {
+            diagnostics.push({
+              code: "E2305",
+              severity: "error",
+              message:
+                'Choice "' +
+                choice.name +
+                '" has no case "' +
+                expression.member +
+                '".',
+              span: expression.span,
+              help:
+                "Use one of: " +
+                choice.cases.map((item) => item.name).join(", ") +
+                ".",
+            });
+            return undefined;
+          }
+
+          return {
+            kind: "Named",
+            name: choice.name,
+          };
+        }
+      }
+
+      const objectType = inferExpression(
+        expression.object,
+        env,
+        signatures,
+        types,
+        diagnostics,
+      );
+
+      if (!objectType) return undefined;
+
+      if (objectType.kind === "Optional") {
+        diagnostics.push({
+          code: "E2322",
+          severity: "error",
+          message:
+            'Cannot access member "' +
+            expression.member +
+            '" through optional ' +
+            describeType(objectType) +
+            ".",
+          span: expression.span,
+          help:
+            "Resolve the optional value before accessing its members.",
+        });
+        return undefined;
+      }
+
+      const owner =
+        objectType.kind === "Named"
+          ? types.dataByName.get(objectType.name)
+          : objectType.kind === "Protocol"
+            ? types.protocolsByName.get(objectType.name)
+            : undefined;
+
+      if (!owner) {
+        diagnostics.push({
+          code: "E2320",
+          severity: "error",
+          message:
+            'Type "' +
+            describeType(objectType) +
+            '" does not expose data members.',
+          span: expression.span,
+          help:
+            "Member access is currently supported on data and protocol values.",
+        });
+        return undefined;
+      }
+
+      const field = owner.fields.find(
+        (item) => item.name === expression.member,
+      );
+
+      if (!field) {
+        diagnostics.push({
+          code: "E2321",
+          severity: "error",
+          message:
+            'Type "' +
+            objectType.name +
+            '" has no member "' +
+            expression.member +
+            '".',
+          span: expression.span,
+          help:
+            "Use a field declared by the data type or protocol contract.",
+        });
+        return undefined;
+      }
+
+      return typeRefFromAnnotation(
+        field.type,
+        new Set(),
+        new Set(types.protocolsByName.keys()),
+      );
     }
 
     case "ChoiceCaseExpression": {
@@ -529,7 +649,7 @@ function inferExpression(
           continue;
         }
 
-        const merged = commonType(common, elementType);
+        const merged = commonType(common, elementType, types);
 
         if (!merged) {
           diagnostics.push({
@@ -615,7 +735,7 @@ function inferExpression(
 
       if (!thenType || !elseType) return undefined;
 
-      const merged = commonType(thenType, elseType);
+      const merged = commonType(thenType, elseType, types);
 
       if (!merged) {
         diagnostics.push({
@@ -706,8 +826,8 @@ function inferExpression(
 
       if (
         !sameType(left, right) &&
-        !isAssignable(left, right) &&
-        !isAssignable(right, left)
+        !isAssignable(left, right, types) &&
+        !isAssignable(right, left, types)
       ) {
         diagnostics.push({
           code: "E2216",
@@ -794,6 +914,7 @@ function inferExpression(
           parameterType,
           actual,
           bindings,
+          types,
         );
 
         if (!compatible) {
@@ -817,7 +938,12 @@ function inferExpression(
       });
 
       if (expected) {
-        bindGenericTypes(callee.returnType, expected, bindings);
+        bindGenericTypes(
+          callee.returnType,
+          expected,
+          bindings,
+          types,
+        );
       }
 
       const unresolved = callee.typeParameters.filter(
@@ -871,7 +997,11 @@ function resolveType(
     return undefined;
   }
 
-  return typeRefFromAnnotation(annotation, genericNames);
+  return typeRefFromAnnotation(
+    annotation,
+    genericNames,
+    new Set(types.protocolsByName.keys()),
+  );
 }
 
 function findUnknownType(
@@ -884,6 +1014,7 @@ function findUnknownType(
       return !genericNames.has(annotation.name) &&
         !isPrimitiveTypeName(annotation.name) &&
         !types.dataByName.has(annotation.name) &&
+        !types.protocolsByName.has(annotation.name) &&
         !types.choicesByName.has(annotation.name)
         ? annotation.name
         : undefined;
@@ -908,6 +1039,7 @@ function bindGenericTypes(
   pattern: TypeRef,
   actual: TypeRef,
   bindings: Map<string, TypeRef>,
+  types: NamedTypeContext,
 ): boolean {
   if (pattern.kind === "Generic") {
     const existing = bindings.get(pattern.name);
@@ -927,7 +1059,12 @@ function bindGenericTypes(
   if (pattern.kind === "List") {
     return (
       actual.kind === "List" &&
-      bindGenericTypes(pattern.elementType, actual.elementType, bindings)
+      bindGenericTypes(
+        pattern.elementType,
+        actual.elementType,
+        bindings,
+        types,
+      )
     );
   }
 
@@ -935,11 +1072,21 @@ function bindGenericTypes(
     if (actual.kind === "None") return true;
 
     return actual.kind === "Optional"
-      ? bindGenericTypes(pattern.valueType, actual.valueType, bindings)
-      : bindGenericTypes(pattern.valueType, actual, bindings);
+      ? bindGenericTypes(
+          pattern.valueType,
+          actual.valueType,
+          bindings,
+          types,
+        )
+      : bindGenericTypes(
+          pattern.valueType,
+          actual,
+          bindings,
+          types,
+        );
   }
 
-  return isAssignable(actual, pattern);
+  return isAssignable(actual, pattern, types);
 }
 
 function substituteGenerics(
@@ -965,26 +1112,48 @@ function substituteGenerics(
     case "None":
     case "Primitive":
     case "Named":
+    case "Protocol":
       return type;
   }
 }
 
-function isAssignable(actual: TypeRef, expected: TypeRef): boolean {
+function isAssignable(
+  actual: TypeRef,
+  expected: TypeRef,
+  types: NamedTypeContext,
+): boolean {
   if (sameType(actual, expected)) return true;
+
+  if (expected.kind === "Protocol" && actual.kind === "Named") {
+    const data = types.dataByName.get(actual.name);
+    return (
+      data?.conformances.some(
+        (conformance) => conformance.name === expected.name,
+      ) ?? false
+    );
+  }
 
   if (expected.kind === "Optional") {
     if (actual.kind === "None") return true;
-    return isAssignable(actual, expected.valueType);
+    return isAssignable(actual, expected.valueType, types);
   }
 
   if (actual.kind === "List" && expected.kind === "List") {
-    return isAssignable(actual.elementType, expected.elementType);
+    return isAssignable(
+      actual.elementType,
+      expected.elementType,
+      types,
+    );
   }
 
   return false;
 }
 
-function commonType(left: TypeRef, right: TypeRef): TypeRef | undefined {
+function commonType(
+  left: TypeRef,
+  right: TypeRef,
+  types: NamedTypeContext,
+): TypeRef | undefined {
   if (sameType(left, right)) return left;
 
   if (left.kind === "None" && right.kind !== "None") {
@@ -999,18 +1168,31 @@ function commonType(left: TypeRef, right: TypeRef): TypeRef | undefined {
       : { kind: "Optional", valueType: left };
   }
 
-  if (left.kind === "Optional" && isAssignable(right, left)) {
+  if (
+    left.kind === "Optional" &&
+    isAssignable(right, left, types)
+  ) {
     return left;
   }
 
-  if (right.kind === "Optional" && isAssignable(left, right)) {
+  if (
+    right.kind === "Optional" &&
+    isAssignable(left, right, types)
+  ) {
     return right;
   }
 
   if (left.kind === "List" && right.kind === "List") {
-    const elementType = commonType(left.elementType, right.elementType);
+    const elementType = commonType(
+      left.elementType,
+      right.elementType,
+      types,
+    );
     return elementType ? { kind: "List", elementType } : undefined;
   }
+
+  if (isAssignable(left, right, types)) return right;
+  if (isAssignable(right, left, types)) return left;
 
   return undefined;
 }
@@ -1025,6 +1207,7 @@ function sameType(left: TypeRef, right: TypeRef): boolean {
     case "Primitive":
     case "Named":
     case "Generic":
+    case "Protocol":
       return right.kind === left.kind && left.name === right.name;
 
     case "List":
@@ -1049,6 +1232,7 @@ function describeType(type: TypeRef): string {
     case "Primitive":
     case "Named":
     case "Generic":
+    case "Protocol":
       return type.name;
 
     case "List":

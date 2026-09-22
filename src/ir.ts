@@ -35,6 +35,7 @@ export type IRDataField = {
 
 export type IRFunction = {
   readonly name: string;
+  readonly typeParameters: readonly string[];
   readonly parameters: readonly IRFunctionParameter[];
   readonly returnType: TypeRef;
   readonly body: readonly IRFunctionStatement[];
@@ -211,15 +212,30 @@ export function lowerToIR(model: SemanticModel): IRProgram {
       name: choice.name,
       cases: choice.cases.map((item) => item.name),
     })),
-    functions: model.program.functions.map((fn) => ({
-      name: fn.name,
-      parameters: fn.parameters.map((parameter) => ({
-        name: parameter.name,
-        type: typeRefFromAnnotation(parameter.type),
-      })),
-      returnType: typeRefFromAnnotation(fn.returnType),
-      body: fn.body.map(lowerFunctionStatement),
-    })),
+    functions: model.program.functions.map((fn) => {
+      const genericNames = new Set(
+        fn.typeParameters.map((parameter) => parameter.name),
+      );
+
+      return {
+        name: fn.name,
+        typeParameters: fn.typeParameters.map(
+          (parameter) => parameter.name,
+        ),
+        parameters: fn.parameters.map((parameter) => ({
+          name: parameter.name,
+          type: typeRefFromAnnotation(
+            parameter.type,
+            genericNames,
+          ),
+        })),
+        returnType: typeRefFromAnnotation(
+          fn.returnType,
+          genericNames,
+        ),
+        body: fn.body.map(lowerFunctionStatement),
+      };
+    }),
     screens: model.program.screens.map((screen) => {
       const title = screen.body.find(
         (statement) => statement.kind === "TitleStatement",

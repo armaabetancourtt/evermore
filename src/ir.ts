@@ -1,10 +1,22 @@
 import type { VisualStatement } from "./ast.js";
 import type { SemanticModel } from "./semantic.js";
+import { typeRef, type TypeRef } from "./types.js";
 
 export type IRProgram = {
   readonly kind: "IRProgram";
   readonly appName: string;
+  readonly data: readonly IRDataModel[];
   readonly screens: readonly IRScreen[];
+};
+
+export type IRDataModel = {
+  readonly name: string;
+  readonly fields: readonly IRDataField[];
+};
+
+export type IRDataField = {
+  readonly name: string;
+  readonly type: TypeRef;
 };
 
 export type IRScreen = {
@@ -60,6 +72,13 @@ export function lowerToIR(model: SemanticModel): IRProgram {
   return {
     kind: "IRProgram",
     appName: model.program.appName,
+    data: model.program.data.map((declaration) => ({
+      name: declaration.name,
+      fields: declaration.fields.map((field) => ({
+        name: field.name,
+        type: typeRef(field.typeName),
+      })),
+    })),
     screens: model.program.screens.map((screen) => {
       const title = screen.body.find(
         (statement) => statement.kind === "TitleStatement",

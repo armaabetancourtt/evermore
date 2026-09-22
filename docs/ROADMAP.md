@@ -67,25 +67,25 @@ Exit condition:
 
 ## M2 — Core language
 
-**Status: in progress — nominal data + pure typed functions operational**
+**Status: in progress — executable typed domain core operational**
 
 Goals:
 
-- [ ] variables and constants (immutable inferred local `let` implemented; broader model pending);
-- [x] expressions (numeric arithmetic, literals, identifiers, calls);
+- [ ] variables and constants (immutable inferred local `let` implemented; broader value/storage model pending);
+- [x] expressions (literals, arithmetic, comparisons, calls, lists, conditionals and exhaustive matches);
 - [x] pure typed functions;
 - [x] nominal data structures;
-- enums / algebraic choices;
-- optionals;
-- collections;
-- generics;
-- interfaces;
-- classes and encapsulation;
-- pattern matching;
-- error model;
-- modules;
-- package semantics;
-- [ ] type inference where unambiguous (local `let` inference implemented; broader inference pending).
+- [x] enums / algebraic choices (nominal payload-free `choice` types);
+- [x] optionals (`optional T`, `none`, optional lifting);
+- [ ] collections (typed/list literals and recursive `list of T` implemented; broader collection families pending);
+- [ ] generics;
+- [ ] interfaces;
+- [ ] classes and encapsulation;
+- [x] pattern matching (exhaustive matching over nominal choices);
+- [ ] error model;
+- [ ] modules;
+- [ ] package semantics;
+- [ ] type inference where unambiguous (local `let`, homogeneous lists, optional branch lifting and contextual empty-list inference implemented; broader inference pending).
 
 Research:
 

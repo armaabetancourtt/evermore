@@ -38,8 +38,16 @@ jobs:
       - name: Check example
         run: npm run evermore -- check examples/hello.ever
 
-      - name: Generate Vue artifacts
+      - name: Generate Vue application
         run: npm run evermore -- build examples/hello.ever --out /tmp/evermore-example
 
       - name: Verify generated manifest
         run: test -f /tmp/evermore-example/src/generated/evermore.manifest.json
+
+      - name: Install generated application
+        working-directory: /tmp/evermore-example
+        run: npm install
+
+      - name: Build generated Vue application
+        working-directory: /tmp/evermore-example
+        run: npm run build

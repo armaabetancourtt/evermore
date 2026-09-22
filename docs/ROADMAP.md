@@ -38,17 +38,19 @@ Exit condition:
 
 ## M1 — Human syntax + Web vertical slice
 
+**Status: vertical slice complete ✅ · research follow-up ongoing**
+
 Goals:
 
 - [x] natural syntax without semantic indentation;
 - [x] canonical formatter;
 - [x] text and buttons;
-- [ ] stacks and layout;
-- [ ] state;
+- [x] stacks and layout;
+- [x] state;
 - [x] navigation;
-- [ ] reusable components;
+- [x] reusable components;
 - [x] first Vue/Vite application shell;
-- [ ] accessibility defaults;
+- [x] accessibility defaults;
 - [x] generated target compile tests.
 
 Research:

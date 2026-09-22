@@ -58,6 +58,7 @@ export type IRExpression =
   | IRBooleanExpression
   | IRNoneExpression
   | IRListExpression
+  | IRIfExpression
   | IRIdentifierExpression
   | IRBinaryExpression
   | IRCallExpression;
@@ -91,9 +92,26 @@ export type IRIdentifierExpression = {
   readonly name: string;
 };
 
+export type IRIfExpression = {
+  readonly kind: "If";
+  readonly condition: IRExpression;
+  readonly thenExpression: IRExpression;
+  readonly elseExpression: IRExpression;
+};
+
 export type IRBinaryExpression = {
   readonly kind: "Binary";
-  readonly operator: "+" | "-" | "*" | "/";
+  readonly operator:
+    | "+"
+    | "-"
+    | "*"
+    | "/"
+    | "=="
+    | "!="
+    | ">"
+    | ">="
+    | "<"
+    | "<=";
   readonly left: IRExpression;
   readonly right: IRExpression;
 };
@@ -242,6 +260,14 @@ function lowerExpression(expression: Expression): IRExpression {
       return {
         kind: "List",
         elements: expression.elements.map(lowerExpression),
+      };
+
+    case "IfExpression":
+      return {
+        kind: "If",
+        condition: lowerExpression(expression.condition),
+        thenExpression: lowerExpression(expression.thenExpression),
+        elseExpression: lowerExpression(expression.elseExpression),
       };
 
     case "IdentifierExpression":

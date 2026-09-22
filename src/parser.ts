@@ -289,9 +289,27 @@ class Parser {
             "Expected a generic type parameter name.",
           );
 
+          let constraint: ProtocolConformance | undefined;
+
+          if (this.match("conforms")) {
+            const protocolName = this.consume(
+              "identifier",
+              "Expected a protocol name after conforms.",
+            );
+
+            constraint = {
+              name: protocolName.value ?? protocolName.lexeme,
+              span: protocolName.span,
+            };
+          }
+
           typeParameters.push({
             name: typeName.value ?? typeName.lexeme,
-            span: typeName.span,
+            ...(constraint ? { constraint } : {}),
+            span: {
+              start: typeName.span.start,
+              end: constraint?.span.end ?? typeName.span.end,
+            },
           });
           continue;
         }

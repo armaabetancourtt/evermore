@@ -16,6 +16,7 @@ import {
 
 export type FunctionSignature = {
   readonly declaration: FunctionDeclaration;
+  readonly typeParameters: readonly string[];
   readonly parameters: readonly TypeRef[];
   readonly returnType: TypeRef;
 };
@@ -56,7 +57,48 @@ export function validateFunctions(
   for (const fn of functionsByName.values()) {
     const parameterTypes: TypeRef[] = [];
     const parameterNames = new Set<string>();
+    const genericNames = new Set<string>();
     let signatureValid = true;
+
+    for (const parameter of fn.typeParameters) {
+      if (genericNames.has(parameter.name)) {
+        diagnostics.push({
+          code: "E2220",
+          severity: "error",
+          message:
+            'Generic type "' +
+            parameter.name +
+            '" is declared more than once in function "' +
+            fn.name +
+            '".',
+          span: parameter.span,
+          help: "Give each generic type parameter a unique name.",
+        });
+        signatureValid = false;
+        continue;
+      }
+
+      if (
+        isPrimitiveTypeName(parameter.name) ||
+        types.dataByName.has(parameter.name) ||
+        types.choicesByName.has(parameter.name)
+      ) {
+        diagnostics.push({
+          code: "E2221",
+          severity: "error",
+          message:
+            'Generic type "' +
+            parameter.name +
+            '" conflicts with an existing type name.',
+          span: parameter.span,
+          help: "Choose a fresh generic type parameter name such as T or Value.",
+        });
+        signatureValid = false;
+        continue;
+      }
+
+      genericNames.add(parameter.name);
+    }
 
     for (const parameter of fn.parameters) {
       if (parameterNames.has(parameter.name)) {
@@ -81,6 +123,7 @@ export function validateFunctions(
         parameter.span,
         types,
         diagnostics,
+        genericNames,
       );
 
       if (!resolved) {
@@ -95,6 +138,7 @@ export function validateFunctions(
       fn.span,
       types,
       diagnostics,
+      genericNames,
     );
 
     if (!returnType) {
@@ -104,6 +148,7 @@ export function validateFunctions(
     if (signatureValid && returnType) {
       signaturesByName.set(fn.name, {
         declaration: fn,
+        typeParameters: [...genericNames],
         parameters: parameterTypes,
         returnType,
       });
@@ -726,22 +771,32 @@ function inferExpression(
         });
       }
 
+      const bindings = new Map<string, TypeRef>();
+
       expression.arguments.forEach((argument, index) => {
         const parameterType = callee.parameters[index];
+        const contextualExpected = parameterType
+          ? substituteGenerics(parameterType, bindings)
+          : undefined;
+
         const actual = inferExpression(
           argument,
           env,
           signatures,
           types,
           diagnostics,
-          parameterType,
+          contextualExpected,
         );
 
-        if (
-          actual &&
-          parameterType &&
-          !isAssignable(actual, parameterType)
-        ) {
+        if (!actual || !parameterType) return;
+
+        const compatible = bindGenericTypes(
+          parameterType,
+          actual,
+          bindings,
+        );
+
+        if (!compatible) {
           diagnostics.push({
             code: "E2209",
             severity: "error",
@@ -753,7 +808,7 @@ function inferExpression(
               '" has type ' +
               describeType(actual) +
               " but expects " +
-              describeType(parameterType) +
+              describeType(substituteGenerics(parameterType, bindings)) +
               ".",
             span: argument.span,
             help: "Pass a value assignable to the parameter type.",
@@ -761,9 +816,33 @@ function inferExpression(
         }
       });
 
-      return callee.returnType;
-    }
-  }
+      if (expected) {
+        bindGenericTypes(callee.returnType, expected, bindings);
+      }
+
+      const unresolved = callee.typeParameters.filter(
+        (name) => !bindings.has(name),
+      );
+
+      if (unresolved.length > 0) {
+        diagnostics.push({
+          code: "E2222",
+          severity: "error",
+          message:
+            'Cannot infer generic type ' +
+            unresolved.map((name) => '"' + name + '"').join(", ") +
+            ' for function "' +
+            expression.callee +
+            '".',
+          span: expression.span,
+          help:
+            "Pass arguments that determine every generic type, or use the call where its result type provides context.",
+        });
+        return undefined;
+      }
+
+      return substituteGenerics(callee.returnType, bindings);
+    }  }
 }
 
 function resolveType(
@@ -771,8 +850,13 @@ function resolveType(
   span: FunctionDeclaration["span"],
   types: NamedTypeContext,
   diagnostics: Diagnostic[],
+  genericNames: ReadonlySet<string>,
 ): TypeRef | undefined {
-  const unknown = findUnknownType(annotation, types);
+  const unknown = findUnknownType(
+    annotation,
+    types,
+    genericNames,
+  );
 
   if (unknown) {
     diagnostics.push({
@@ -786,26 +870,101 @@ function resolveType(
     return undefined;
   }
 
-  return typeRefFromAnnotation(annotation);
+  return typeRefFromAnnotation(annotation, genericNames);
 }
 
 function findUnknownType(
   annotation: TypeAnnotation,
   types: NamedTypeContext,
+  genericNames: ReadonlySet<string>,
 ): string | undefined {
   switch (annotation.kind) {
     case "NamedTypeAnnotation":
-      return !isPrimitiveTypeName(annotation.name) &&
+      return !genericNames.has(annotation.name) &&
+        !isPrimitiveTypeName(annotation.name) &&
         !types.dataByName.has(annotation.name) &&
         !types.choicesByName.has(annotation.name)
         ? annotation.name
         : undefined;
 
     case "ListTypeAnnotation":
-      return findUnknownType(annotation.elementType, types);
+      return findUnknownType(
+        annotation.elementType,
+        types,
+        genericNames,
+      );
 
     case "OptionalTypeAnnotation":
-      return findUnknownType(annotation.valueType, types);
+      return findUnknownType(
+        annotation.valueType,
+        types,
+        genericNames,
+      );
+  }
+}
+
+function bindGenericTypes(
+  pattern: TypeRef,
+  actual: TypeRef,
+  bindings: Map<string, TypeRef>,
+): boolean {
+  if (pattern.kind === "Generic") {
+    const existing = bindings.get(pattern.name);
+
+    if (!existing) {
+      if (actual.kind === "Generic" && actual.name === pattern.name) {
+        return true;
+      }
+
+      bindings.set(pattern.name, actual);
+      return true;
+    }
+
+    return sameType(existing, actual);
+  }
+
+  if (pattern.kind === "List") {
+    return (
+      actual.kind === "List" &&
+      bindGenericTypes(pattern.elementType, actual.elementType, bindings)
+    );
+  }
+
+  if (pattern.kind === "Optional") {
+    if (actual.kind === "None") return true;
+
+    return actual.kind === "Optional"
+      ? bindGenericTypes(pattern.valueType, actual.valueType, bindings)
+      : bindGenericTypes(pattern.valueType, actual, bindings);
+  }
+
+  return isAssignable(actual, pattern);
+}
+
+function substituteGenerics(
+  type: TypeRef,
+  bindings: ReadonlyMap<string, TypeRef>,
+): TypeRef {
+  switch (type.kind) {
+    case "Generic":
+      return bindings.get(type.name) ?? type;
+
+    case "List":
+      return {
+        kind: "List",
+        elementType: substituteGenerics(type.elementType, bindings),
+      };
+
+    case "Optional":
+      return {
+        kind: "Optional",
+        valueType: substituteGenerics(type.valueType, bindings),
+      };
+
+    case "None":
+    case "Primitive":
+    case "Named":
+      return type;
   }
 }
 
@@ -864,6 +1023,7 @@ function sameType(left: TypeRef, right: TypeRef): boolean {
 
     case "Primitive":
     case "Named":
+    case "Generic":
       return right.kind === left.kind && left.name === right.name;
 
     case "List":
@@ -887,6 +1047,7 @@ function describeType(type: TypeRef): string {
 
     case "Primitive":
     case "Named":
+    case "Generic":
       return type.name;
 
     case "List":

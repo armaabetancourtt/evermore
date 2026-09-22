@@ -47,6 +47,12 @@ jobs:
       - name: Check layout example
         run: npm run evermore -- check examples/layout.ever
 
+      - name: Check component example
+        run: npm run evermore -- check examples/components.ever
+
+      - name: Check M1 showcase
+        run: npm run evermore -- check examples/showcase.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -86,4 +92,15 @@ jobs:
 
       - name: Build layout Vue application
         working-directory: /tmp/evermore-layout
+        run: npm run build
+
+      - name: Generate M1 showcase
+        run: npm run evermore -- build examples/showcase.ever --out /tmp/evermore-showcase
+
+      - name: Install M1 showcase
+        working-directory: /tmp/evermore-showcase
+        run: npm install
+
+      - name: Build M1 showcase
+        working-directory: /tmp/evermore-showcase
         run: npm run build

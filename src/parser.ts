@@ -62,11 +62,15 @@ class Parser {
   private parseScreen(): ScreenDeclaration {
     const start = this.consume("screen", "Expected a screen declaration.");
     const name = this.consume("identifier", "Expected a screen name.");
-    this.consume("lbrace", 'Expected "{" after the screen name.');
+    const explicitBlock = this.match("lbrace");
 
     const body: UIStatement[] = [];
 
-    while (!this.check("rbrace") && !this.check("eof")) {
+    while (
+      !this.check("eof") &&
+      !this.check("screen") &&
+      !(explicitBlock && this.check("rbrace"))
+    ) {
       try {
         body.push(this.parseUIStatement());
       } catch (error) {
@@ -76,7 +80,13 @@ class Parser {
       }
     }
 
-    const end = this.consume("rbrace", 'Expected "}" to close the screen.');
+    let end: Token;
+
+    if (explicitBlock) {
+      end = this.consume("rbrace", 'Expected "}" to close the screen.');
+    } else {
+      end = this.previous();
+    }
 
     return {
       kind: "ScreenDeclaration",
@@ -114,7 +124,6 @@ class Parser {
 
   private parseButton(start: Token): ButtonStatement {
     const label = this.consume("string", "Expected button label.");
-    let action: NavigationAction | undefined;
 
     if (this.match("lbrace")) {
       const opens = this.consume(
@@ -127,17 +136,26 @@ class Parser {
       );
       const close = this.consume("rbrace", 'Expected "}" to close the button.');
 
-      action = {
-        kind: "NavigationAction",
-        target: target.value ?? target.lexeme,
-        span: spanFrom(opens, target),
+      return {
+        kind: "ButtonStatement",
+        label: label.value ?? "",
+        action: navigation(opens, target),
+        span: spanFrom(start, close),
       };
+    }
+
+    if (this.match("opens")) {
+      const opens = this.previous();
+      const target = this.consume(
+        "identifier",
+        "Expected the destination screen name.",
+      );
 
       return {
         kind: "ButtonStatement",
         label: label.value ?? "",
-        action,
-        span: spanFrom(start, close),
+        action: navigation(opens, target),
+        span: spanFrom(start, target),
       };
     }
 
@@ -152,6 +170,7 @@ class Parser {
     if (
       this.check("title") ||
       this.check("button") ||
+      this.check("screen") ||
       this.check("rbrace") ||
       this.check("eof")
     ) {
@@ -164,6 +183,7 @@ class Parser {
       if (
         this.check("title") ||
         this.check("button") ||
+        this.check("screen") ||
         this.check("rbrace")
       ) {
         return;
@@ -248,6 +268,14 @@ class Parser {
     }
     return token;
   }
+}
+
+function navigation(opens: Token, target: Token): NavigationAction {
+  return {
+    kind: "NavigationAction",
+    target: target.value ?? target.lexeme,
+    span: spanFrom(opens, target),
+  };
 }
 
 function spanFrom(start: Token, end: Token): SourceSpan {

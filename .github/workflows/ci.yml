@@ -44,6 +44,9 @@ jobs:
       - name: Check reactive example
         run: npm run evermore -- check examples/counter.ever
 
+      - name: Check layout example
+        run: npm run evermore -- check examples/layout.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -72,4 +75,15 @@ jobs:
 
       - name: Build reactive Vue application
         working-directory: /tmp/evermore-counter
+        run: npm run build
+
+      - name: Generate layout Vue application
+        run: npm run evermore -- build examples/layout.ever --out /tmp/evermore-layout
+
+      - name: Install layout application
+        working-directory: /tmp/evermore-layout
+        run: npm install
+
+      - name: Build layout Vue application
+        working-directory: /tmp/evermore-layout
         run: npm run build

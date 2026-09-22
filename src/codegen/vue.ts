@@ -386,23 +386,6 @@ function emitTypeRef(
     case "None":
       return "null";
 
-    case "Result":
-      return expression.variant === "ok"
-        ? '({ kind: "ok", value: ' +
-            emitFunctionExpression(
-              expression.value,
-              values,
-              functions,
-            ) +
-            " } as const)"
-        : '({ kind: "error", error: ' +
-            emitFunctionExpression(
-              expression.value,
-              values,
-              functions,
-            ) +
-            " } as const)";
-
     case "Named":
       return "EvermoreModels[" + JSON.stringify(type.name) + "]";
 
@@ -784,6 +767,23 @@ function emitFunctionExpression(
 
     case "None":
       return "null";
+
+    case "Result":
+      return expression.variant === "ok"
+        ? '({ kind: "ok", value: ' +
+            emitFunctionExpression(
+              expression.value,
+              values,
+              functions,
+            ) +
+            " } as const)"
+        : '({ kind: "error", error: ' +
+            emitFunctionExpression(
+              expression.value,
+              values,
+              functions,
+            ) +
+            " } as const)";
 
     case "List":
       return (

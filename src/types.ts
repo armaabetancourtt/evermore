@@ -32,6 +32,7 @@ export type TypeRef =
   | {
       readonly kind: "Generic";
       readonly name: string;
+      readonly constraint?: string;
     }
   | {
       readonly kind: "Protocol";
@@ -56,11 +57,17 @@ export function typeRefFromAnnotation(
   annotation: TypeAnnotation,
   genericNames: ReadonlySet<string> = new Set(),
   protocolNames: ReadonlySet<string> = new Set(),
+  genericConstraints: ReadonlyMap<string, string> = new Map(),
 ): TypeRef {
   switch (annotation.kind) {
     case "NamedTypeAnnotation":
       if (genericNames.has(annotation.name)) {
-        return { kind: "Generic", name: annotation.name };
+        const constraint = genericConstraints.get(annotation.name);
+        return {
+          kind: "Generic",
+          name: annotation.name,
+          ...(constraint ? { constraint } : {}),
+        };
       }
 
       if (protocolNames.has(annotation.name)) {
@@ -76,6 +83,7 @@ export function typeRefFromAnnotation(
           annotation.elementType,
           genericNames,
           protocolNames,
+          genericConstraints,
         ),
       };
 
@@ -86,6 +94,7 @@ export function typeRefFromAnnotation(
           annotation.valueType,
           genericNames,
           protocolNames,
+          genericConstraints,
         ),
       };
   }

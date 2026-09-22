@@ -56,6 +56,7 @@ export type IRExpression =
   | IRNumberExpression
   | IRStringExpression
   | IRBooleanExpression
+  | IRListExpression
   | IRIdentifierExpression
   | IRBinaryExpression
   | IRCallExpression;
@@ -73,6 +74,11 @@ export type IRStringExpression = {
 export type IRBooleanExpression = {
   readonly kind: "Boolean";
   readonly value: boolean;
+};
+
+export type IRListExpression = {
+  readonly kind: "List";
+  readonly elements: readonly IRExpression[];
 };
 
 export type IRIdentifierExpression = {
@@ -223,6 +229,12 @@ function lowerExpression(expression: Expression): IRExpression {
 
     case "BooleanExpression":
       return { kind: "Boolean", value: expression.value };
+
+    case "ListExpression":
+      return {
+        kind: "List",
+        elements: expression.elements.map(lowerExpression),
+      };
 
     case "IdentifierExpression":
       return { kind: "Identifier", name: expression.name };

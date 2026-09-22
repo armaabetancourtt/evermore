@@ -89,6 +89,7 @@ export type Expression =
   | NumberExpression
   | StringExpression
   | BooleanExpression
+  | ListExpression
   | IdentifierExpression
   | BinaryExpression
   | CallExpression;
@@ -108,6 +109,12 @@ export type StringExpression = {
 export type BooleanExpression = {
   readonly kind: "BooleanExpression";
   readonly value: boolean;
+  readonly span: SourceSpan;
+};
+
+export type ListExpression = {
+  readonly kind: "ListExpression";
+  readonly elements: readonly Expression[];
   readonly span: SourceSpan;
 };
 

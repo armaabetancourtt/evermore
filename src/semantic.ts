@@ -2,6 +2,7 @@ import type {
   Program,
   ScreenDeclaration,
   StateDeclaration,
+  VisualStatement,
 } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
 
@@ -39,69 +40,19 @@ export function analyze(program: Program): {
 
     for (const statement of screen.body) {
       if (
-        statement.kind === "ShowStatement" &&
-        !states.has(statement.stateName)
+        statement.kind === "StateDeclaration" ||
+        statement.kind === "TitleStatement"
       ) {
-        diagnostics.push({
-          code: "E2004",
-          severity: "error",
-          message:
-            'Screen "' +
-            screen.name +
-            '" shows unknown state "' +
-            statement.stateName +
-            '".',
-          span: statement.span,
-          help:
-            'Declare state ' +
-            statement.stateName +
-            " starts 0 in the same screen.",
-        });
+        continue;
       }
 
-      if (
-        statement.kind === "ButtonStatement" &&
-        statement.action?.kind === "NavigationAction" &&
-        !screens.has(statement.action.target)
-      ) {
-        diagnostics.push({
-          code: "E2002",
-          severity: "error",
-          message:
-            'Button "' +
-            statement.label +
-            '" opens unknown screen "' +
-            statement.action.target +
-            '".',
-          span: statement.action.span,
-          help:
-            "Declare screen " +
-            statement.action.target +
-            " or change the navigation target.",
-        });
-      }
-
-      if (
-        statement.kind === "ButtonStatement" &&
-        statement.action?.kind === "IncrementAction" &&
-        !states.has(statement.action.stateName)
-      ) {
-        diagnostics.push({
-          code: "E2005",
-          severity: "error",
-          message:
-            'Button "' +
-            statement.label +
-            '" increases unknown state "' +
-            statement.action.stateName +
-            '".',
-          span: statement.action.span,
-          help:
-            'Declare state ' +
-            statement.action.stateName +
-            " starts 0 in the same screen.",
-        });
-      }
+      validateVisualStatement(
+        statement,
+        screen,
+        states,
+        screens,
+        diagnostics,
+      );
     }
   }
 
@@ -128,6 +79,94 @@ export function analyze(program: Program): {
         }),
     diagnostics,
   };
+}
+
+function validateVisualStatement(
+  statement: VisualStatement,
+  screen: ScreenDeclaration,
+  states: ReadonlyMap<string, StateDeclaration>,
+  screens: ReadonlyMap<string, ScreenDeclaration>,
+  diagnostics: Diagnostic[],
+): void {
+  if (
+    statement.kind === "ShowStatement" &&
+    !states.has(statement.stateName)
+  ) {
+    diagnostics.push({
+      code: "E2004",
+      severity: "error",
+      message:
+        'Screen "' +
+        screen.name +
+        '" shows unknown state "' +
+        statement.stateName +
+        '".',
+      span: statement.span,
+      help:
+        "Declare state " +
+        statement.stateName +
+        " starts 0 in the same screen.",
+    });
+    return;
+  }
+
+  if (statement.kind === "ButtonStatement") {
+    if (
+      statement.action?.kind === "NavigationAction" &&
+      !screens.has(statement.action.target)
+    ) {
+      diagnostics.push({
+        code: "E2002",
+        severity: "error",
+        message:
+          'Button "' +
+          statement.label +
+          '" opens unknown screen "' +
+          statement.action.target +
+          '".',
+        span: statement.action.span,
+        help:
+          "Declare screen " +
+          statement.action.target +
+          " or change the navigation target.",
+      });
+    }
+
+    if (
+      statement.action?.kind === "IncrementAction" &&
+      !states.has(statement.action.stateName)
+    ) {
+      diagnostics.push({
+        code: "E2005",
+        severity: "error",
+        message:
+          'Button "' +
+          statement.label +
+          '" increases unknown state "' +
+          statement.action.stateName +
+          '".',
+        span: statement.action.span,
+        help:
+          "Declare state " +
+          statement.action.stateName +
+          " starts 0 in the same screen.",
+      });
+    }
+
+    return;
+  }
+
+  if (statement.kind === "StackStatement") {
+    for (const child of statement.body) {
+      validateVisualStatement(
+        child,
+        screen,
+        states,
+        screens,
+        diagnostics,
+      );
+    }
+  }
 }
 
 function collectStates(

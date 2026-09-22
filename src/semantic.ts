@@ -779,6 +779,19 @@ function sameTypeAnnotation(
         sameTypeAnnotation(left.elementType, right.elementType)
       );
 
+    case "SetTypeAnnotation":
+      return (
+        right.kind === "SetTypeAnnotation" &&
+        sameTypeAnnotation(left.elementType, right.elementType)
+      );
+
+    case "MapTypeAnnotation":
+      return (
+        right.kind === "MapTypeAnnotation" &&
+        sameTypeAnnotation(left.keyType, right.keyType) &&
+        sameTypeAnnotation(left.valueType, right.valueType)
+      );
+
     case "OptionalTypeAnnotation":
       return (
         right.kind === "OptionalTypeAnnotation" &&
@@ -801,10 +814,25 @@ function findUnknownType(
         : undefined;
 
     case "ListTypeAnnotation":
+    case "SetTypeAnnotation":
       return findUnknownType(
         annotation.elementType,
         dataByName,
         choicesByName,
+      );
+
+    case "MapTypeAnnotation":
+      return (
+        findUnknownType(
+          annotation.keyType,
+          dataByName,
+          choicesByName,
+        ) ??
+        findUnknownType(
+          annotation.valueType,
+          dataByName,
+          choicesByName,
+        )
       );
 
     case "OptionalTypeAnnotation":

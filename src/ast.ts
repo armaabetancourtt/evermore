@@ -26,6 +26,7 @@ export type DataDeclaration = {
   readonly name: string;
   readonly conformances: readonly ProtocolConformance[];
   readonly fields: readonly DataField[];
+  readonly methods: readonly FunctionDeclaration[];
   readonly span: SourceSpan;
 };
 
@@ -33,6 +34,7 @@ export type ProtocolDeclaration = {
   readonly kind: "ProtocolDeclaration";
   readonly name: string;
   readonly fields: readonly DataField[];
+  readonly methods: readonly FunctionDeclaration[];
   readonly span: SourceSpan;
 };
 
@@ -163,6 +165,7 @@ export type Expression =
   | IfExpression
   | MatchExpression
   | MemberExpression
+  | MethodCallExpression
   | ChoiceCaseExpression
   | IdentifierExpression
   | BinaryExpression
@@ -232,6 +235,14 @@ export type MemberExpression = {
   readonly kind: "MemberExpression";
   readonly object: Expression;
   readonly member: string;
+  readonly span: SourceSpan;
+};
+
+export type MethodCallExpression = {
+  readonly kind: "MethodCallExpression";
+  readonly object: Expression;
+  readonly method: string;
+  readonly arguments: readonly Expression[];
   readonly span: SourceSpan;
 };
 

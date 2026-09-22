@@ -1,5 +1,6 @@
 import type {
   ButtonStatement,
+  ComponentDeclaration,
   Program,
   ScreenDeclaration,
   ScreenStatement,
@@ -20,16 +21,48 @@ export function formatProgram(
   program: Program,
   style: FormatStyle = "natural",
 ): string {
+  const declarations = [
+    ...program.components.map((component) =>
+      formatComponent(component, style),
+    ),
+    ...program.screens.map((screen) => formatScreen(screen, style)),
+  ];
+
   const parts = [
     'app "' + escapeString(program.appName) + '"',
-    "",
-    ...program.screens.flatMap((screen, index) => [
-      formatScreen(screen, style),
-      ...(index === program.screens.length - 1 ? [] : [""]),
-    ]),
+    ...(declarations.length > 0
+      ? ["", declarations.join("\n\n")]
+      : []),
   ];
 
   return parts.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+}
+
+function formatComponent(
+  component: ComponentDeclaration,
+  style: FormatStyle,
+): string {
+  const body = component.body
+    .map((statement) => formatStatement(statement, style, 1))
+    .join("\n\n");
+
+  if (style === "explicit") {
+    return (
+      "component " +
+      component.name +
+      " {\n" +
+      (body ? body + "\n" : "") +
+      "}"
+    );
+  }
+
+  return (
+    "component " +
+    component.name +
+    "\n" +
+    (body ? "\n" + body + "\n" : "") +
+    "end"
+  );
 }
 
 function formatScreen(
@@ -86,6 +119,9 @@ function formatStatement(
 
     case "StackStatement":
       return formatStack(statement, style, depth);
+
+    case "UseStatement":
+      return indent(depth) + "use " + statement.componentName;
   }
 }
 

@@ -1,0 +1,41 @@
+app "Pattern Matching"
+
+choice Status
+
+  draft
+  active
+  archived
+
+end
+
+function statusLabel
+
+  takes status Status
+  returns text
+
+  return match status
+    case draft then "Draft"
+    case active then "Active"
+    case archived then "Archived"
+  end
+
+end
+
+function maybeWarning
+
+  takes status Status
+  returns optional text
+
+  return match status
+    case draft then "Not published"
+    case active then none
+    case archived then "Read only"
+  end
+
+end
+
+screen Home
+
+  title "Every case accounted for"
+
+  text "Pattern matching is checked exhaustively before target generation."

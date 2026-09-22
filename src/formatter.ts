@@ -291,6 +291,18 @@ function formatExpression(
         "end"
       );
 
+    case "MemberExpression":
+      return (
+        formatExpression(
+          expression.object,
+          4,
+          false,
+          depth,
+        ) +
+        "." +
+        expression.member
+      );
+
     case "ChoiceCaseExpression":
       return expression.choiceName + "." + expression.caseName;
 

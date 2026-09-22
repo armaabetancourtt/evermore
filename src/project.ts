@@ -19,9 +19,18 @@ export type LoadedProject = {
   readonly units: readonly ProjectUnit[];
 };
 
+export type ProjectImportResolver = (
+  specifier: string,
+  importerPath: string,
+  declaration: ImportDeclaration,
+) => Promise<string>;
+
 export async function loadProject(
   entryPath: string,
   readSource: ProjectSourceReader,
+  options: {
+    readonly resolveBareImport?: ProjectImportResolver;
+  } = {},
 ): Promise<LoadedProject> {
   const absoluteEntry = path.resolve(entryPath);
   const loaded = new Map<string, ProjectUnit>();
@@ -131,11 +140,17 @@ export async function loadProject(
     loading.push(absolutePath);
 
     for (const declaration of program.imports) {
-      const target = resolveImportPath(
-        absolutePath,
-        declaration,
-      );
-      await visit(target, declaration);
+      const target = isRelativeImport(declaration.path)
+        ? resolveRelativeImportPath(absolutePath, declaration)
+        : options.resolveBareImport
+          ? await options.resolveBareImport(
+              declaration.path,
+              absolutePath,
+              declaration,
+            )
+          : rejectBareImport(declaration);
+
+      await visit(path.resolve(target), declaration);
     }
 
     loading.pop();
@@ -171,35 +186,41 @@ export async function loadProject(
   };
 }
 
-function resolveImportPath(
+function isRelativeImport(specifier: string): boolean {
+  return (
+    specifier === "." ||
+    specifier.startsWith("./") ||
+    specifier.startsWith("../")
+  );
+}
+
+function resolveRelativeImportPath(
   importerPath: string,
   declaration: ImportDeclaration,
 ): string {
-  if (
-    declaration.path !== "." &&
-    !declaration.path.startsWith("./") &&
-    !declaration.path.startsWith("../")
-  ) {
-    throw new EvermoreDiagnosticError([
-      {
-        code: "E2602",
-        severity: "error",
-        message:
-          'Import "' +
-          declaration.path +
-          '" is not a relative module import.',
-        span: declaration.span,
-        help:
-          'Use "./module.ever" or "../module.ever". Package imports are reserved for package semantics.',
-      },
-    ]);
-  }
-
   const withExtension = declaration.path.endsWith(".ever")
     ? declaration.path
     : declaration.path + ".ever";
 
   return path.resolve(path.dirname(importerPath), withExtension);
+}
+
+function rejectBareImport(
+  declaration: ImportDeclaration,
+): never {
+  throw new EvermoreDiagnosticError([
+    {
+      code: "E2602",
+      severity: "error",
+      message:
+        'Import "' +
+        declaration.path +
+        '" requires package semantics.',
+      span: declaration.span,
+      help:
+        'Use a relative import, or compile through an evermore.json package manifest that declares this dependency.',
+    },
+  ]);
 }
 
 function emptySpan(): Program["span"] {

@@ -594,6 +594,20 @@ function emitFunctionExpression(
         "]"
       );
 
+    case "Construct":
+      return (
+        "({ " +
+        expression.fields
+          .map(
+            (field) =>
+              JSON.stringify(field.name) +
+              ": " +
+              emitFunctionExpression(field.value, values, functions),
+          )
+          .join(", ") +
+        " })"
+      );
+
     case "ChoiceCase":
       return JSON.stringify(expression.caseName);
 

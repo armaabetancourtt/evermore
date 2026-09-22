@@ -87,6 +87,24 @@ function maybeNumbers
 
 end
 
+function classify
+
+  takes score number
+  returns text
+
+  return if score >= 80 then "high" else "standard"
+
+end
+
+function maybeLabel
+
+  takes enabled boolean
+  returns optional text
+
+  return if enabled == true then "ready" else none
+
+end
+
 function greeting
 
   returns text

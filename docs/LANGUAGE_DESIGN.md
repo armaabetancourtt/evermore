@@ -79,18 +79,20 @@ The current compiler accepts the following EBNF-like subset:
 ~~~text
 program          ::= "app" string screen* EOF ;
 
-screen           ::= "screen" identifier
-                     "{"
-                       ui_statement*
-                     "}" ;
+screen           ::= "screen" identifier screen_body ;
+
+screen_body      ::= "{" ui_statement* "}"
+                   | ui_statement* ;
 
 ui_statement     ::= title
+                   | text
                    | button ;
 
 title            ::= "title" string ;
+text             ::= "text" string ;
 
 button           ::= "button" string
-                     ("{" navigation "}")? ;
+                     ("{" navigation "}" | navigation)? ;
 
 navigation       ::= "opens" identifier ;
 

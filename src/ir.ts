@@ -27,12 +27,14 @@ export type IRChoice = {
 export type IRProtocol = {
   readonly name: string;
   readonly fields: readonly IRDataField[];
+  readonly methods: readonly IRMethod[];
 };
 
 export type IRDataModel = {
   readonly name: string;
   readonly conformances: readonly string[];
   readonly fields: readonly IRDataField[];
+  readonly methods: readonly IRMethod[];
 };
 
 export type IRDataField = {
@@ -43,6 +45,13 @@ export type IRDataField = {
 export type IRFunction = {
   readonly name: string;
   readonly typeParameters: readonly IRTypeParameter[];
+  readonly parameters: readonly IRFunctionParameter[];
+  readonly returnType: TypeRef;
+  readonly body: readonly IRFunctionStatement[];
+};
+
+export type IRMethod = {
+  readonly name: string;
   readonly parameters: readonly IRFunctionParameter[];
   readonly returnType: TypeRef;
   readonly body: readonly IRFunctionStatement[];
@@ -94,6 +103,7 @@ export type IRExpression =
   | IRIfExpression
   | IRMatchExpression
   | IRMemberExpression
+  | IRMethodCallExpression
   | IRConstructExpression
   | IRChoiceCaseExpression
   | IRIdentifierExpression
@@ -156,10 +166,18 @@ export type IRMemberExpression = {
   readonly member: string;
 };
 
+export type IRMethodCallExpression = {
+  readonly kind: "MethodCall";
+  readonly object: IRExpression;
+  readonly method: string;
+  readonly arguments: readonly IRExpression[];
+};
+
 export type IRConstructExpression = {
   readonly kind: "Construct";
   readonly typeName: string;
   readonly fields: readonly IRConstructField[];
+  readonly methods: readonly IRMethod[];
 };
 
 export type IRConstructField = {
@@ -268,15 +286,29 @@ export function lowerToIR(model: SemanticModel): IRProgram {
       ),
       fields: declaration.fields.map((field) => ({
         name: field.name,
-        type: typeRefFromAnnotation(field.type),
+        type: typeRefFromAnnotation(
+          field.type,
+          new Set(),
+          new Set(model.protocolsByName.keys()),
+        ),
       })),
+      methods: declaration.methods.map((method) =>
+        lowerMethod(method, model),
+      ),
     })),
     protocols: model.program.protocols.map((protocol) => ({
       name: protocol.name,
       fields: protocol.fields.map((field) => ({
         name: field.name,
-        type: typeRefFromAnnotation(field.type),
+        type: typeRefFromAnnotation(
+          field.type,
+          new Set(),
+          new Set(model.protocolsByName.keys()),
+        ),
       })),
+      methods: protocol.methods.map((method) =>
+        lowerMethod(method, model),
+      ),
     })),
     choices: model.program.choices.map((choice) => ({
       name: choice.name,
@@ -360,6 +392,33 @@ export function lowerToIR(model: SemanticModel): IRProgram {
         elements,
       };
     }),
+  };
+}
+
+function lowerMethod(
+  method: SemanticModel["program"]["functions"][number],
+  model: SemanticModel,
+): IRMethod {
+  const protocolNames = new Set(model.protocolsByName.keys());
+
+  return {
+    name: method.name,
+    parameters: method.parameters.map((parameter) => ({
+      name: parameter.name,
+      type: typeRefFromAnnotation(
+        parameter.type,
+        new Set(),
+        protocolNames,
+      ),
+    })),
+    returnType: typeRefFromAnnotation(
+      method.returnType,
+      new Set(),
+      protocolNames,
+    ),
+    body: method.body.map((statement) =>
+      lowerFunctionStatement(statement, model),
+    ),
   };
 }
 
@@ -476,6 +535,16 @@ function lowerExpression(
       };
     }
 
+    case "MethodCallExpression":
+      return {
+        kind: "MethodCall",
+        object: lowerExpression(expression.object, model),
+        method: expression.method,
+        arguments: expression.arguments.map((argument) =>
+          lowerExpression(argument, model),
+        ),
+      };
+
     case "ChoiceCaseExpression":
       return {
         kind: "ChoiceCase",
@@ -508,6 +577,9 @@ function lowerExpression(
             name: field.name,
             value: lowerExpression(expression.arguments[index]!, model),
           })),
+          methods: constructor.methods.map((method) =>
+            lowerMethod(method, model),
+          ),
         };
       }
 

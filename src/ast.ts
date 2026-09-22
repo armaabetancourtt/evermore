@@ -12,7 +12,15 @@ export type SourceSpan = {
 export type Program = {
   readonly kind: "Program";
   readonly appName: string;
+  readonly components: readonly ComponentDeclaration[];
   readonly screens: readonly ScreenDeclaration[];
+  readonly span: SourceSpan;
+};
+
+export type ComponentDeclaration = {
+  readonly kind: "ComponentDeclaration";
+  readonly name: string;
+  readonly body: readonly VisualStatement[];
   readonly span: SourceSpan;
 };
 
@@ -32,7 +40,8 @@ export type VisualStatement =
   | TextStatement
   | ShowStatement
   | ButtonStatement
-  | StackStatement;
+  | StackStatement
+  | UseStatement;
 
 export type StateDeclaration = {
   readonly kind: "StateDeclaration";
@@ -72,6 +81,12 @@ export type StackStatement = {
   readonly kind: "StackStatement";
   readonly direction: StackDirection;
   readonly body: readonly VisualStatement[];
+  readonly span: SourceSpan;
+};
+
+export type UseStatement = {
+  readonly kind: "UseStatement";
+  readonly componentName: string;
   readonly span: SourceSpan;
 };
 

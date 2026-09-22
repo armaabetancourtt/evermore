@@ -1,0 +1,40 @@
+app "Contextual Inference"
+
+function emptyNames
+
+  returns list of text
+
+  return []
+
+end
+
+function countNames
+
+  takes names list of text
+  returns number
+
+  return 0
+
+end
+
+function emptyCount
+
+  returns number
+
+  return countNames([])
+
+end
+
+function emptyMatrix
+
+  returns list of list of number
+
+  return [[]]
+
+end
+
+screen Home
+
+  title "Inference where context is enough"
+
+  text "Empty collections stay strict when no expected type exists."

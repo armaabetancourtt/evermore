@@ -95,6 +95,9 @@ jobs:
       - name: Check classes example
         run: npm run evermore -- check examples/classes.ever
 
+      - name: Check typed result example
+        run: npm run evermore -- check examples/result.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -342,5 +345,24 @@ jobs:
           ! grep -q 'readonly "accessToken": string;' /tmp/evermore-classes/src/generated/models.ts
           grep -q 'const field_1 = "internal-token";' /tmp/evermore-classes/src/generated/functions.ts
           ! grep -q '"accessToken": field_1' /tmp/evermore-classes/src/generated/functions.ts
+
+      - name: Generate typed result application
+        run: npm run evermore -- build examples/result.ever --out /tmp/evermore-result
+
+      - name: Install typed result application
+        working-directory: /tmp/evermore-result
+        run: npm install
+
+      - name: Build typed result application
+        working-directory: /tmp/evermore-result
+        run: npm run build
+
+      - name: Verify generated typed result flow
+        run: |
+          grep -q 'readonly kind: "ok"' /tmp/evermore-result/src/generated/functions.ts
+          grep -q 'readonly kind: "error"' /tmp/evermore-result/src/generated/functions.ts
+          grep -q 'switch (matchValue.kind)' /tmp/evermore-result/src/generated/functions.ts
+          grep -q 'matchValue.value' /tmp/evermore-result/src/generated/functions.ts
+          grep -q 'matchValue.error' /tmp/evermore-result/src/generated/functions.ts
 
 

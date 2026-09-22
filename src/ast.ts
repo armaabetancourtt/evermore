@@ -11,7 +11,10 @@ export type SourceSpan = {
 
 export type Program = {
   readonly kind: "Program";
+  readonly unitKind: "app" | "module";
   readonly appName: string;
+  readonly moduleName?: string;
+  readonly imports: readonly ImportDeclaration[];
   readonly data: readonly DataDeclaration[];
   readonly classes: readonly ClassDeclaration[];
   readonly protocols: readonly ProtocolDeclaration[];
@@ -19,6 +22,11 @@ export type Program = {
   readonly functions: readonly FunctionDeclaration[];
   readonly components: readonly ComponentDeclaration[];
   readonly screens: readonly ScreenDeclaration[];
+  readonly span: SourceSpan;
+};
+
+export type ImportDeclaration = {
+  readonly path: string;
   readonly span: SourceSpan;
 };
 

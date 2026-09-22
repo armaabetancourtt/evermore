@@ -228,18 +228,39 @@ function emitDataModels(
 }
 
 function emitTypeRef(type: TypeRef): string {
-  if (type.kind === "Named") {
-    return "EvermoreModels[" + JSON.stringify(type.name) + "]";
-  }
+  switch (type.kind) {
+    case "Named":
+      return "EvermoreModels[" + JSON.stringify(type.name) + "]";
 
-  switch (type.name) {
-    case "text":
-    case "id":
-      return "string";
-    case "number":
-      return "number";
-    case "boolean":
-      return "boolean";
+    case "Primitive":
+      switch (type.name) {
+        case "text":
+        case "id":
+          return "string";
+        case "number":
+          return "number";
+        case "boolean":
+          return "boolean";
+      }
+
+    case "List":
+      return "ReadonlyArray<" + emitTypeRef(type.elementType) + ">";
+
+    case "Optional":
+      return "(" + emitTypeRef(type.valueType) + " | null)";
+  }
+}
+
+function containsNamedType(type: TypeRef): boolean {
+  switch (type.kind) {
+    case "Named":
+      return true;
+    case "Primitive":
+      return false;
+    case "List":
+      return containsNamedType(type.elementType);
+    case "Optional":
+      return containsNamedType(type.valueType);
   }
 }
 
@@ -254,8 +275,10 @@ function emitFunctions(
 
   const needsModels = functions.some(
     (fn) =>
-      fn.returnType.kind === "Named" ||
-      fn.parameters.some((parameter) => parameter.type.kind === "Named"),
+      containsNamedType(fn.returnType) ||
+      fn.parameters.some((parameter) =>
+        containsNamedType(parameter.type),
+      ),
   );
 
   const lines: string[] = [

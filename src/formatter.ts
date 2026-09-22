@@ -7,6 +7,7 @@ import type {
   FunctionDeclaration,
   FunctionStatement,
   Program,
+  ProtocolDeclaration,
   ScreenDeclaration,
   ScreenStatement,
   StackStatement,
@@ -28,6 +29,9 @@ export function formatProgram(
   style: FormatStyle = "natural",
 ): string {
   const declarations = [
+    ...program.protocols.map((protocol) =>
+      formatProtocol(protocol, style),
+    ),
     ...program.data.map((declaration) =>
       formatData(declaration, style),
     ),
@@ -57,12 +61,15 @@ function formatData(
   declaration: DataDeclaration,
   style: FormatStyle,
 ): string {
-  const body = declaration.fields
-    .map(
+  const body = [
+    ...declaration.conformances.map(
+      (conformance) => indent(1) + "conforms " + conformance.name,
+    ),
+    ...declaration.fields.map(
       (field) =>
         indent(1) + field.name + " " + formatTypeAnnotation(field.type),
-    )
-    .join("\n");
+    ),
+  ].join("\n");
 
   if (style === "explicit") {
     return (
@@ -94,6 +101,39 @@ function formatTypeAnnotation(
     case "OptionalTypeAnnotation":
       return "optional " + formatTypeAnnotation(annotation.valueType);
   }
+}
+
+function formatProtocol(
+  protocol: ProtocolDeclaration,
+  style: FormatStyle,
+): string {
+  const body = protocol.fields
+    .map(
+      (field) =>
+        indent(1) +
+        field.name +
+        " " +
+        formatTypeAnnotation(field.type),
+    )
+    .join("\n");
+
+  if (style === "explicit") {
+    return (
+      "protocol " +
+      protocol.name +
+      " {\n" +
+      (body ? body + "\n" : "") +
+      "}"
+    );
+  }
+
+  return (
+    "protocol " +
+    protocol.name +
+    "\n" +
+    (body ? "\n" + body + "\n" : "") +
+    "end"
+  );
 }
 
 function formatChoice(

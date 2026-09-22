@@ -224,7 +224,7 @@ class Parser {
       }
 
       if (this.check("function")) {
-        methods.push(this.parseFunction());
+        methods.push(this.parseFunction(true));
         continue;
       }
 
@@ -285,7 +285,7 @@ class Parser {
       }
 
       if (this.check("function")) {
-        methods.push(this.parseFunction());
+        methods.push(this.parseFunction(true));
         continue;
       }
 
@@ -346,7 +346,7 @@ class Parser {
       !(!explicitBlock && this.check("end"))
     ) {
       if (this.check("function")) {
-        methods.push(this.parseFunction());
+        methods.push(this.parseFunction(true));
         continue;
       }
 
@@ -413,7 +413,7 @@ class Parser {
     };
   }
 
-  private parseFunction(): FunctionDeclaration {
+  private parseFunction(requireReturnType = false): FunctionDeclaration {
     const start = this.consume("function", "Expected a function declaration.");
     const name = this.consume("identifier", "Expected a function name.");
     const explicitBlock = this.match("lbrace");
@@ -528,12 +528,12 @@ class Parser {
       ? this.consume("rbrace", 'Expected "}" to close the function.')
       : this.consume("end", 'Expected "end" to close the function.');
 
-    if (returnType === undefined) {
+    if (requireReturnType && returnType === undefined) {
       this.fail(
         name,
         "E1011",
-        'Function "' + (name.value ?? name.lexeme) + '" has no return type.',
-        "Add returns <type> before the function body completes.",
+        'Method "' + (name.value ?? name.lexeme) + '" has no return type.',
+        "Methods and protocol requirements keep explicit returns <type> contracts.",
       );
     }
 
@@ -542,7 +542,7 @@ class Parser {
       name: name.value ?? name.lexeme,
       typeParameters,
       parameters,
-      returnType,
+      ...(returnType ? { returnType } : {}),
       body,
       span: spanFrom(start, end),
     };

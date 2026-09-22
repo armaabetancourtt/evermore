@@ -79,7 +79,7 @@ Goals:
 - [x] optionals (`optional T`, `none`, optional lifting);
 - [x] collections (`list of T`, `set of T`, `map of K to V`, typed literals, recursive composition and contextual empty-collection inference);
 - [x] generics (function type parameters with argument/context inference);
-- [ ] interfaces / protocols (field contracts, `data` conformance, protocol-typed values, member access and protocol-constrained generics implemented; method requirements pending);
+- [x] interfaces / protocols (field and method contracts, `data` conformance, protocol-typed values, member/method access and protocol-constrained generics);
 - [ ] classes and encapsulation;
 - [x] pattern matching (exhaustive matching over nominal choices);
 - [ ] error model;

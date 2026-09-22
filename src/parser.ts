@@ -22,6 +22,7 @@ import type {
   MatchCase,
   MatchExpression,
   MemberExpression,
+  MethodCallExpression,
   NavigationAction,
   NumberExpression,
   Program,
@@ -149,6 +150,7 @@ class Parser {
     const explicitBlock = this.match("lbrace");
     const conformances: ProtocolConformance[] = [];
     const fields: DataField[] = [];
+    const methods: FunctionDeclaration[] = [];
 
     while (
       !this.check("eof") &&
@@ -168,9 +170,14 @@ class Parser {
         continue;
       }
 
+      if (this.check("function")) {
+        methods.push(this.parseFunction());
+        continue;
+      }
+
       const fieldName = this.consume(
         "identifier",
-        "Expected a field name in the data declaration.",
+        "Expected a field name or function in the data declaration.",
       );
       const fieldType = this.parseTypeAnnotation();
 
@@ -193,6 +200,7 @@ class Parser {
       name: name.value ?? name.lexeme,
       conformances,
       fields,
+      methods,
       span: spanFrom(start, end),
     };
   }
@@ -205,15 +213,21 @@ class Parser {
     const name = this.consume("identifier", "Expected a protocol name.");
     const explicitBlock = this.match("lbrace");
     const fields: DataField[] = [];
+    const methods: FunctionDeclaration[] = [];
 
     while (
       !this.check("eof") &&
       !(explicitBlock && this.check("rbrace")) &&
       !(!explicitBlock && this.check("end"))
     ) {
+      if (this.check("function")) {
+        methods.push(this.parseFunction());
+        continue;
+      }
+
       const fieldName = this.consume(
         "identifier",
-        "Expected a required field name in the protocol.",
+        "Expected a required field name or function in the protocol.",
       );
       const fieldType = this.parseTypeAnnotation();
 
@@ -235,6 +249,7 @@ class Parser {
       kind: "ProtocolDeclaration",
       name: name.value ?? name.lexeme,
       fields,
+      methods,
       span: spanFrom(start, end),
     };
   }
@@ -733,6 +748,35 @@ class Parser {
           "identifier",
           "Expected a member name after '.'.",
         );
+
+        if (this.match("lparen")) {
+          const args: Expression[] = [];
+
+          if (!this.check("rparen")) {
+            do {
+              args.push(this.parseExpression());
+            } while (this.match("comma"));
+          }
+
+          const close = this.consume(
+            "rparen",
+            'Expected ")" after method arguments.',
+          );
+
+          const methodCall: MethodCallExpression = {
+            kind: "MethodCallExpression",
+            object: expression,
+            method: member.value ?? member.lexeme,
+            arguments: args,
+            span: {
+              start: expression.span.start,
+              end: close.span.end,
+            },
+          };
+
+          expression = methodCall;
+          continue;
+        }
 
         const memberExpression: MemberExpression = {
           kind: "MemberExpression",

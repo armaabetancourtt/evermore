@@ -33,10 +33,17 @@ export type NamedTypeContext = {
   readonly choicesByName: ReadonlyMap<string, ChoiceDeclaration>;
 };
 
+export type FunctionValidationOptions = {
+  readonly initialValues?: ReadonlyMap<string, TypeRef>;
+  readonly bodyCallSignatures?: ReadonlyMap<string, FunctionSignature>;
+  readonly validateBodies?: boolean;
+};
+
 export function validateFunctions(
   functions: readonly FunctionDeclaration[],
   types: NamedTypeContext,
   diagnostics: Diagnostic[],
+  options: FunctionValidationOptions = {},
 ): FunctionTypeModel {
   const functionsByName = new Map<string, FunctionDeclaration>();
   const signaturesByName = new Map<string, FunctionSignature>();
@@ -185,13 +192,19 @@ export function validateFunctions(
     }
   }
 
-  for (const signature of signaturesByName.values()) {
-    validateFunctionBody(
-      signature,
-      signaturesByName,
-      types,
-      diagnostics,
-    );
+  if (options.validateBodies !== false) {
+    const bodyCallSignatures =
+      options.bodyCallSignatures ?? signaturesByName;
+
+    for (const signature of signaturesByName.values()) {
+      validateFunctionBody(
+        signature,
+        bodyCallSignatures,
+        types,
+        diagnostics,
+        options.initialValues,
+      );
+    }
   }
 
   return {
@@ -205,8 +218,9 @@ function validateFunctionBody(
   signatures: ReadonlyMap<string, FunctionSignature>,
   types: NamedTypeContext,
   diagnostics: Diagnostic[],
+  initialValues: ReadonlyMap<string, TypeRef> = new Map(),
 ): void {
-  const env = new Map<string, TypeRef>();
+  const env = new Map<string, TypeRef>(initialValues);
   const mutableNames = new Set<string>();
 
   signature.declaration.parameters.forEach((parameter, index) => {
@@ -660,6 +674,145 @@ function inferExpression(
 
       return typeRefFromAnnotation(
         field.type,
+        new Set(),
+        new Set(types.protocolsByName.keys()),
+      );
+    }
+
+    case "MethodCallExpression": {
+      const objectType = inferExpression(
+        expression.object,
+        env,
+        signatures,
+        types,
+        diagnostics,
+      );
+
+      if (!objectType) return undefined;
+
+      if (objectType.kind === "Optional") {
+        diagnostics.push({
+          code: "E2322",
+          severity: "error",
+          message:
+            'Cannot call method "' +
+            expression.method +
+            '" through optional ' +
+            describeType(objectType) +
+            ".",
+          span: expression.span,
+          help:
+            "Resolve the optional value before calling its methods.",
+        });
+        return undefined;
+      }
+
+      const owner =
+        objectType.kind === "Named"
+          ? types.dataByName.get(objectType.name)
+          : objectType.kind === "Protocol"
+            ? types.protocolsByName.get(objectType.name)
+            : objectType.kind === "Generic" && objectType.constraint
+              ? types.protocolsByName.get(objectType.constraint)
+              : undefined;
+
+      if (!owner) {
+        diagnostics.push({
+          code: "E2323",
+          severity: "error",
+          message:
+            'Type "' +
+            describeType(objectType) +
+            '" does not expose methods.',
+          span: expression.span,
+          help:
+            "Method calls are supported on data, protocol, and protocol-constrained generic values.",
+        });
+        return undefined;
+      }
+
+      const method = owner.methods.find(
+        (item) => item.name === expression.method,
+      );
+
+      if (!method) {
+        diagnostics.push({
+          code: "E2324",
+          severity: "error",
+          message:
+            'Type "' +
+            describeType(objectType) +
+            '" has no method "' +
+            expression.method +
+            '".',
+          span: expression.span,
+          help:
+            "Call a method declared by the data type or protocol contract.",
+        });
+        return undefined;
+      }
+
+      if (expression.arguments.length !== method.parameters.length) {
+        diagnostics.push({
+          code: "E2325",
+          severity: "error",
+          message:
+            'Method "' +
+            expression.method +
+            '" expects ' +
+            method.parameters.length +
+            " argument(s) but received " +
+            expression.arguments.length +
+            ".",
+          span: expression.span,
+          help: "Pass exactly the declared number of method arguments.",
+        });
+      }
+
+      expression.arguments.forEach((argument, index) => {
+        const parameter = method.parameters[index];
+        const parameterType = parameter
+          ? typeRefFromAnnotation(
+              parameter.type,
+              new Set(),
+              new Set(types.protocolsByName.keys()),
+            )
+          : undefined;
+        const actual = inferExpression(
+          argument,
+          env,
+          signatures,
+          types,
+          diagnostics,
+          parameterType,
+        );
+
+        if (
+          actual &&
+          parameterType &&
+          !isAssignable(actual, parameterType, types)
+        ) {
+          diagnostics.push({
+            code: "E2326",
+            severity: "error",
+            message:
+              "Argument " +
+              (index + 1) +
+              ' of method "' +
+              expression.method +
+              '" has type ' +
+              describeType(actual) +
+              " but expects " +
+              describeType(parameterType) +
+              ".",
+            span: argument.span,
+            help: "Pass a value assignable to the method parameter type.",
+          });
+        }
+      });
+
+      return typeRefFromAnnotation(
+        method.returnType,
         new Set(),
         new Set(types.protocolsByName.keys()),
       );

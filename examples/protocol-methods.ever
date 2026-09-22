@@ -1,0 +1,41 @@
+app "Protocol Methods"
+
+protocol Displayable
+  function display
+    returns text
+  end
+end
+
+data User
+  conforms Displayable
+  name text
+  role text
+
+  function display
+    returns text
+    return name
+  end
+end
+
+function render
+  takes value Displayable
+  returns text
+  return value.display()
+end
+
+function renderGeneric
+  generic T conforms Displayable
+  takes value T
+  returns text
+  return value.display()
+end
+
+function example
+  returns text
+  let user = User("Ada", "Engineer")
+  return render(user)
+end
+
+screen Home
+  title "Behavior is part of the type contract"
+  text "Protocols now describe data and behavior, and conforming values carry executable methods."

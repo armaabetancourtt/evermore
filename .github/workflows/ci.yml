@@ -89,6 +89,9 @@ jobs:
       - name: Check typed collections example
         run: npm run evermore -- check examples/collections.ever
 
+      - name: Check protocol methods example
+        run: npm run evermore -- check examples/protocol-methods.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -300,5 +303,22 @@ jobs:
           grep -q 'ReadonlyMap<string, number>' /tmp/evermore-collections/src/generated/functions.ts
           grep -q 'new Set' /tmp/evermore-collections/src/generated/functions.ts
           grep -q 'new Map' /tmp/evermore-collections/src/generated/functions.ts
+
+      - name: Generate protocol methods application
+        run: npm run evermore -- build examples/protocol-methods.ever --out /tmp/evermore-protocol-methods
+
+      - name: Install protocol methods application
+        working-directory: /tmp/evermore-protocol-methods
+        run: npm install
+
+      - name: Build protocol methods application
+        working-directory: /tmp/evermore-protocol-methods
+        run: npm run build
+
+      - name: Verify generated protocol methods
+        run: |
+          grep -q 'readonly "display": () => string;' /tmp/evermore-protocol-methods/src/generated/models.ts
+          grep -q '"display": (): string => {' /tmp/evermore-protocol-methods/src/generated/functions.ts
+          grep -q '\["display"\]()' /tmp/evermore-protocol-methods/src/generated/functions.ts
 
 

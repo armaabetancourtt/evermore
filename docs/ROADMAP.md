@@ -40,21 +40,22 @@ Exit condition:
 
 Goals:
 
-- natural syntax without semantic indentation;
-- canonical formatter;
-- text, buttons, stacks and layout;
-- state;
-- navigation;
-- reusable components;
-- first Vue/Vite application shell;
-- accessibility defaults;
+- [x] natural syntax without semantic indentation;
+- [x] canonical formatter;
+- [x] text and buttons;
+- [ ] stacks and layout;
+- [ ] state;
+- [x] navigation;
+- [ ] reusable components;
+- [x] first Vue/Vite application shell;
+- [ ] accessibility defaults;
 - [x] generated target compile tests.
 
 Research:
 
-- natural syntax ambiguity;
-- source readability study;
-- AST equivalence between natural and explicit modes.
+- [ ] natural syntax ambiguity study;
+- [ ] source readability study;
+- [x] AST/IR equivalence between natural and explicit modes.
 
 Exit condition:
 

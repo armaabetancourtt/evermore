@@ -1,5 +1,6 @@
 import type {
   IRChoice,
+  IRClassModel,
   IRDataModel,
   IRElement,
   IRExpression,
@@ -126,6 +127,7 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
 
   if (
     program.data.length > 0 ||
+    program.classes.length > 0 ||
     program.protocols.length > 0 ||
     program.choices.length > 0
   ) {
@@ -133,6 +135,7 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
       path: "src/generated/models.ts",
       content: emitModels(
         program.data,
+        program.classes,
         program.protocols,
         program.choices,
       ),
@@ -142,7 +145,11 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
   if (program.functions.length > 0) {
     files.push({
       path: "src/generated/functions.ts",
-      content: emitFunctions(program.functions, program.data),
+      content: emitFunctions(
+        program.functions,
+        program.data,
+        program.classes,
+      ),
     });
   }
 
@@ -195,6 +202,9 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
           ...(program.data.length > 0
             ? { dataModels: program.data.map((model) => model.name) }
             : {}),
+          ...(program.classes.length > 0
+            ? { classes: program.classes.map((model) => model.name) }
+            : {}),
           ...(program.protocols.length > 0
             ? {
                 protocols: program.protocols.map(
@@ -220,6 +230,7 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
 
 function emitModels(
   models: readonly IRDataModel[],
+  classes: readonly IRClassModel[],
   protocols: readonly IRProtocol[],
   choices: readonly IRChoice[],
 ): string {
@@ -273,6 +284,46 @@ function emitModels(
     );
 
     for (const field of model.fields) {
+      lines.push(
+        "    readonly " +
+          JSON.stringify(field.name) +
+          ": " +
+          emitTypeRef(field.type) +
+          ";",
+      );
+    }
+
+    for (const method of model.methods) {
+      lines.push(
+        "    readonly " +
+          JSON.stringify(method.name) +
+          ": " +
+          emitMethodType(method) +
+          ";",
+      );
+    }
+
+    lines.push("  };");
+  }
+
+  for (const model of classes) {
+    const contract =
+      model.conformances.length > 0
+        ? model.conformances
+            .map(
+              (name) =>
+                "EvermoreProtocols[" + JSON.stringify(name) + "]",
+            )
+            .join(" & ") + " & "
+        : "";
+
+    lines.push(
+      "  " + JSON.stringify(model.name) + ": " + contract + "{",
+    );
+
+    for (const field of model.fields) {
+      if (field.visibility !== "public") continue;
+
       lines.push(
         "    readonly " +
           JSON.stringify(field.name) +
@@ -422,6 +473,7 @@ function containsNamedType(type: TypeRef): boolean {
 function emitFunctions(
   functions: readonly IRFunction[],
   models: readonly IRDataModel[],
+  classes: readonly IRClassModel[],
 ): string {
   const functionNames = new Map<string, string>();
 
@@ -441,6 +493,15 @@ function emitFunctions(
         ),
     ) ||
     models.some((model) =>
+      model.methods.some(
+        (method) =>
+          containsNamedType(method.returnType) ||
+          method.parameters.some((parameter) =>
+            containsNamedType(parameter.type),
+          ),
+      ),
+    ) ||
+    classes.some((model) =>
       model.methods.some(
         (method) =>
           containsNamedType(method.returnType) ||
@@ -817,6 +878,7 @@ function emitFunctionExpression(
         return (
           "({ " +
           expression.fields
+            .filter((field) => field.visibility === "public")
             .map(
               (field) =>
                 JSON.stringify(field.name) +
@@ -842,15 +904,17 @@ function emitFunctionExpression(
       });
 
       const properties = [
-        ...expression.fields.map((field) => {
-          const generated = fieldValues.get(field.name);
-          if (!generated) {
-            throw new Error(
-              'Missing generated field value for "' + field.name + '".',
-            );
-          }
-          return JSON.stringify(field.name) + ": " + generated;
-        }),
+        ...expression.fields
+          .filter((field) => field.visibility === "public")
+          .map((field) => {
+            const generated = fieldValues.get(field.name);
+            if (!generated) {
+              throw new Error(
+                'Missing generated field value for "' + field.name + '".',
+              );
+            }
+            return JSON.stringify(field.name) + ": " + generated;
+          }),
         ...expression.methods.map((method) =>
           emitMethodProperty(method, fieldValues, functions),
         ),

@@ -207,6 +207,7 @@ function validateFunctionBody(
   diagnostics: Diagnostic[],
 ): void {
   const env = new Map<string, TypeRef>();
+  const mutableNames = new Set<string>();
 
   signature.declaration.parameters.forEach((parameter, index) => {
     const type = signature.parameters[index];
@@ -222,6 +223,7 @@ function validateFunctionBody(
       statement,
       signature,
       env,
+      mutableNames,
       signatures,
       types,
       diagnostics,
@@ -253,11 +255,15 @@ function validateFunctionStatement(
   statement: FunctionStatement,
   signature: FunctionSignature,
   env: Map<string, TypeRef>,
+  mutableNames: Set<string>,
   signatures: ReadonlyMap<string, FunctionSignature>,
   types: NamedTypeContext,
   diagnostics: Diagnostic[],
 ): void {
-  if (statement.kind === "LetStatement") {
+  if (
+    statement.kind === "LetStatement" ||
+    statement.kind === "VarStatement"
+  ) {
     const inferred = inferExpression(
       statement.expression,
       env,
@@ -284,6 +290,77 @@ function validateFunctionStatement(
 
     if (inferred) {
       env.set(statement.name, inferred);
+      if (statement.kind === "VarStatement") {
+        mutableNames.add(statement.name);
+      }
+    }
+
+    return;
+  }
+
+  if (statement.kind === "SetStatement") {
+    const current = env.get(statement.name);
+
+    if (!current) {
+      diagnostics.push({
+        code: "E2232",
+        severity: "error",
+        message:
+          'Cannot assign to unknown local "' + statement.name + '".',
+        span: statement.span,
+        help: "Declare a mutable local with var before assigning to it.",
+      });
+
+      inferExpression(
+        statement.expression,
+        env,
+        signatures,
+        types,
+        diagnostics,
+      );
+      return;
+    }
+
+    if (!mutableNames.has(statement.name)) {
+      diagnostics.push({
+        code: "E2233",
+        severity: "error",
+        message:
+          'Local "' +
+          statement.name +
+          '" is immutable and cannot be assigned.',
+        span: statement.span,
+        help:
+          'Declare "' +
+          statement.name +
+          '" with var instead of let if mutation is required.',
+      });
+    }
+
+    const assigned = inferExpression(
+      statement.expression,
+      env,
+      signatures,
+      types,
+      diagnostics,
+      current,
+    );
+
+    if (assigned && !isAssignable(assigned, current, types)) {
+      diagnostics.push({
+        code: "E2234",
+        severity: "error",
+        message:
+          'Assignment to "' +
+          statement.name +
+          '" has type ' +
+          describeType(assigned) +
+          " but the variable stores " +
+          describeType(current) +
+          ".",
+        span: statement.span,
+        help: "Assign a value compatible with the variable's inferred type.",
+      });
     }
 
     return;

@@ -22,6 +22,8 @@ import type {
   NavigationAction,
   NumberExpression,
   Program,
+  ProtocolConformance,
+  ProtocolDeclaration,
   ReturnStatement,
   ScreenDeclaration,
   ScreenStatement,
@@ -62,6 +64,7 @@ class Parser {
     const nameToken = this.consume("string", "Expected an application name.");
 
     const data: DataDeclaration[] = [];
+    const protocols: ProtocolDeclaration[] = [];
     const choices: ChoiceDeclaration[] = [];
     const functions: FunctionDeclaration[] = [];
     const components: ComponentDeclaration[] = [];
@@ -71,6 +74,11 @@ class Parser {
       try {
         if (this.check("data")) {
           data.push(this.parseData());
+          continue;
+        }
+
+        if (this.check("protocol")) {
+          protocols.push(this.parseProtocol());
           continue;
         }
 
@@ -98,7 +106,7 @@ class Parser {
           this.peek(),
           "E1007",
           "Expected a top-level declaration.",
-          "Declare data, a choice, a function, a component, or a screen.",
+          "Declare data, a protocol, a choice, a function, a component, or a screen.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -117,6 +125,7 @@ class Parser {
       kind: "Program",
       appName: nameToken.value ?? "",
       data,
+      protocols,
       choices,
       functions,
       components,
@@ -132,6 +141,7 @@ class Parser {
     const start = this.consume("data", "Expected a data declaration.");
     const name = this.consume("identifier", "Expected a data type name.");
     const explicitBlock = this.match("lbrace");
+    const conformances: ProtocolConformance[] = [];
     const fields: DataField[] = [];
 
     while (
@@ -139,6 +149,19 @@ class Parser {
       !(explicitBlock && this.check("rbrace")) &&
       !(!explicitBlock && this.check("end"))
     ) {
+      if (this.match("conforms")) {
+        const protocolName = this.consume(
+          "identifier",
+          "Expected a protocol name after conforms.",
+        );
+
+        conformances.push({
+          name: protocolName.value ?? protocolName.lexeme,
+          span: protocolName.span,
+        });
+        continue;
+      }
+
       const fieldName = this.consume(
         "identifier",
         "Expected a field name in the data declaration.",
@@ -161,6 +184,49 @@ class Parser {
 
     return {
       kind: "DataDeclaration",
+      name: name.value ?? name.lexeme,
+      conformances,
+      fields,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseProtocol(): ProtocolDeclaration {
+    const start = this.consume(
+      "protocol",
+      "Expected a protocol declaration.",
+    );
+    const name = this.consume("identifier", "Expected a protocol name.");
+    const explicitBlock = this.match("lbrace");
+    const fields: DataField[] = [];
+
+    while (
+      !this.check("eof") &&
+      !(explicitBlock && this.check("rbrace")) &&
+      !(!explicitBlock && this.check("end"))
+    ) {
+      const fieldName = this.consume(
+        "identifier",
+        "Expected a required field name in the protocol.",
+      );
+      const fieldType = this.parseTypeAnnotation();
+
+      fields.push({
+        name: fieldName.value ?? fieldName.lexeme,
+        type: fieldType,
+        span: {
+          start: fieldName.span.start,
+          end: fieldType.span.end,
+        },
+      });
+    }
+
+    const end = explicitBlock
+      ? this.consume("rbrace", 'Expected "}" to close the protocol.')
+      : this.consume("end", 'Expected "end" to close the protocol.');
+
+    return {
+      kind: "ProtocolDeclaration",
       name: name.value ?? name.lexeme,
       fields,
       span: spanFrom(start, end),

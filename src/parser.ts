@@ -14,6 +14,7 @@ import type {
   IdentifierExpression,
   IncrementAction,
   LetStatement,
+  ListExpression,
   NavigationAction,
   NumberExpression,
   Program,
@@ -332,6 +333,29 @@ class Parser {
         value: token.kind === "true",
         span: token.span,
       };
+    }
+
+    if (this.match("lbracket")) {
+      const start = this.previous();
+      const elements: Expression[] = [];
+
+      if (!this.check("rbracket")) {
+        do {
+          elements.push(this.parseExpression());
+        } while (this.match("comma"));
+      }
+
+      const close = this.consume(
+        "rbracket",
+        'Expected "]" after list elements.',
+      );
+
+      const expression: ListExpression = {
+        kind: "ListExpression",
+        elements,
+        span: spanFrom(start, close),
+      };
+      return expression;
     }
 
     if (this.match("identifier")) {

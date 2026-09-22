@@ -171,7 +171,12 @@ function formatFunction(
 
   for (const parameter of fn.typeParameters) {
     lines.push(
-      indent(1) + "generic " + parameter.name,
+      indent(1) +
+        "generic " +
+        parameter.name +
+        (parameter.constraint
+          ? " conforms " + parameter.constraint.name
+          : ""),
     );
   }
 

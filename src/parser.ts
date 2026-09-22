@@ -7,7 +7,10 @@ import type {
   TitleStatement,
   UIStatement,
 } from "./ast.js";
-import { EvermoreDiagnosticError } from "./diagnostics.js";
+import {
+  EvermoreDiagnosticError,
+  type Diagnostic,
+} from "./diagnostics.js";
 import { lex, type Token, type TokenKind } from "./lexer.js";
 
 export function parse(source: string): Program {
@@ -16,19 +19,34 @@ export function parse(source: string): Program {
 
 class Parser {
   private index = 0;
+  private readonly diagnostics: Diagnostic[] = [];
 
   constructor(private readonly tokens: readonly Token[]) {}
 
   parseProgram(): Program {
-    const appToken = this.consume("app", 'Every Evermore program starts with app "Name".');
+    const appToken = this.consume(
+      "app",
+      'Every Evermore program starts with app "Name".',
+    );
     const nameToken = this.consume("string", "Expected an application name.");
 
     const screens: ScreenDeclaration[] = [];
+
     while (!this.check("eof")) {
-      screens.push(this.parseScreen());
+      try {
+        screens.push(this.parseScreen());
+      } catch (error) {
+        if (!(error instanceof EvermoreDiagnosticError)) throw error;
+        this.record(error);
+        this.synchronizeTopLevel();
+      }
     }
 
     const eof = this.consume("eof", "Expected end of file.");
+
+    if (this.diagnostics.length > 0) {
+      throw new EvermoreDiagnosticError(this.diagnostics);
+    }
 
     return {
       kind: "Program",
@@ -47,8 +65,15 @@ class Parser {
     this.consume("lbrace", 'Expected "{" after the screen name.');
 
     const body: UIStatement[] = [];
+
     while (!this.check("rbrace") && !this.check("eof")) {
-      body.push(this.parseUIStatement());
+      try {
+        body.push(this.parseUIStatement());
+      } catch (error) {
+        if (!(error instanceof EvermoreDiagnosticError)) throw error;
+        this.record(error);
+        this.synchronizeUI();
+      }
     }
 
     const end = this.consume("rbrace", 'Expected "}" to close the screen.');
@@ -121,6 +146,45 @@ class Parser {
       label: label.value ?? "",
       span: spanFrom(start, label),
     };
+  }
+
+  private synchronizeUI(): void {
+    if (
+      this.check("title") ||
+      this.check("button") ||
+      this.check("rbrace") ||
+      this.check("eof")
+    ) {
+      return;
+    }
+
+    this.advance();
+
+    while (!this.check("eof")) {
+      if (
+        this.check("title") ||
+        this.check("button") ||
+        this.check("rbrace")
+      ) {
+        return;
+      }
+
+      this.advance();
+    }
+  }
+
+  private synchronizeTopLevel(): void {
+    if (this.check("screen") || this.check("eof")) return;
+
+    this.advance();
+
+    while (!this.check("eof") && !this.check("screen")) {
+      this.advance();
+    }
+  }
+
+  private record(error: EvermoreDiagnosticError): void {
+    this.diagnostics.push(...error.diagnostics);
   }
 
   private match(kind: TokenKind): boolean {

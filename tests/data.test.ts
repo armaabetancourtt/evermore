@@ -14,7 +14,10 @@ data User
   name text
   age number
   active boolean
+  tags list of text
   address Address
+  manager optional User
+  history list of optional Address
 end
 
 data Address
@@ -31,7 +34,15 @@ test("parses nominal data declarations and forward references", () => {
 
   assert.equal(program.data.length, 2);
   assert.equal(program.data[0]?.name, "User");
-  assert.equal(program.data[0]?.fields[4]?.typeName, "Address");
+  assert.equal(program.data[0]?.fields[5]?.type.kind, "NamedTypeAnnotation");
+
+  const addressType = program.data[0]?.fields[5]?.type;
+  if (addressType?.kind === "NamedTypeAnnotation") {
+    assert.equal(addressType.name, "Address");
+  }
+
+  const historyType = program.data[0]?.fields[7]?.type;
+  assert.equal(historyType?.kind, "ListTypeAnnotation");
 });
 
 test("generates target-neutral nominal types into TypeScript model map", () => {
@@ -45,15 +56,24 @@ test("generates target-neutral nominal types into TypeScript model map", () => {
   assert.match(models.content, /"id": string;/);
   assert.match(models.content, /"age": number;/);
   assert.match(models.content, /"active": boolean;/);
+  assert.match(models.content, /"tags": ReadonlyArray<string>;/);
   assert.match(
     models.content,
     /"address": EvermoreModels\["Address"\];/,
+  );
+  assert.match(
+    models.content,
+    /"manager": \(EvermoreModels\["User"\] \| null\);/,
+  );
+  assert.match(
+    models.content,
+    /"history": ReadonlyArray<\(EvermoreModels\["Address"\] \| null\)>;/,
   );
 });
 
 test("formatter emits canonical natural data blocks", () => {
   const formatted = formatSource(
-    'app "Demo" data User { name text age number } screen Home { title "Hi" }',
+    'app "Demo" data User { name text tags list of text manager optional User } screen Home { title "Hi" }',
   );
 
   assert.equal(
@@ -63,7 +83,8 @@ test("formatter emits canonical natural data blocks", () => {
 data User
 
   name text
-  age number
+  tags list of text
+  manager optional User
 end
 
 screen Home
@@ -144,6 +165,35 @@ screen Home
       assert.ok(error instanceof EvermoreDiagnosticError);
       assert.ok(
         error.diagnostics.some((diagnostic) => diagnostic.code === "E2100"),
+      );
+      return true;
+    },
+  );
+});
+
+
+test("rejects unknown types nested inside list and optional", () => {
+  const invalid = String.raw`
+app "Broken"
+
+data User
+  contacts list of optional Unicorn
+end
+
+screen Home
+  title "Broken"
+`;
+
+  assert.throws(
+    () => compile(invalid),
+    (error: unknown) => {
+      assert.ok(error instanceof EvermoreDiagnosticError);
+      assert.ok(
+        error.diagnostics.some(
+          (diagnostic) =>
+            diagnostic.code === "E2102" &&
+            diagnostic.message.includes("Unicorn"),
+        ),
       );
       return true;
     },

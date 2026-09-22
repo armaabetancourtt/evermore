@@ -1,5 +1,6 @@
 import type {
   ComponentDeclaration,
+  DataDeclaration,
   Program,
   ScreenDeclaration,
   StateDeclaration,
@@ -7,9 +8,11 @@ import type {
   VisualStatement,
 } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
+import { isPrimitiveTypeName } from "./types.js";
 
 export type SemanticModel = {
   readonly program: Program;
+  readonly dataByName: ReadonlyMap<string, DataDeclaration>;
   readonly screensByName: ReadonlyMap<string, ScreenDeclaration>;
   readonly componentsByName: ReadonlyMap<string, ComponentDeclaration>;
 };
@@ -19,8 +22,87 @@ export function analyze(program: Program): {
   readonly diagnostics: readonly Diagnostic[];
 } {
   const diagnostics: Diagnostic[] = [];
+  const dataByName = new Map<string, DataDeclaration>();
   const screens = new Map<string, ScreenDeclaration>();
   const components = new Map<string, ComponentDeclaration>();
+
+  for (const declaration of program.data) {
+    if (isPrimitiveTypeName(declaration.name)) {
+      diagnostics.push({
+        code: "E2103",
+        severity: "error",
+        message:
+          'Data type "' +
+          declaration.name +
+          '" conflicts with a primitive type.',
+        span: declaration.span,
+        help: "Choose a non-primitive name for the data type.",
+      });
+      continue;
+    }
+
+    if (dataByName.has(declaration.name)) {
+      diagnostics.push({
+        code: "E2100",
+        severity: "error",
+        message:
+          'Data type "' +
+          declaration.name +
+          '" is declared more than once.',
+        span: declaration.span,
+        help: "Give each data type a unique name.",
+      });
+      continue;
+    }
+
+    dataByName.set(declaration.name, declaration);
+  }
+
+  for (const declaration of program.data) {
+    const fieldNames = new Set<string>();
+
+    for (const field of declaration.fields) {
+      if (fieldNames.has(field.name)) {
+        diagnostics.push({
+          code: "E2101",
+          severity: "error",
+          message:
+            'Field "' +
+            field.name +
+            '" is declared more than once in data type "' +
+            declaration.name +
+            '".',
+          span: field.span,
+          help: "Give every field in a data type a unique name.",
+        });
+      } else {
+        fieldNames.add(field.name);
+      }
+
+      if (
+        !isPrimitiveTypeName(field.typeName) &&
+        !dataByName.has(field.typeName)
+      ) {
+        diagnostics.push({
+          code: "E2102",
+          severity: "error",
+          message:
+            'Field "' +
+            declaration.name +
+            "." +
+            field.name +
+            '" references unknown type "' +
+            field.typeName +
+            '".',
+          span: field.span,
+          help:
+            "Use a primitive type (text, number, boolean, id) or declare data " +
+            field.typeName +
+            ".",
+        });
+      }
+    }
+  }
 
   for (const component of program.components) {
     if (components.has(component.name)) {
@@ -97,6 +179,7 @@ export function analyze(program: Program): {
       : {
           model: {
             program,
+            dataByName,
             screensByName: screens,
             componentsByName: components,
           },

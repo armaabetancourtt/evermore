@@ -25,8 +25,8 @@ Goals:
 - [x] semantic validation for screen references;
 - [x] prototype Vue code generation;
 - [x] compiler tests;
-- [ ] CI green on main;
-- [ ] example application built in CI;
+- [x] CI green on main;
+- [x] example language program compiled to target artifacts in CI;
 - [ ] golden tests for generated output;
 - [ ] parser error-recovery strategy.
 

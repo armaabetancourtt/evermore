@@ -4,6 +4,7 @@ import { EvermoreDiagnosticError } from "./diagnostics.js";
 import { emitVue, type GeneratedFile } from "./codegen/vue.js";
 import { lowerToIR } from "./ir.js";
 import { parse } from "./parser.js";
+import { loadPackageProject, packageGraph } from "./package.js";
 import {
   loadProject,
   type ProjectSourceReader,
@@ -15,6 +16,10 @@ export type CompileTarget = "vue";
 export type CompileResult = {
   readonly appName: string;
   readonly target: CompileTarget;
+  readonly package?: {
+    readonly name: string;
+    readonly version: string;
+  };
   readonly diagnostics: readonly Diagnostic[];
   readonly files: readonly GeneratedFile[];
 };
@@ -62,6 +67,34 @@ export async function compileProject(
 ): Promise<CompileResult> {
   const project = await loadProject(entryPath, readSource);
   return compileProgram(project.program, options);
+}
+
+export async function compilePackage(
+  manifestPath: string,
+  readSource: ProjectSourceReader,
+  options: { readonly target?: CompileTarget } = {},
+): Promise<CompileResult> {
+  const project = await loadPackageProject(
+    manifestPath,
+    readSource,
+  );
+  const result = compileProgram(project.program, options);
+  const graph = packageGraph(project);
+
+  return {
+    ...result,
+    package: {
+      name: graph.name,
+      version: graph.version,
+    },
+    files: [
+      ...result.files,
+      {
+        path: "src/generated/evermore.package.json",
+        content: JSON.stringify(graph, null, 2) + "\n",
+      },
+    ],
+  };
 }
 
 export function compileProgram(

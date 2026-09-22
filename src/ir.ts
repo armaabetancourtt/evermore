@@ -114,6 +114,7 @@ export type IRExpression =
   | IRListExpression
   | IRSetExpression
   | IRMapExpression
+  | IRResultExpression
   | IRIfExpression
   | IRMatchExpression
   | IRMemberExpression
@@ -163,6 +164,12 @@ export type IRMapEntry = {
   readonly value: IRExpression;
 };
 
+export type IRResultExpression = {
+  readonly kind: "Result";
+  readonly variant: "success" | "failure";
+  readonly value: IRExpression;
+};
+
 export type IRMatchExpression = {
   readonly kind: "Match";
   readonly value: IRExpression;
@@ -171,6 +178,7 @@ export type IRMatchExpression = {
 
 export type IRMatchCase = {
   readonly caseName: string;
+  readonly bindingName?: string;
   readonly expression: IRExpression;
 };
 
@@ -531,6 +539,13 @@ function lowerExpression(
         })),
       };
 
+    case "ResultExpression":
+      return {
+        kind: "Result",
+        variant: expression.variant,
+        value: lowerExpression(expression.value, model),
+      };
+
     case "IfExpression":
       return {
         kind: "If",
@@ -545,6 +560,9 @@ function lowerExpression(
         value: lowerExpression(expression.value, model),
         cases: expression.cases.map((branch) => ({
           caseName: branch.caseName,
+          ...(branch.bindingName
+            ? { bindingName: branch.bindingName }
+            : {}),
           expression: lowerExpression(branch.expression, model),
         })),
       };

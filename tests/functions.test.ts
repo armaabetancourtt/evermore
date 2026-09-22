@@ -315,13 +315,37 @@ screen Home
   );
 });
 
-test("rejects empty lists until contextual typing exists", () => {
-  const invalid = String.raw`
-app "Broken"
+test("accepts empty lists when the declared return type provides context", () => {
+  const source = String.raw`
+app "Contextual"
 
 function empty
   returns list of number
   return []
+end
+
+screen Home
+  title "Contextual"
+`;
+
+  const result = compile(source);
+  const generated = result.files.find(
+    (file) => file.path === "src/generated/functions.ts",
+  );
+
+  assert.ok(generated);
+  assert.match(generated.content, /ReadonlyArray<number>/);
+  assert.match(generated.content, /return \[\];/);
+});
+
+test("rejects ambiguous empty local lists without type context", () => {
+  const invalid = String.raw`
+app "Broken"
+
+function empty
+  returns number
+  let values = []
+  return 0
 end
 
 screen Home

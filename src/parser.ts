@@ -278,7 +278,46 @@ class Parser {
   }
 
   private parseExpression(): Expression {
-    return this.parseAdditive();
+    if (this.match("if")) {
+      const start = this.previous();
+      const condition = this.parseComparison();
+      this.consume("then", 'Expected "then" after the condition.');
+      const thenExpression = this.parseExpression();
+      this.consume("else", 'Expected "else" after the then expression.');
+      const elseExpression = this.parseExpression();
+
+      return {
+        kind: "IfExpression",
+        condition,
+        thenExpression,
+        elseExpression,
+        span: {
+          start: start.span.start,
+          end: elseExpression.span.end,
+        },
+      };
+    }
+
+    return this.parseComparison();
+  }
+
+  private parseComparison(): Expression {
+    let expression = this.parseAdditive();
+
+    while (
+      this.check("eqeq") ||
+      this.check("neq") ||
+      this.check("gt") ||
+      this.check("gte") ||
+      this.check("lt") ||
+      this.check("lte")
+    ) {
+      const operator = this.advance();
+      const right = this.parseAdditive();
+      expression = binaryExpression(expression, operator, right);
+    }
+
+    return expression;
   }
 
   private parseAdditive(): Expression {
@@ -897,6 +936,12 @@ function binaryExpression(
     minus: "-",
     star: "*",
     slash: "/",
+    eqeq: "==",
+    neq: "!=",
+    gt: ">",
+    gte: ">=",
+    lt: "<",
+    lte: "<=",
   };
 
   const mapped = operatorMap[operator.kind];

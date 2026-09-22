@@ -34,6 +34,10 @@ export type TypeRef =
       readonly name: string;
     }
   | {
+      readonly kind: "Protocol";
+      readonly name: string;
+    }
+  | {
       readonly kind: "List";
       readonly elementType: TypeRef;
     }
@@ -51,12 +55,19 @@ export function typeRef(name: string): TypeRef {
 export function typeRefFromAnnotation(
   annotation: TypeAnnotation,
   genericNames: ReadonlySet<string> = new Set(),
+  protocolNames: ReadonlySet<string> = new Set(),
 ): TypeRef {
   switch (annotation.kind) {
     case "NamedTypeAnnotation":
-      return genericNames.has(annotation.name)
-        ? { kind: "Generic", name: annotation.name }
-        : typeRef(annotation.name);
+      if (genericNames.has(annotation.name)) {
+        return { kind: "Generic", name: annotation.name };
+      }
+
+      if (protocolNames.has(annotation.name)) {
+        return { kind: "Protocol", name: annotation.name };
+      }
+
+      return typeRef(annotation.name);
 
     case "ListTypeAnnotation":
       return {
@@ -64,6 +75,7 @@ export function typeRefFromAnnotation(
         elementType: typeRefFromAnnotation(
           annotation.elementType,
           genericNames,
+          protocolNames,
         ),
       };
 
@@ -73,6 +85,7 @@ export function typeRefFromAnnotation(
         valueType: typeRefFromAnnotation(
           annotation.valueType,
           genericNames,
+          protocolNames,
         ),
       };
   }
@@ -85,6 +98,7 @@ export function describeTypeRef(type: TypeRef): string {
     case "Primitive":
     case "Named":
     case "Generic":
+    case "Protocol":
       return type.name;
     case "List":
       return "list of " + describeTypeRef(type.elementType);

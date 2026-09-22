@@ -6,7 +6,10 @@ data User
   name text
   age number
   active boolean
+  tags list of text
   address Address
+  manager optional User
+  history list of optional Address
 
 end
 

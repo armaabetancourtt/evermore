@@ -220,6 +220,7 @@ function validateFunctionStatement(
     signatures,
     types,
     diagnostics,
+    signature.returnType,
   );
 
   if (returned && !isAssignable(returned, signature.returnType)) {
@@ -246,6 +247,7 @@ function inferExpression(
   signatures: ReadonlyMap<string, FunctionSignature>,
   types: NamedTypeContext,
   diagnostics: Diagnostic[],
+  expected?: TypeRef,
 ): TypeRef | undefined {
   switch (expression.kind) {
     case "NumberExpression":
@@ -334,6 +336,7 @@ function inferExpression(
           signatures,
           types,
           diagnostics,
+          expected,
         );
 
         if (!branchType) continue;
@@ -432,14 +435,22 @@ function inferExpression(
     }
 
     case "ListExpression": {
+      const expectedElement =
+        expected?.kind === "List" ? expected.elementType : undefined;
+
       if (expression.elements.length === 0) {
+        if (expected?.kind === "List") {
+          return expected;
+        }
+
         diagnostics.push({
           code: "E2212",
           severity: "error",
-          message: "Cannot infer the type of an empty list yet.",
+          message:
+            "Cannot infer the type of an empty list without context.",
           span: expression.span,
           help:
-            "Add at least one element. Contextual empty-list typing is planned for M2.",
+            "Use the empty list where a list type is already expected, or add at least one element.",
         });
         return undefined;
       }
@@ -450,6 +461,7 @@ function inferExpression(
         signatures,
         types,
         diagnostics,
+        expectedElement,
       );
 
       if (!first) return undefined;
@@ -464,6 +476,7 @@ function inferExpression(
           signatures,
           types,
           diagnostics,
+          expectedElement,
         );
 
         if (!elementType) {
@@ -529,6 +542,7 @@ function inferExpression(
         signatures,
         types,
         diagnostics,
+        expected,
       );
       const elseType = inferExpression(
         expression.elseExpression,
@@ -536,6 +550,7 @@ function inferExpression(
         signatures,
         types,
         diagnostics,
+        expected,
       );
 
       const booleanType = typeRef("boolean");
@@ -712,16 +727,21 @@ function inferExpression(
       }
 
       expression.arguments.forEach((argument, index) => {
+        const parameterType = callee.parameters[index];
         const actual = inferExpression(
           argument,
           env,
           signatures,
           types,
           diagnostics,
+          parameterType,
         );
-        const expected = callee.parameters[index];
 
-        if (actual && expected && !isAssignable(actual, expected)) {
+        if (
+          actual &&
+          parameterType &&
+          !isAssignable(actual, parameterType)
+        ) {
           diagnostics.push({
             code: "E2209",
             severity: "error",
@@ -733,7 +753,7 @@ function inferExpression(
               '" has type ' +
               describeType(actual) +
               " but expects " +
-              describeType(expected) +
+              describeType(parameterType) +
               ".",
             span: argument.span,
             help: "Pass a value assignable to the parameter type.",

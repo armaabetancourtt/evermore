@@ -19,14 +19,23 @@ export type Program = {
 export type ScreenDeclaration = {
   readonly kind: "ScreenDeclaration";
   readonly name: string;
-  readonly body: readonly UIStatement[];
+  readonly body: readonly ScreenStatement[];
   readonly span: SourceSpan;
 };
 
-export type UIStatement =
+export type ScreenStatement =
+  | StateDeclaration
   | TitleStatement
   | TextStatement
+  | ShowStatement
   | ButtonStatement;
+
+export type StateDeclaration = {
+  readonly kind: "StateDeclaration";
+  readonly name: string;
+  readonly initialValue: number;
+  readonly span: SourceSpan;
+};
 
 export type TitleStatement = {
   readonly kind: "TitleStatement";
@@ -40,15 +49,30 @@ export type TextStatement = {
   readonly span: SourceSpan;
 };
 
+export type ShowStatement = {
+  readonly kind: "ShowStatement";
+  readonly stateName: string;
+  readonly span: SourceSpan;
+};
+
 export type ButtonStatement = {
   readonly kind: "ButtonStatement";
   readonly label: string;
-  readonly action?: NavigationAction;
+  readonly action?: ButtonAction;
   readonly span: SourceSpan;
 };
+
+export type ButtonAction = NavigationAction | IncrementAction;
 
 export type NavigationAction = {
   readonly kind: "NavigationAction";
   readonly target: string;
+  readonly span: SourceSpan;
+};
+
+export type IncrementAction = {
+  readonly kind: "IncrementAction";
+  readonly stateName: string;
+  readonly amount: number;
   readonly span: SourceSpan;
 };

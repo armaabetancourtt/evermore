@@ -573,10 +573,20 @@ class Parser {
 
       while (this.match("case")) {
         const caseStart = this.previous();
-        const caseName = this.consume(
-          "identifier",
-          "Expected a match case name after case.",
-        );
+        let caseName: Token;
+
+        if (
+          this.check("identifier") ||
+          this.check("success") ||
+          this.check("failure")
+        ) {
+          caseName = this.advance();
+        } else {
+          caseName = this.consume(
+            "identifier",
+            "Expected a match case name after case.",
+          );
+        }
         const binding = this.check("identifier")
           ? this.advance()
           : undefined;

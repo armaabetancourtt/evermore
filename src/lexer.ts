@@ -9,6 +9,10 @@ export type TokenKind =
   | "state"
   | "starts"
   | "show"
+  | "stack"
+  | "vertical"
+  | "horizontal"
+  | "end"
   | "button"
   | "opens"
   | "increases"
@@ -34,6 +38,10 @@ const keywords = new Map<string, TokenKind>([
   ["state", "state"],
   ["starts", "starts"],
   ["show", "show"],
+  ["stack", "stack"],
+  ["vertical", "vertical"],
+  ["horizontal", "horizontal"],
+  ["end", "end"],
   ["button", "button"],
   ["opens", "opens"],
   ["increases", "increases"],

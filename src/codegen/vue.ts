@@ -445,6 +445,32 @@ function emitFunctionExpression(
         ")"
       );
 
+    case "Match":
+      return (
+        "(() => { const matchValue = " +
+        emitFunctionExpression(
+          expression.value,
+          values,
+          functions,
+        ) +
+        "; switch (matchValue) { " +
+        expression.cases
+          .map(
+            (branch) =>
+              "case " +
+              JSON.stringify(branch.caseName) +
+              ": return " +
+              emitFunctionExpression(
+                branch.expression,
+                values,
+                functions,
+              ) +
+              ";",
+          )
+          .join(" ") +
+        ' default: throw new Error("Unreachable Evermore match"); } })()'
+      );
+
     case "ChoiceCase":
       return JSON.stringify(expression.caseName);
 

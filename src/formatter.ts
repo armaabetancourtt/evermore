@@ -176,6 +176,15 @@ function formatExpression(
     case "BooleanExpression":
       return expression.value ? "true" : "false";
 
+    case "ListExpression":
+      return (
+        "[" +
+        expression.elements
+          .map((element) => formatExpression(element))
+          .join(", ") +
+        "]"
+      );
+
     case "IdentifierExpression":
       return expression.name;
 

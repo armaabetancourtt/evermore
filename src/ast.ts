@@ -26,9 +26,13 @@ export type ScreenDeclaration = {
 export type ScreenStatement =
   | StateDeclaration
   | TitleStatement
+  | VisualStatement;
+
+export type VisualStatement =
   | TextStatement
   | ShowStatement
-  | ButtonStatement;
+  | ButtonStatement
+  | StackStatement;
 
 export type StateDeclaration = {
   readonly kind: "StateDeclaration";
@@ -59,6 +63,15 @@ export type ButtonStatement = {
   readonly kind: "ButtonStatement";
   readonly label: string;
   readonly action?: ButtonAction;
+  readonly span: SourceSpan;
+};
+
+export type StackDirection = "vertical" | "horizontal";
+
+export type StackStatement = {
+  readonly kind: "StackStatement";
+  readonly direction: StackDirection;
+  readonly body: readonly VisualStatement[];
   readonly span: SourceSpan;
 };
 

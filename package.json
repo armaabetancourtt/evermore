@@ -9,6 +9,7 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "dev": "tsx src/cli.ts",
     "test": "tsx --test tests/**/*.test.ts",
+    "research:m1": "tsx scripts/research/m1-syntax-study.ts",
     "evermore": "tsx src/cli.ts"
   },
   "devDependencies": {

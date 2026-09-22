@@ -65,6 +65,9 @@ function formatStatement(
     case "TitleStatement":
       return indent(depth) + 'title "' + escapeString(statement.text) + '"';
 
+    case "TextStatement":
+      return indent(depth) + 'text "' + escapeString(statement.text) + '"';
+
     case "ButtonStatement":
       return formatButton(statement, style, depth);
   }

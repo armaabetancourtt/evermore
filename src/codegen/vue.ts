@@ -300,6 +300,9 @@ function emitTypeRef(
     case "Named":
       return "EvermoreModels[" + JSON.stringify(type.name) + "]";
 
+    case "Protocol":
+      return "EvermoreProtocols[" + JSON.stringify(type.name) + "]";
+
     case "Generic": {
       const generated = genericNames.get(type.name);
 
@@ -344,6 +347,7 @@ function containsNamedType(type: TypeRef): boolean {
     case "None":
       return false;
     case "Named":
+    case "Protocol":
       return true;
     case "Primitive":
     case "Generic":
@@ -378,7 +382,7 @@ function emitFunctions(
 
   if (needsModels) {
     lines.push(
-      'import type { EvermoreModels } from "./models";',
+      'import type { EvermoreModels, EvermoreProtocols } from "./models";',
       "",
     );
   } else {
@@ -556,6 +560,19 @@ function emitFunctionExpression(
           )
           .join(" ") +
         ' default: throw new Error("Unreachable Evermore match"); } })()'
+      );
+
+    case "Member":
+      return (
+        "(" +
+        emitFunctionExpression(
+          expression.object,
+          values,
+          functions,
+        ) +
+        ")[" +
+        JSON.stringify(expression.member) +
+        "]"
       );
 
     case "ChoiceCase":

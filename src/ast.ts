@@ -137,7 +137,7 @@ export type FunctionDeclaration = {
   readonly name: string;
   readonly typeParameters: readonly TypeParameter[];
   readonly parameters: readonly FunctionParameter[];
-  readonly returnType: TypeAnnotation;
+  readonly returnType?: TypeAnnotation;
   readonly body: readonly FunctionStatement[];
   readonly span: SourceSpan;
 };

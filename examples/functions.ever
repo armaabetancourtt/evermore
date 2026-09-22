@@ -1,0 +1,51 @@
+app "Core Language"
+
+data User
+
+  id id
+  name text
+
+end
+
+function add
+
+  takes a number
+  takes b number
+  returns number
+
+  return a + b
+
+end
+
+function score
+
+  takes base number
+  returns number
+
+  let doubled = base * 2
+  return add(doubled, 10 / 2)
+
+end
+
+function identity
+
+  takes user User
+  returns User
+
+  return user
+
+end
+
+function greeting
+
+  returns text
+
+  return "Hello from Evermore"
+
+end
+
+screen Home
+
+  title "Domain logic belongs to Evermore"
+
+  text "Functions are parsed, typed, lowered and generated."

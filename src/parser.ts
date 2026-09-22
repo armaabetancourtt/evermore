@@ -28,6 +28,7 @@ import type {
   StringExpression,
   TextStatement,
   TitleStatement,
+  TypeAnnotation,
   UseStatement,
   VisualStatement,
 } from "./ast.js";
@@ -129,12 +130,15 @@ class Parser {
         "identifier",
         "Expected a field name in the data declaration.",
       );
-      const typeToken = this.consumeTypeName();
+      const fieldType = this.parseTypeAnnotation();
 
       fields.push({
         name: fieldName.value ?? fieldName.lexeme,
-        typeName: typeToken.lexeme,
-        span: spanFrom(fieldName, typeToken),
+        type: fieldType,
+        span: {
+          start: fieldName.span.start,
+          end: fieldType.span.end,
+        },
       });
     }
 
@@ -156,7 +160,7 @@ class Parser {
     const explicitBlock = this.match("lbrace");
     const parameters: FunctionParameter[] = [];
     const body: FunctionStatement[] = [];
-    let returnTypeName: string | undefined;
+    let returnType: TypeAnnotation | undefined;
 
     while (
       !this.check("eof") &&
@@ -169,29 +173,32 @@ class Parser {
             "identifier",
             "Expected a parameter name after takes.",
           );
-          const typeToken = this.consumeTypeName();
+          const parameterType = this.parseTypeAnnotation();
 
           parameters.push({
             name: parameterName.value ?? parameterName.lexeme,
-            typeName: typeToken.lexeme,
-            span: spanFrom(parameterName, typeToken),
+            type: parameterType,
+            span: {
+              start: parameterName.span.start,
+              end: parameterType.span.end,
+            },
           });
           continue;
         }
 
         if (this.match("returns")) {
-          const typeToken = this.consumeTypeName();
+          const parsedReturnType = this.parseTypeAnnotation();
 
-          if (returnTypeName !== undefined) {
+          if (returnType !== undefined) {
             this.fail(
-              typeToken,
+              this.previous(),
               "E1009",
               "Function return type is declared more than once.",
               "Keep a single returns declaration.",
             );
           }
 
-          returnTypeName = typeToken.lexeme;
+          returnType = parsedReturnType;
           continue;
         }
 
@@ -222,7 +229,7 @@ class Parser {
       ? this.consume("rbrace", 'Expected "}" to close the function.')
       : this.consume("end", 'Expected "end" to close the function.');
 
-    if (returnTypeName === undefined) {
+    if (returnType === undefined) {
       this.fail(
         name,
         "E1011",
@@ -235,7 +242,7 @@ class Parser {
       kind: "FunctionDeclaration",
       name: name.value ?? name.lexeme,
       parameters,
-      returnTypeName,
+      returnType,
       body,
       span: spanFrom(start, end),
     };
@@ -376,16 +383,51 @@ class Parser {
     );
   }
 
-  private consumeTypeName(): Token {
-    if (this.check("identifier") || this.check("text")) {
-      return this.advance();
+  private parseTypeAnnotation(): TypeAnnotation {
+    if (this.match("optional")) {
+      const start = this.previous();
+      const valueType = this.parseTypeAnnotation();
+
+      return {
+        kind: "OptionalTypeAnnotation",
+        valueType,
+        span: {
+          start: start.span.start,
+          end: valueType.span.end,
+        },
+      };
+    }
+
+    if (this.match("list")) {
+      const start = this.previous();
+      this.consume("of", 'Expected "of" after list.');
+      const elementType = this.parseTypeAnnotation();
+
+      return {
+        kind: "ListTypeAnnotation",
+        elementType,
+        span: {
+          start: start.span.start,
+          end: elementType.span.end,
+        },
+      };
+    }
+
+    if (this.match("identifier") || this.match("text")) {
+      const token = this.previous();
+
+      return {
+        kind: "NamedTypeAnnotation",
+        name: token.lexeme,
+        span: token.span,
+      };
     }
 
     return this.fail(
       this.peek(),
       "E1008",
       "Expected a type.",
-      "Use a primitive type such as text, number, boolean, id, or another data type.",
+      "Use text, number, boolean, id, a data type, list of <type>, or optional <type>.",
     );
   }
 

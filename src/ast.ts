@@ -13,6 +13,7 @@ export type Program = {
   readonly kind: "Program";
   readonly appName: string;
   readonly data: readonly DataDeclaration[];
+  readonly classes: readonly ClassDeclaration[];
   readonly protocols: readonly ProtocolDeclaration[];
   readonly choices: readonly ChoiceDeclaration[];
   readonly functions: readonly FunctionDeclaration[];
@@ -27,6 +28,22 @@ export type DataDeclaration = {
   readonly conformances: readonly ProtocolConformance[];
   readonly fields: readonly DataField[];
   readonly methods: readonly FunctionDeclaration[];
+  readonly span: SourceSpan;
+};
+
+export type ClassDeclaration = {
+  readonly kind: "ClassDeclaration";
+  readonly name: string;
+  readonly conformances: readonly ProtocolConformance[];
+  readonly fields: readonly ClassField[];
+  readonly methods: readonly FunctionDeclaration[];
+  readonly span: SourceSpan;
+};
+
+export type ClassField = {
+  readonly name: string;
+  readonly type: TypeAnnotation;
+  readonly visibility: "public" | "private";
   readonly span: SourceSpan;
 };
 

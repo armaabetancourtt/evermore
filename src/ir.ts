@@ -13,6 +13,7 @@ export type IRProgram = {
   readonly kind: "IRProgram";
   readonly appName: string;
   readonly data: readonly IRDataModel[];
+  readonly classes: readonly IRClassModel[];
   readonly protocols: readonly IRProtocol[];
   readonly choices: readonly IRChoice[];
   readonly functions: readonly IRFunction[];
@@ -40,6 +41,19 @@ export type IRDataModel = {
 export type IRDataField = {
   readonly name: string;
   readonly type: TypeRef;
+};
+
+export type IRClassModel = {
+  readonly name: string;
+  readonly conformances: readonly string[];
+  readonly fields: readonly IRClassField[];
+  readonly methods: readonly IRMethod[];
+};
+
+export type IRClassField = {
+  readonly name: string;
+  readonly type: TypeRef;
+  readonly visibility: "public" | "private";
 };
 
 export type IRFunction = {
@@ -183,6 +197,7 @@ export type IRConstructExpression = {
 export type IRConstructField = {
   readonly name: string;
   readonly value: IRExpression;
+  readonly visibility: "public" | "private";
 };
 
 export type IRChoiceCaseExpression = {
@@ -291,6 +306,24 @@ export function lowerToIR(model: SemanticModel): IRProgram {
           new Set(),
           new Set(model.protocolsByName.keys()),
         ),
+      })),
+      methods: declaration.methods.map((method) =>
+        lowerMethod(method, model),
+      ),
+    })),
+    classes: model.program.classes.map((declaration) => ({
+      name: declaration.name,
+      conformances: declaration.conformances.map(
+        (conformance) => conformance.name,
+      ),
+      fields: declaration.fields.map((field) => ({
+        name: field.name,
+        type: typeRefFromAnnotation(
+          field.type,
+          new Set(),
+          new Set(model.protocolsByName.keys()),
+        ),
+        visibility: field.visibility,
       })),
       methods: declaration.methods.map((method) =>
         lowerMethod(method, model),
@@ -567,7 +600,8 @@ function lowerExpression(
       const constructor =
         model.functionsByName.has(expression.callee)
           ? undefined
-          : model.dataByName.get(expression.callee);
+          : (model.dataByName.get(expression.callee) ??
+            model.classesByName.get(expression.callee));
 
       if (constructor) {
         return {
@@ -576,6 +610,8 @@ function lowerExpression(
           fields: constructor.fields.map((field, index) => ({
             name: field.name,
             value: lowerExpression(expression.arguments[index]!, model),
+            visibility:
+              "visibility" in field ? field.visibility : "public",
           })),
           methods: constructor.methods.map((method) =>
             lowerMethod(method, model),

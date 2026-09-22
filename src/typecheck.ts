@@ -1,5 +1,6 @@
 import type {
   ChoiceDeclaration,
+  ClassDeclaration,
   DataDeclaration,
   Expression,
   FunctionDeclaration,
@@ -29,6 +30,7 @@ export type FunctionTypeModel = {
 
 export type NamedTypeContext = {
   readonly dataByName: ReadonlyMap<string, DataDeclaration>;
+  readonly classesByName: ReadonlyMap<string, ClassDeclaration>;
   readonly protocolsByName: ReadonlyMap<string, ProtocolDeclaration>;
   readonly choicesByName: ReadonlyMap<string, ChoiceDeclaration>;
 };
@@ -91,6 +93,7 @@ export function validateFunctions(
       if (
         isPrimitiveTypeName(parameter.name) ||
         types.dataByName.has(parameter.name) ||
+        types.classesByName.has(parameter.name) ||
         types.protocolsByName.has(parameter.name) ||
         types.choicesByName.has(parameter.name)
       ) {
@@ -629,7 +632,8 @@ function inferExpression(
 
       const owner =
         objectType.kind === "Named"
-          ? types.dataByName.get(objectType.name)
+          ? (types.dataByName.get(objectType.name) ??
+            types.classesByName.get(objectType.name))
           : objectType.kind === "Protocol"
             ? types.protocolsByName.get(objectType.name)
             : objectType.kind === "Generic" && objectType.constraint
@@ -646,7 +650,7 @@ function inferExpression(
             '" does not expose data members.',
           span: expression.span,
           help:
-            "Member access is currently supported on data and protocol values.",
+            "Member access is supported on data, class, and protocol values.",
         });
         return undefined;
       }
@@ -667,7 +671,29 @@ function inferExpression(
             '".',
           span: expression.span,
           help:
-            "Use a field declared by the data type or protocol contract.",
+            "Use a public field declared by the data/class type or protocol contract.",
+        });
+        return undefined;
+      }
+
+      if (
+        objectType.kind === "Named" &&
+        types.classesByName.has(objectType.name) &&
+        "visibility" in field &&
+        field.visibility === "private"
+      ) {
+        diagnostics.push({
+          code: "E2330",
+          severity: "error",
+          message:
+            'Class field "' +
+            objectType.name +
+            "." +
+            expression.member +
+            '" is private.',
+          span: expression.span,
+          help:
+            "Expose behavior through a public class method instead of reading the private field directly.",
         });
         return undefined;
       }
@@ -709,7 +735,8 @@ function inferExpression(
 
       const owner =
         objectType.kind === "Named"
-          ? types.dataByName.get(objectType.name)
+          ? (types.dataByName.get(objectType.name) ??
+            types.classesByName.get(objectType.name))
           : objectType.kind === "Protocol"
             ? types.protocolsByName.get(objectType.name)
             : objectType.kind === "Generic" && objectType.constraint
@@ -726,7 +753,7 @@ function inferExpression(
             '" does not expose methods.',
           span: expression.span,
           help:
-            "Method calls are supported on data, protocol, and protocol-constrained generic values.",
+            "Method calls are supported on data, class, protocol, and protocol-constrained generic values.",
         });
         return undefined;
       }
@@ -747,7 +774,7 @@ function inferExpression(
             '".',
           span: expression.span,
           help:
-            "Call a method declared by the data type or protocol contract.",
+            "Call a method declared by the data/class type or protocol contract.",
         });
         return undefined;
       }
@@ -1311,7 +1338,9 @@ function inferExpression(
 
     case "CallExpression": {
       const callee = signatures.get(expression.callee);
-      const constructor = types.dataByName.get(expression.callee);
+      const constructor =
+        types.dataByName.get(expression.callee) ??
+        types.classesByName.get(expression.callee);
 
       if (!callee && constructor) {
         if (expression.arguments.length !== constructor.fields.length) {
@@ -1319,7 +1348,7 @@ function inferExpression(
             code: "E2230",
             severity: "error",
             message:
-              'Data constructor "' +
+              'Constructor "' +
               constructor.name +
               '" expects ' +
               constructor.fields.length +
@@ -1523,7 +1552,7 @@ function resolveType(
       message: 'Unknown function type "' + unknown + '".',
       span,
       help:
-        "Use a primitive type, collection/optional composition, or a declared data/protocol/choice type.",
+        "Use a primitive type, collection/optional composition, or a declared data/class/protocol/choice type.",
     });
     return undefined;
   }
@@ -1546,6 +1575,7 @@ function findUnknownType(
       return !genericNames.has(annotation.name) &&
         !isPrimitiveTypeName(annotation.name) &&
         !types.dataByName.has(annotation.name) &&
+        !types.classesByName.has(annotation.name) &&
         !types.protocolsByName.has(annotation.name) &&
         !types.choicesByName.has(annotation.name)
         ? annotation.name
@@ -1715,9 +1745,11 @@ function isAssignable(
 
   if (expected.kind === "Protocol") {
     if (actual.kind === "Named") {
-      const data = types.dataByName.get(actual.name);
+      const nominal =
+        types.dataByName.get(actual.name) ??
+        types.classesByName.get(actual.name);
       return (
-        data?.conformances.some(
+        nominal?.conformances.some(
           (conformance) => conformance.name === expected.name,
         ) ?? false
       );

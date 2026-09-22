@@ -1,6 +1,7 @@
 import type {
   ButtonStatement,
   ChoiceDeclaration,
+  ClassDeclaration,
   ComponentDeclaration,
   DataDeclaration,
   Expression,
@@ -34,6 +35,9 @@ export function formatProgram(
     ),
     ...program.data.map((declaration) =>
       formatData(declaration, style),
+    ),
+    ...program.classes.map((declaration) =>
+      formatClass(declaration, style),
     ),
     ...program.choices.map((choice) =>
       formatChoice(choice, style),
@@ -87,6 +91,47 @@ function formatData(
 
   return (
     "data " +
+    declaration.name +
+    "\n" +
+    (body ? "\n" + body + "\n" : "") +
+    "end"
+  );
+}
+
+function formatClass(
+  declaration: ClassDeclaration,
+  style: FormatStyle,
+): string {
+  const bodyParts = [
+    ...declaration.conformances.map(
+      (conformance) => indent(1) + "conforms " + conformance.name,
+    ),
+    ...declaration.fields.map(
+      (field) =>
+        indent(1) +
+        (field.visibility === "private" ? "private " : "public ") +
+        field.name +
+        " " +
+        formatTypeAnnotation(field.type),
+    ),
+    ...declaration.methods.map((method) =>
+      formatFunction(method, style, 1),
+    ),
+  ];
+  const body = bodyParts.join("\n");
+
+  if (style === "explicit") {
+    return (
+      "class " +
+      declaration.name +
+      " {\n" +
+      (body ? body + "\n" : "") +
+      "}"
+    );
+  }
+
+  return (
+    "class " +
     declaration.name +
     "\n" +
     (body ? "\n" + body + "\n" : "") +

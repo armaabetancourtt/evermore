@@ -1,0 +1,46 @@
+app "Encapsulation"
+
+protocol Named
+  name text
+
+  function display
+    returns text
+  end
+end
+
+class Account
+  conforms Named
+  public name text
+  private accessToken text
+
+  function display
+    returns text
+    return name
+  end
+
+  function credential
+    returns text
+    return accessToken
+  end
+end
+
+function makeAccount
+  returns Account
+  return Account("Ada", "internal-token")
+end
+
+function render
+  takes value Named
+  returns text
+  return value.display()
+end
+
+function example
+  returns text
+  let account = makeAccount()
+  return render(account)
+end
+
+screen Home
+  title "Encapsulation is enforced"
+  text "Private class fields stay inside class behavior while public contracts remain typed."

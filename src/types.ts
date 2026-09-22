@@ -52,6 +52,11 @@ export type TypeRef =
       readonly valueType: TypeRef;
     }
   | {
+      readonly kind: "Result";
+      readonly successType: TypeRef;
+      readonly failureType: TypeRef;
+    }
+  | {
       readonly kind: "Optional";
       readonly valueType: TypeRef;
     };
@@ -124,6 +129,23 @@ export function typeRefFromAnnotation(
         ),
       };
 
+    case "ResultTypeAnnotation":
+      return {
+        kind: "Result",
+        successType: typeRefFromAnnotation(
+          annotation.successType,
+          genericNames,
+          protocolNames,
+          genericConstraints,
+        ),
+        failureType: typeRefFromAnnotation(
+          annotation.failureType,
+          genericNames,
+          protocolNames,
+          genericConstraints,
+        ),
+      };
+
     case "OptionalTypeAnnotation":
       return {
         kind: "Optional",
@@ -156,6 +178,13 @@ export function describeTypeRef(type: TypeRef): string {
         describeTypeRef(type.keyType) +
         " to " +
         describeTypeRef(type.valueType)
+      );
+    case "Result":
+      return (
+        "result of " +
+        describeTypeRef(type.successType) +
+        " or " +
+        describeTypeRef(type.failureType)
       );
     case "Optional":
       return "optional " + describeTypeRef(type.valueType);

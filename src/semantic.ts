@@ -1340,6 +1340,13 @@ function sameTypeAnnotation(
         sameTypeAnnotation(left.valueType, right.valueType)
       );
 
+    case "ResultTypeAnnotation":
+      return (
+        right.kind === "ResultTypeAnnotation" &&
+        sameTypeAnnotation(left.successType, right.successType) &&
+        sameTypeAnnotation(left.failureType, right.failureType)
+      );
+
     case "OptionalTypeAnnotation":
       return (
         right.kind === "OptionalTypeAnnotation" &&
@@ -1382,6 +1389,22 @@ function findUnknownType(
         ) ??
         findUnknownType(
           annotation.valueType,
+          dataByName,
+          classesByName,
+          choicesByName,
+        )
+      );
+
+    case "ResultTypeAnnotation":
+      return (
+        findUnknownType(
+          annotation.successType,
+          dataByName,
+          classesByName,
+          choicesByName,
+        ) ??
+        findUnknownType(
+          annotation.failureType,
           dataByName,
           classesByName,
           choicesByName,

@@ -12,8 +12,22 @@ export type SourceSpan = {
 export type Program = {
   readonly kind: "Program";
   readonly appName: string;
+  readonly data: readonly DataDeclaration[];
   readonly components: readonly ComponentDeclaration[];
   readonly screens: readonly ScreenDeclaration[];
+  readonly span: SourceSpan;
+};
+
+export type DataDeclaration = {
+  readonly kind: "DataDeclaration";
+  readonly name: string;
+  readonly fields: readonly DataField[];
+  readonly span: SourceSpan;
+};
+
+export type DataField = {
+  readonly name: string;
+  readonly typeName: string;
   readonly span: SourceSpan;
 };
 

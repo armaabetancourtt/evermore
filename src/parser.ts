@@ -4,6 +4,8 @@ import type {
   ButtonAction,
   ButtonStatement,
   CallExpression,
+  ChoiceDeclaration,
+  ChoiceCase,
   ComponentDeclaration,
   DataDeclaration,
   DataField,
@@ -57,6 +59,7 @@ class Parser {
     const nameToken = this.consume("string", "Expected an application name.");
 
     const data: DataDeclaration[] = [];
+    const choices: ChoiceDeclaration[] = [];
     const functions: FunctionDeclaration[] = [];
     const components: ComponentDeclaration[] = [];
     const screens: ScreenDeclaration[] = [];
@@ -65,6 +68,11 @@ class Parser {
       try {
         if (this.check("data")) {
           data.push(this.parseData());
+          continue;
+        }
+
+        if (this.check("choice")) {
+          choices.push(this.parseChoice());
           continue;
         }
 
@@ -87,7 +95,7 @@ class Parser {
           this.peek(),
           "E1007",
           "Expected a top-level declaration.",
-          "Declare data, a function, a component, or a screen.",
+          "Declare data, a choice, a function, a component, or a screen.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -106,6 +114,7 @@ class Parser {
       kind: "Program",
       appName: nameToken.value ?? "",
       data,
+      choices,
       functions,
       components,
       screens,
@@ -151,6 +160,40 @@ class Parser {
       kind: "DataDeclaration",
       name: name.value ?? name.lexeme,
       fields,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseChoice(): ChoiceDeclaration {
+    const start = this.consume("choice", "Expected a choice declaration.");
+    const name = this.consume("identifier", "Expected a choice type name.");
+    const explicitBlock = this.match("lbrace");
+    const cases: ChoiceCase[] = [];
+
+    while (
+      !this.check("eof") &&
+      !(explicitBlock && this.check("rbrace")) &&
+      !(!explicitBlock && this.check("end"))
+    ) {
+      const caseToken = this.consume(
+        "identifier",
+        "Expected a choice case name.",
+      );
+
+      cases.push({
+        name: caseToken.value ?? caseToken.lexeme,
+        span: caseToken.span,
+      });
+    }
+
+    const end = explicitBlock
+      ? this.consume("rbrace", 'Expected "}" to close the choice.')
+      : this.consume("end", 'Expected "end" to close the choice.');
+
+    return {
+      kind: "ChoiceDeclaration",
+      name: name.value ?? name.lexeme,
+      cases,
       span: spanFrom(start, end),
     };
   }
@@ -430,6 +473,20 @@ class Parser {
           span: spanFrom(identifier, close),
         };
         return expression;
+      }
+
+      if (this.match("dot")) {
+        const caseToken = this.consume(
+          "identifier",
+          "Expected a choice case name after '.'.",
+        );
+
+        return {
+          kind: "ChoiceCaseExpression",
+          choiceName: name,
+          caseName: caseToken.value ?? caseToken.lexeme,
+          span: spanFrom(identifier, caseToken),
+        };
       }
 
       const expression: IdentifierExpression = {
@@ -853,6 +910,7 @@ class Parser {
   private isTopLevelStart(): boolean {
     return (
       this.check("data") ||
+      this.check("choice") ||
       this.check("function") ||
       this.check("component") ||
       this.check("screen")

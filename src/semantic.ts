@@ -1,4 +1,5 @@
 import type {
+  ChoiceDeclaration,
   ComponentDeclaration,
   DataDeclaration,
   Program,
@@ -18,6 +19,7 @@ import { isPrimitiveTypeName } from "./types.js";
 export type SemanticModel = {
   readonly program: Program;
   readonly dataByName: ReadonlyMap<string, DataDeclaration>;
+  readonly choicesByName: ReadonlyMap<string, ChoiceDeclaration>;
   readonly functionsByName: ReadonlyMap<string, Program["functions"][number]>;
   readonly functionSignaturesByName: ReadonlyMap<string, FunctionSignature>;
   readonly screensByName: ReadonlyMap<string, ScreenDeclaration>;
@@ -30,6 +32,7 @@ export function analyze(program: Program): {
 } {
   const diagnostics: Diagnostic[] = [];
   const dataByName = new Map<string, DataDeclaration>();
+  const choicesByName = new Map<string, ChoiceDeclaration>();
   const screens = new Map<string, ScreenDeclaration>();
   const components = new Map<string, ComponentDeclaration>();
 
@@ -65,6 +68,86 @@ export function analyze(program: Program): {
     dataByName.set(declaration.name, declaration);
   }
 
+  for (const choice of program.choices) {
+    if (isPrimitiveTypeName(choice.name)) {
+      diagnostics.push({
+        code: "E2303",
+        severity: "error",
+        message:
+          'Choice type "' +
+          choice.name +
+          '" conflicts with a primitive type.',
+        span: choice.span,
+        help: "Choose a non-primitive name for the choice type.",
+      });
+      continue;
+    }
+
+    if (dataByName.has(choice.name)) {
+      diagnostics.push({
+        code: "E2302",
+        severity: "error",
+        message:
+          'Choice type "' +
+          choice.name +
+          '" conflicts with an existing data type.',
+        span: choice.span,
+        help: "Every nominal type must have a unique name.",
+      });
+      continue;
+    }
+
+    if (choicesByName.has(choice.name)) {
+      diagnostics.push({
+        code: "E2300",
+        severity: "error",
+        message:
+          'Choice type "' +
+          choice.name +
+          '" is declared more than once.',
+        span: choice.span,
+        help: "Give each choice type a unique name.",
+      });
+      continue;
+    }
+
+    const caseNames = new Set<string>();
+
+    for (const item of choice.cases) {
+      if (caseNames.has(item.name)) {
+        diagnostics.push({
+          code: "E2301",
+          severity: "error",
+          message:
+            'Choice case "' +
+            choice.name +
+            "." +
+            item.name +
+            '" is declared more than once.',
+          span: item.span,
+          help: "Give each case within a choice a unique name.",
+        });
+      } else {
+        caseNames.add(item.name);
+      }
+    }
+
+    if (choice.cases.length === 0) {
+      diagnostics.push({
+        code: "E2306",
+        severity: "error",
+        message:
+          'Choice type "' +
+          choice.name +
+          '" must declare at least one case.',
+        span: choice.span,
+        help: "Add at least one case before end.",
+      });
+    }
+
+    choicesByName.set(choice.name, choice);
+  }
+
   for (const declaration of program.data) {
     const fieldNames = new Set<string>();
 
@@ -89,6 +172,7 @@ export function analyze(program: Program): {
       const unknownType = findUnknownType(
         field.type,
         dataByName,
+        choicesByName,
       );
 
       if (unknownType) {
@@ -115,7 +199,7 @@ export function analyze(program: Program): {
 
   const functionTypes = validateFunctions(
     program.functions,
-    dataByName,
+    { dataByName, choicesByName },
     diagnostics,
   );
 
@@ -195,6 +279,7 @@ export function analyze(program: Program): {
           model: {
             program,
             dataByName,
+            choicesByName,
             functionsByName: functionTypes.functionsByName,
             functionSignaturesByName: functionTypes.signaturesByName,
             screensByName: screens,
@@ -480,19 +565,29 @@ function validateScreenVisual(
 function findUnknownType(
   annotation: TypeAnnotation,
   dataByName: ReadonlyMap<string, DataDeclaration>,
+  choicesByName: ReadonlyMap<string, ChoiceDeclaration>,
 ): string | undefined {
   switch (annotation.kind) {
     case "NamedTypeAnnotation":
       return !isPrimitiveTypeName(annotation.name) &&
-        !dataByName.has(annotation.name)
+        !dataByName.has(annotation.name) &&
+        !choicesByName.has(annotation.name)
         ? annotation.name
         : undefined;
 
     case "ListTypeAnnotation":
-      return findUnknownType(annotation.elementType, dataByName);
+      return findUnknownType(
+        annotation.elementType,
+        dataByName,
+        choicesByName,
+      );
 
     case "OptionalTypeAnnotation":
-      return findUnknownType(annotation.valueType, dataByName);
+      return findUnknownType(
+        annotation.valueType,
+        dataByName,
+        choicesByName,
+      );
   }
 }
 

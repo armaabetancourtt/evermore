@@ -77,7 +77,10 @@ This avoids a class of accidental syntax errors while preserving clean formattin
 The executable M1 + current M2 surface accepts the following EBNF-like grammar:
 
 ~~~text
-program          ::= "app" string declaration* EOF ;
+program          ::= app_unit | module_unit ;
+app_unit         ::= "app" string import_decl* declaration* EOF ;
+module_unit      ::= "module" identifier import_decl* declaration* EOF ;
+import_decl      ::= "import" string ;
 
 declaration      ::= protocol
                    | data
@@ -231,6 +234,8 @@ string           ::= '"' character* '"' ;
 Whitespace and indentation are trivia. They improve readability but do not determine block ownership. Natural nested constructs that cannot be terminated by a following top-level declaration use the explicit word `end`.
 
 ### Current type semantics
+
+The compiler currently supports relative multi-file modules: an entry file begins with `app "Name"`, imported files begin with `module Name`, and imports appear immediately after the header as `import "./relative.ever"`. Imported declarations are composed into one project-wide semantic scope before typechecking and lowering. Module imports are recursively resolved, deduplicated by physical path, checked for cycles, and required to use unique module names. Bare/package imports are intentionally reserved for package semantics.
 
 The checker currently supports:
 
@@ -395,6 +400,40 @@ end
 ~~~
 
 Higher-level collection APIs and specialized structures such as queues, trees and graphs remain standard-library/ecosystem work rather than blockers for the M2 core collection families.
+
+### Modules — implemented core
+
+Evermore projects may split declarations across files without falling through to target-language imports:
+
+~~~evermore
+app "Atlas"
+import "./domain.ever"
+
+function greeting
+  returns text
+  let user = makeUser("Ada")
+  return user.display()
+end
+~~~
+
+~~~evermore
+module Domain
+import "./contracts.ever"
+
+data User
+  conforms Named
+  name text
+
+  function display
+    returns text
+    return name
+  end
+end
+~~~
+
+The `app` file is the single project entrypoint. Imported files must use a `module` header. Relative imports are resolved from the importing file, optional `.ever` extensions are normalized, repeated physical imports are deduplicated, cycles are rejected, and all declarations participate in one semantic/typechecking pass.
+
+M2 modules deliberately use a project-wide declaration namespace. Namespaced imports, visibility/export controls, external package lookup and version resolution belong to package semantics rather than being silently approximated here.
 
 ### Error model — implemented core
 

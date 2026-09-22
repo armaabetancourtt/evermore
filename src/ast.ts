@@ -71,6 +71,7 @@ export type TypeAnnotation =
   | ListTypeAnnotation
   | SetTypeAnnotation
   | MapTypeAnnotation
+  | ResultTypeAnnotation
   | OptionalTypeAnnotation;
 
 export type NamedTypeAnnotation = {
@@ -95,6 +96,13 @@ export type MapTypeAnnotation = {
   readonly kind: "MapTypeAnnotation";
   readonly keyType: TypeAnnotation;
   readonly valueType: TypeAnnotation;
+  readonly span: SourceSpan;
+};
+
+export type ResultTypeAnnotation = {
+  readonly kind: "ResultTypeAnnotation";
+  readonly okType: TypeAnnotation;
+  readonly errorType: TypeAnnotation;
   readonly span: SourceSpan;
 };
 
@@ -244,6 +252,7 @@ export type MatchExpression = {
 
 export type MatchCase = {
   readonly caseName: string;
+  readonly bindingName?: string;
   readonly expression: Expression;
   readonly span: SourceSpan;
 };

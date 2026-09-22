@@ -4,6 +4,8 @@ import type {
   ButtonAction,
   ButtonStatement,
   CallExpression,
+  ClassDeclaration,
+  ClassField,
   ChoiceDeclaration,
   ChoiceCase,
   ComponentDeclaration,
@@ -71,6 +73,7 @@ class Parser {
     const nameToken = this.consume("string", "Expected an application name.");
 
     const data: DataDeclaration[] = [];
+    const classes: ClassDeclaration[] = [];
     const protocols: ProtocolDeclaration[] = [];
     const choices: ChoiceDeclaration[] = [];
     const functions: FunctionDeclaration[] = [];
@@ -81,6 +84,11 @@ class Parser {
       try {
         if (this.check("data")) {
           data.push(this.parseData());
+          continue;
+        }
+
+        if (this.check("class")) {
+          classes.push(this.parseClass());
           continue;
         }
 
@@ -113,7 +121,7 @@ class Parser {
           this.peek(),
           "E1007",
           "Expected a top-level declaration.",
-          "Declare data, a protocol, a choice, a function, a component, or a screen.",
+          "Declare data, a class, a protocol, a choice, a function, a component, or a screen.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -132,6 +140,7 @@ class Parser {
       kind: "Program",
       appName: nameToken.value ?? "",
       data,
+      classes,
       protocols,
       choices,
       functions,
@@ -197,6 +206,78 @@ class Parser {
 
     return {
       kind: "DataDeclaration",
+      name: name.value ?? name.lexeme,
+      conformances,
+      fields,
+      methods,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseClass(): ClassDeclaration {
+    const start = this.consume("class", "Expected a class declaration.");
+    const name = this.consume("identifier", "Expected a class name.");
+    const explicitBlock = this.match("lbrace");
+    const conformances: ProtocolConformance[] = [];
+    const fields: ClassField[] = [];
+    const methods: FunctionDeclaration[] = [];
+
+    while (
+      !this.check("eof") &&
+      !(explicitBlock && this.check("rbrace")) &&
+      !(!explicitBlock && this.check("end"))
+    ) {
+      if (this.match("conforms")) {
+        const protocolName = this.consume(
+          "identifier",
+          "Expected a protocol name after conforms.",
+        );
+
+        conformances.push({
+          name: protocolName.value ?? protocolName.lexeme,
+          span: protocolName.span,
+        });
+        continue;
+      }
+
+      if (this.check("function")) {
+        methods.push(this.parseFunction());
+        continue;
+      }
+
+      let visibility: "public" | "private" = "public";
+      let visibilityStart: Token | undefined;
+
+      if (this.match("public")) {
+        visibilityStart = this.previous();
+      } else if (this.match("private")) {
+        visibility = "private";
+        visibilityStart = this.previous();
+      }
+
+      const fieldName = this.consume(
+        "identifier",
+        "Expected a class field name or function.",
+      );
+      const fieldType = this.parseTypeAnnotation();
+
+      fields.push({
+        name: fieldName.value ?? fieldName.lexeme,
+        type: fieldType,
+        visibility,
+        span: {
+          start: (visibilityStart ?? fieldName).span.start,
+          end: fieldType.span.end,
+        },
+      });
+    }
+
+    const end = explicitBlock
+      ? this.consume("rbrace", 'Expected "}" to close the class declaration.')
+      : this.consume("end", 'Expected "end" to close the class declaration.');
+
+    return {
+      kind: "ClassDeclaration",
       name: name.value ?? name.lexeme,
       conformances,
       fields,

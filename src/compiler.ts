@@ -1,6 +1,7 @@
 import type { Diagnostic } from "./diagnostics.js";
 import { EvermoreDiagnosticError } from "./diagnostics.js";
 import { emitVue, type GeneratedFile } from "./codegen/vue.js";
+import { lowerToIR } from "./ir.js";
 import { parse } from "./parser.js";
 import { analyze } from "./semantic.js";
 
@@ -29,13 +30,15 @@ export function compile(
     throw new EvermoreDiagnosticError(errors);
   }
 
+  const ir = lowerToIR(analysis.model);
+
   switch (target) {
     case "vue":
       return {
-        appName: program.appName,
+        appName: ir.appName,
         target,
         diagnostics: analysis.diagnostics,
-        files: emitVue(analysis.model),
+        files: emitVue(ir),
       };
   }
 }

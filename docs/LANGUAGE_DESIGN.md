@@ -81,6 +81,7 @@ program          ::= "app" string declaration* EOF ;
 
 declaration      ::= protocol
                    | data
+                   | class
                    | choice
                    | function
                    | component
@@ -97,6 +98,12 @@ data_body        ::= "{" data_item* "}"
 data_item        ::= conformance | data_field | function ;
 conformance      ::= "conforms" identifier ;
 data_field       ::= identifier type_annotation ;
+
+class            ::= "class" identifier class_body ;
+class_body       ::= "{" class_item* "}"
+                   | class_item* "end" ;
+class_item       ::= conformance | class_field | function ;
+class_field      ::= ("public" | "private")? identifier type_annotation ;
 
 choice           ::= "choice" identifier choice_body ;
 choice_body      ::= "{" choice_case* "}"
@@ -224,11 +231,11 @@ Whitespace and indentation are trivia. They improve readability but do not deter
 The checker currently supports:
 
 - primitive `text`, `number`, `boolean` and `id`;
-- nominal `data` and payload-free nominal `choice` types;
+- nominal `data`, encapsulated nominal `class`, and payload-free nominal `choice` types;
 - field-contract `protocol` declarations with statically checked `data` conformances;
 - protocol-typed values and member access through protocol contracts;
 - inferred generic function type parameters, including `generic T conforms Protocol`;
-- nominal `data` construction through `Type(field1, field2, ...)` in declaration order;
+- nominal `data` and `class` construction through `Type(field1, field2, ...)` in declaration order;
 - recursive `list of T`, `set of T`, `map of K to V` and `optional T` type annotations;
 - `none` with optional lifting;
 - homogeneous list/set literal inference and compatible key/value inference for maps;
@@ -383,22 +390,31 @@ end
 
 Higher-level collection APIs and specialized structures such as queues, trees and graphs remain standard-library/ecosystem work rather than blockers for the M2 core collection families.
 
-### Object-oriented programming
+### Classes and encapsulation — implemented core
 
-Evermore will support encapsulation and interface-driven design without forcing inheritance as the default abstraction.
+Classes are nominal reference-like values with constructor fields, methods, protocol conformance, and enforced field visibility.
 
 ~~~evermore
-interface Repository<T>
-  function find id -> T?
-  function save value T
+class Account
+  conforms Named
+  public name text
+  private accessToken text
 
-class UserService
-  private users Repository<User>
+  function display
+    returns text
+    return name
+  end
 
-  function create input CreateUser -> User
+  function credential
+    returns text
+    return accessToken
+  end
+end
 ~~~
 
-Composition should remain easier than deep inheritance.
+Public fields participate in the externally visible class type. Private fields remain constructor state captured by generated method closures and are rejected by external member access. Class methods may read both public and private fields directly as immutable instance state. Protocol field requirements must be satisfied by public fields; protocol methods may be implemented by class methods.
+
+Inheritance is intentionally not part of the M2 core. Evermore favors protocol conformance and composition before inheritance hierarchies. Mutable instance fields and private methods are later design work and are not required for the current encapsulation contract.
 
 ### Generics
 

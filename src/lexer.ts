@@ -12,7 +12,9 @@ export type TokenKind =
   | "takes"
   | "returns"
   | "list"
+  | "map"
   | "of"
+  | "to"
   | "optional"
   | "none"
   | "if"
@@ -51,6 +53,7 @@ export type TokenKind =
   | "lbracket"
   | "rbracket"
   | "comma"
+  | "colon"
   | "dot"
   | "equal"
   | "eqeq"
@@ -83,7 +86,9 @@ const keywords = new Map<string, TokenKind>([
   ["takes", "takes"],
   ["returns", "returns"],
   ["list", "list"],
+  ["map", "map"],
   ["of", "of"],
+  ["to", "to"],
   ["optional", "optional"],
   ["none", "none"],
   ["if", "if"],
@@ -163,6 +168,12 @@ class Lexer {
       if (char === ",") {
         this.advance();
         tokens.push(this.token("comma", ",", start));
+        continue;
+      }
+
+      if (char === ":") {
+        this.advance();
+        tokens.push(this.token("colon", ":", start));
         continue;
       }
 

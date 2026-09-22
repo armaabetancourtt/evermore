@@ -10,17 +10,17 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
   const routes: string[] = [];
 
   for (const screen of program.screens) {
-    const componentName = screen.name + "Screen";
+    const componentName = screen.id + "Screen";
     const routePath =
-      screen.name === "Home"
+      screen.id === "Home"
         ? "/"
-        : "/" + screen.name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+        : "/" + screen.id.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 
     routes.push(
       "  { path: " +
         JSON.stringify(routePath) +
         ", name: " +
-        JSON.stringify(screen.name) +
+        JSON.stringify(screen.id) +
         ", component: () => import(" +
         JSON.stringify("./screens/" + componentName + ".vue") +
         ") },",
@@ -50,7 +50,7 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
           target: "vue",
           irVersion: "0.0.1",
           generatedBy: "Evermore 0.0.1",
-          screens: program.screens.map((screen) => screen.name),
+          screens: program.screens.map((screen) => screen.id),
         },
         null,
         2,

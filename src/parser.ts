@@ -4,6 +4,7 @@ import type {
   Program,
   ScreenDeclaration,
   SourceSpan,
+  TextStatement,
   TitleStatement,
   UIStatement,
 } from "./ast.js";
@@ -101,6 +102,10 @@ class Parser {
       return this.parseTitle(this.previous());
     }
 
+    if (this.match("text")) {
+      return this.parseText(this.previous());
+    }
+
     if (this.match("button")) {
       return this.parseButton(this.previous());
     }
@@ -109,7 +114,7 @@ class Parser {
       this.peek(),
       "E1004",
       "Expected a UI statement.",
-      'Try title "..." or button "...".',
+      'Try title "...", text "...", or button "...".',
     );
   }
 
@@ -117,6 +122,15 @@ class Parser {
     const text = this.consume("string", "Expected title text.");
     return {
       kind: "TitleStatement",
+      text: text.value ?? "",
+      span: spanFrom(start, text),
+    };
+  }
+
+  private parseText(start: Token): TextStatement {
+    const text = this.consume("string", "Expected text content.");
+    return {
+      kind: "TextStatement",
       text: text.value ?? "",
       span: spanFrom(start, text),
     };
@@ -169,6 +183,7 @@ class Parser {
   private synchronizeUI(): void {
     if (
       this.check("title") ||
+      this.check("text") ||
       this.check("button") ||
       this.check("screen") ||
       this.check("rbrace") ||
@@ -182,6 +197,7 @@ class Parser {
     while (!this.check("eof")) {
       if (
         this.check("title") ||
+        this.check("text") ||
         this.check("button") ||
         this.check("screen") ||
         this.check("rbrace")

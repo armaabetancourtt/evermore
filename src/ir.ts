@@ -4,7 +4,10 @@ import type {
   VisualStatement,
 } from "./ast.js";
 import type { SemanticModel } from "./semantic.js";
-import { typeRef, type TypeRef } from "./types.js";
+import {
+  typeRefFromAnnotation,
+  type TypeRef,
+} from "./types.js";
 
 export type IRProgram = {
   readonly kind: "IRProgram";
@@ -147,16 +150,16 @@ export function lowerToIR(model: SemanticModel): IRProgram {
       name: declaration.name,
       fields: declaration.fields.map((field) => ({
         name: field.name,
-        type: typeRef(field.typeName),
+        type: typeRefFromAnnotation(field.type),
       })),
     })),
     functions: model.program.functions.map((fn) => ({
       name: fn.name,
       parameters: fn.parameters.map((parameter) => ({
         name: parameter.name,
-        type: typeRef(parameter.typeName),
+        type: typeRefFromAnnotation(parameter.type),
       })),
-      returnType: typeRef(fn.returnTypeName),
+      returnType: typeRefFromAnnotation(fn.returnType),
       body: fn.body.map(lowerFunctionStatement),
     })),
     screens: model.program.screens.map((screen) => {

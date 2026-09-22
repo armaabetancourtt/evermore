@@ -1,0 +1,10 @@
+{
+  "app": "Hello",
+  "target": "vue",
+  "irVersion": "0.0.1",
+  "generatedBy": "Evermore 0.0.1",
+  "screens": [
+    "Home",
+    "Dashboard"
+  ]
+}

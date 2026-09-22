@@ -842,7 +842,8 @@ function inferExpression(
       }
 
       return substituteGenerics(callee.returnType, bindings);
-    }  }
+    }
+  }
 }
 
 function resolveType(

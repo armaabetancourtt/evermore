@@ -2,6 +2,9 @@ import type {
   ButtonStatement,
   ComponentDeclaration,
   DataDeclaration,
+  Expression,
+  FunctionDeclaration,
+  FunctionStatement,
   Program,
   ScreenDeclaration,
   ScreenStatement,
@@ -25,6 +28,9 @@ export function formatProgram(
   const declarations = [
     ...program.data.map((declaration) =>
       formatData(declaration, style),
+    ),
+    ...program.functions.map((fn) =>
+      formatFunction(fn, style),
     ),
     ...program.components.map((component) =>
       formatComponent(component, style),
@@ -70,6 +76,134 @@ function formatData(
     (body ? "\n" + body + "\n" : "") +
     "end"
   );
+}
+
+function formatFunction(
+  fn: FunctionDeclaration,
+  style: FormatStyle,
+): string {
+  const lines: string[] = [];
+
+  for (const parameter of fn.parameters) {
+    lines.push(
+      indent(1) +
+        "takes " +
+        parameter.name +
+        " " +
+        parameter.typeName,
+    );
+  }
+
+  lines.push(
+    indent(1) + "returns " + fn.returnTypeName,
+  );
+
+  if (fn.body.length > 0) {
+    lines.push("");
+    lines.push(
+      ...fn.body.map((statement) =>
+        formatFunctionStatement(statement, 1),
+      ),
+    );
+  }
+
+  if (style === "explicit") {
+    return (
+      "function " +
+      fn.name +
+      " {\n" +
+      lines.join("\n") +
+      "\n}"
+    );
+  }
+
+  return (
+    "function " +
+    fn.name +
+    "\n\n" +
+    lines.join("\n") +
+    "\nend"
+  );
+}
+
+function formatFunctionStatement(
+  statement: FunctionStatement,
+  depth: number,
+): string {
+  if (statement.kind === "LetStatement") {
+    return (
+      indent(depth) +
+      "let " +
+      statement.name +
+      " = " +
+      formatExpression(statement.expression)
+    );
+  }
+
+  return (
+    indent(depth) +
+    "return " +
+    formatExpression(statement.expression)
+  );
+}
+
+function formatExpression(
+  expression: Expression,
+  parentPrecedence = 0,
+  rightChild = false,
+): string {
+  switch (expression.kind) {
+    case "NumberExpression":
+      return String(expression.value);
+
+    case "StringExpression":
+      return '"' + escapeString(expression.value) + '"';
+
+    case "BooleanExpression":
+      return expression.value ? "true" : "false";
+
+    case "IdentifierExpression":
+      return expression.name;
+
+    case "CallExpression":
+      return (
+        expression.callee +
+        "(" +
+        expression.arguments
+          .map((argument) => formatExpression(argument))
+          .join(", ") +
+        ")"
+      );
+
+    case "BinaryExpression": {
+      const precedence =
+        expression.operator === "*" || expression.operator === "/"
+          ? 2
+          : 1;
+
+      const left = formatExpression(
+        expression.left,
+        precedence,
+        false,
+      );
+      const right = formatExpression(
+        expression.right,
+        precedence,
+        true,
+      );
+      const source =
+        left + " " + expression.operator + " " + right;
+
+      if (
+        precedence < parentPrecedence ||
+        (rightChild && precedence === parentPrecedence)
+      ) {
+        return "(" + source + ")";
+      }
+
+      return source;
+    }
+  }
 }
 
 function formatComponent(

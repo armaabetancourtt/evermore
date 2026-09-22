@@ -150,14 +150,46 @@ function emitScreen(screen: IRScreen): string {
       element.kind === "Button" &&
       element.action?.kind === "Navigate",
   );
+  const needsState = screen.states.length > 0;
 
-  const script = needsRouter
-    ? '<script setup lang="ts">\n' +
-      'import { useRouter } from "vue-router";\n\n' +
-      "const router = useRouter();\n" +
-      "const go = (screen: string) => router.push({ name: screen });\n" +
-      "</script>\n\n"
-    : "";
+  const scriptLines: string[] = [];
+
+  if (needsState) {
+    scriptLines.push('import { ref } from "vue";');
+  }
+
+  if (needsRouter) {
+    scriptLines.push('import { useRouter } from "vue-router";');
+  }
+
+  if (scriptLines.length > 0) {
+    scriptLines.push("");
+  }
+
+  for (const state of screen.states) {
+    scriptLines.push(
+      "const " +
+        stateIdentifier(state.name) +
+        " = ref(" +
+        String(state.initialValue) +
+        ");",
+    );
+  }
+
+  if (needsRouter) {
+    if (screen.states.length > 0) scriptLines.push("");
+    scriptLines.push("const router = useRouter();");
+    scriptLines.push(
+      "const go = (screen: string) => router.push({ name: screen });",
+    );
+  }
+
+  const script =
+    scriptLines.length > 0
+      ? '<script setup lang="ts">\n' +
+        scriptLines.join("\n") +
+        "\n</script>\n\n"
+      : "";
 
   const body: string[] = [];
 
@@ -175,14 +207,34 @@ function emitScreen(screen: IRScreen): string {
       continue;
     }
 
-    const action =
-      element.action?.kind === "Navigate"
-        ? ' @click="go(' +
-          "'" +
-          escapeAttribute(element.action.target) +
-          "'" +
-          ')"'
-        : "";
+    if (element.kind === "StateValue") {
+      body.push(
+        '    <output class="evermore-value">{{ ' +
+          stateIdentifier(element.stateName) +
+          " }}</output>",
+      );
+      continue;
+    }
+
+    let action = "";
+
+    if (element.action?.kind === "Navigate") {
+      action =
+        ' @click="go(' +
+        "'" +
+        escapeAttribute(element.action.target) +
+        "'" +
+        ')"';
+    }
+
+    if (element.action?.kind === "Increment") {
+      action =
+        ' @click="' +
+        stateIdentifier(element.action.stateName) +
+        " += " +
+        String(element.action.amount) +
+        '"';
+    }
 
     body.push(
       '    <button class="evermore-button" type="button"' +
@@ -202,6 +254,15 @@ function emitScreen(screen: IRScreen): string {
     "\n    </section>\n" +
     "  </main>\n" +
     "</template>\n"
+  );
+}
+
+function stateIdentifier(name: string): string {
+  return (
+    "state_" +
+    name
+      .replace(/[^A-Za-z0-9_]/g, "_")
+      .replace(/^([0-9])/, "_$1")
   );
 }
 
@@ -258,6 +319,13 @@ h1 {
   font-size: clamp(1rem, 2vw, 1.25rem);
   line-height: 1.6;
   color: color-mix(in srgb, currentColor 72%, transparent);
+}
+
+.evermore-value {
+  font-size: clamp(3rem, 12vw, 8rem);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.055em;
 }
 
 .evermore-button {

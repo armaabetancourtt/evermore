@@ -126,6 +126,7 @@ export type Expression =
   | ListExpression
   | IfExpression
   | MatchExpression
+  | MemberExpression
   | ChoiceCaseExpression
   | IdentifierExpression
   | BinaryExpression
@@ -170,6 +171,13 @@ export type MatchExpression = {
 export type MatchCase = {
   readonly caseName: string;
   readonly expression: Expression;
+  readonly span: SourceSpan;
+};
+
+export type MemberExpression = {
+  readonly kind: "MemberExpression";
+  readonly object: Expression;
+  readonly member: string;
   readonly span: SourceSpan;
 };
 

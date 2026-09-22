@@ -772,25 +772,71 @@ accessibility
 
 # Lo que ya funciona
 
-Evermore está hoy en **pre-alpha / compiler foundation**.
+Evermore ya completó **M0: fundamentos del compilador** y el vertical slice ejecutable de **M1: sintaxis humana + web**.
 
-Actualmente el repositorio ya contiene:
+Implementado hoy:
 
-- lexer;
-- source positions;
-- parser;
-- AST;
-- diagnósticos legibles;
-- validación semántica;
-- verificación de navegación;
-- IR inicial;
-- generador experimental de Vue;
-- CLI;
-- tests;
-- programa .ever de ejemplo;
-- CI.
+- sintaxis natural y explícita con la misma semántica;
+- parsing independiente de la indentación;
+- formatter canónico en modo natural o explícito;
+- títulos, texto y botones;
+- navegación entre pantallas;
+- estado entero reactivo con `state`, `show` e `increases`;
+- stacks verticales y horizontales anidados;
+- componentes reutilizables stateless con `component` y `use`;
+- validación semántica de pantallas, estado, componentes y ciclos;
+- recuperación de múltiples errores del parser;
+- Evermore IR independiente del framework;
+- generación completa de aplicaciones Vue 3 + Vite;
+- defaults de accesibilidad: focus visible, reduced motion, tamaño táctil y anuncios live para estado;
+- builds reales del target generado dentro de CI, incluyendo un showcase M1 de tres pantallas.
 
-El vertical slice actual es intencionalmente pequeño:
+Un ejemplo ejecutable completo ya puede escribirse así:
+
+~~~evermore
+app "Evermore Showcase"
+
+component Navigation
+
+  stack horizontal
+
+    button "Home"
+      opens Home
+
+    button "Counter"
+      opens Counter
+
+  end
+
+end
+
+screen Home
+
+  title "Build software like you think."
+
+  text "Human-first syntax. Typed semantics. Framework-independent intent."
+
+  use Navigation
+
+screen Counter
+
+  title "State without ceremony"
+
+  state count starts 0
+
+  stack horizontal
+
+    show count
+
+    button "Add"
+      increases count
+
+  end
+
+  use Navigation
+~~~
+
+La cadena que CI valida realmente es:
 
 ~~~text
 Evermore source
@@ -801,38 +847,18 @@ parser
    ↓
 AST
    ↓
-semantic checks
+análisis semántico
    ↓
-Vue-oriented generated artifacts
+Evermore IR
+   ↓
+backend Vue/Vite
+   ↓
+npm install + build de producción
 ~~~
 
-Todavía **no afirmamos soporte implementado** para agentes, mobile, Python, Kubernetes o el resto de la visión hasta que exista evidencia ejecutable.
+Todavía **no afirmamos soporte implementado** para IA, mobile, Python/data o infraestructura. Esos siguen siendo milestones posteriores hasta tener evidencia ejecutable.
 
----
-
-# Primer programa ejecutable
-
-Actualmente la sintaxis explícita del prototipo es:
-
-~~~evermore
-app "Hello Evermore"
-
-screen Home {
-  title "Build what you imagine"
-
-  button "Continue" {
-    opens Future
-  }
-}
-
-screen Future {
-  title "Software in human terms"
-}
-~~~
-
-Ver: [examples/hello.ever](examples/hello.ever).
-
-La forma natural sin braces es el siguiente paso de diseño del parser.
+Consulta [examples/showcase.ever](examples/showcase.ever) y [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 
@@ -847,19 +873,25 @@ npm install
 Puedes validar:
 
 ~~~bash
-npm run evermore -- check examples/hello.ever
+npm run evermore -- check examples/showcase.ever
 ~~~
 
-ver la representación:
+formatear:
 
 ~~~bash
-npm run evermore -- ast examples/hello.ever
+npm run evermore -- format examples/showcase.ever
 ~~~
 
-y generar el target experimental:
+inspeccionar el AST:
 
 ~~~bash
-npm run evermore -- build examples/hello.ever --out evermore-build
+npm run evermore -- ast examples/showcase.ever
+~~~
+
+y generar una aplicación Vue/Vite:
+
+~~~bash
+npm run evermore -- build examples/showcase.ever --out evermore-build
 ~~~
 
 ---
@@ -969,7 +1001,7 @@ Los targets pueden cambiar debajo.
 
 ## Estado
 
-**Experimental · Pre-alpha · Diseño del lenguaje y fundamentos del compilador**
+**Experimental · Pre-alpha · Vertical slice web M1 completo; núcleo M2 en desarrollo**
 
 Todavía no uses Evermore para producción.
 

@@ -8,6 +8,7 @@ import {
   EvermoreDiagnosticError,
   formatDiagnostic,
 } from "./diagnostics.js";
+import { formatSource, type FormatStyle } from "./formatter.js";
 import { parse } from "./parser.js";
 import { analyze } from "./semantic.js";
 
@@ -45,6 +46,20 @@ async function main(): Promise<void> {
       return;
     }
 
+    case "format": {
+      const style = readFormatStyle(rest);
+      const formatted = formatSource(source, style);
+
+      if (rest.includes("--write")) {
+        await writeFile(absoluteSource, formatted, "utf8");
+        console.log("✓ Formatted " + sourcePath + " using " + style + " style.");
+      } else {
+        process.stdout.write(formatted);
+      }
+
+      return;
+    }
+
     case "build": {
       const out = readOption(rest, "--out") ?? "evermore-build";
       const result = compile(source, { target: "vue" });
@@ -79,6 +94,18 @@ async function main(): Promise<void> {
   }
 }
 
+function readFormatStyle(args: readonly string[]): FormatStyle {
+  const value = readOption(args, "--style") ?? "natural";
+
+  if (value === "natural" || value === "explicit") {
+    return value;
+  }
+
+  throw new Error(
+    'Unknown format style "' + value + '". Use natural or explicit.',
+  );
+}
+
 function readOption(args: readonly string[], name: string): string | undefined {
   const index = args.indexOf(name);
   if (index === -1) return undefined;
@@ -88,15 +115,16 @@ function readOption(args: readonly string[], name: string): string | undefined {
 function printHelp(): void {
   console.log(
     [
-      "Evermore compiler foundation",
+      "Evermore compiler",
       "",
       "Usage:",
       "  evermore check <file.ever>",
       "  evermore ast <file.ever>",
+      "  evermore format <file.ever> [--style natural|explicit] [--write]",
       "  evermore build <file.ever> [--out directory]",
       "",
       "Current backend:",
-      "  vue    Prototype Vue 3 code generation",
+      "  vue    Vue 3 + Vite application generation",
     ].join("\n"),
   );
 }

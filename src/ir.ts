@@ -13,8 +13,14 @@ export type IRProgram = {
   readonly kind: "IRProgram";
   readonly appName: string;
   readonly data: readonly IRDataModel[];
+  readonly choices: readonly IRChoice[];
   readonly functions: readonly IRFunction[];
   readonly screens: readonly IRScreen[];
+};
+
+export type IRChoice = {
+  readonly name: string;
+  readonly cases: readonly string[];
 };
 
 export type IRDataModel = {
@@ -59,6 +65,7 @@ export type IRExpression =
   | IRNoneExpression
   | IRListExpression
   | IRIfExpression
+  | IRChoiceCaseExpression
   | IRIdentifierExpression
   | IRBinaryExpression
   | IRCallExpression;
@@ -85,6 +92,12 @@ export type IRNoneExpression = {
 export type IRListExpression = {
   readonly kind: "List";
   readonly elements: readonly IRExpression[];
+};
+
+export type IRChoiceCaseExpression = {
+  readonly kind: "ChoiceCase";
+  readonly choiceName: string;
+  readonly caseName: string;
 };
 
 export type IRIdentifierExpression = {
@@ -182,6 +195,10 @@ export function lowerToIR(model: SemanticModel): IRProgram {
         type: typeRefFromAnnotation(field.type),
       })),
     })),
+    choices: model.program.choices.map((choice) => ({
+      name: choice.name,
+      cases: choice.cases.map((item) => item.name),
+    })),
     functions: model.program.functions.map((fn) => ({
       name: fn.name,
       parameters: fn.parameters.map((parameter) => ({
@@ -268,6 +285,13 @@ function lowerExpression(expression: Expression): IRExpression {
         condition: lowerExpression(expression.condition),
         thenExpression: lowerExpression(expression.thenExpression),
         elseExpression: lowerExpression(expression.elseExpression),
+      };
+
+    case "ChoiceCaseExpression":
+      return {
+        kind: "ChoiceCase",
+        choiceName: expression.choiceName,
+        caseName: expression.caseName,
       };
 
     case "IdentifierExpression":

@@ -1,4 +1,8 @@
-import type { Program, ScreenDeclaration } from "./ast.js";
+import type {
+  Program,
+  ScreenDeclaration,
+  StateDeclaration,
+} from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
 
 export type SemanticModel = {
@@ -31,10 +35,33 @@ export function analyze(program: Program): {
   }
 
   for (const screen of program.screens) {
+    const states = collectStates(screen, diagnostics);
+
     for (const statement of screen.body) {
       if (
+        statement.kind === "ShowStatement" &&
+        !states.has(statement.stateName)
+      ) {
+        diagnostics.push({
+          code: "E2004",
+          severity: "error",
+          message:
+            'Screen "' +
+            screen.name +
+            '" shows unknown state "' +
+            statement.stateName +
+            '".',
+          span: statement.span,
+          help:
+            'Declare state ' +
+            statement.stateName +
+            " starts 0 in the same screen.",
+        });
+      }
+
+      if (
         statement.kind === "ButtonStatement" &&
-        statement.action &&
+        statement.action?.kind === "NavigationAction" &&
         !screens.has(statement.action.target)
       ) {
         diagnostics.push({
@@ -48,9 +75,31 @@ export function analyze(program: Program): {
             '".',
           span: statement.action.span,
           help:
-            'Declare screen ' +
+            "Declare screen " +
             statement.action.target +
             " or change the navigation target.",
+        });
+      }
+
+      if (
+        statement.kind === "ButtonStatement" &&
+        statement.action?.kind === "IncrementAction" &&
+        !states.has(statement.action.stateName)
+      ) {
+        diagnostics.push({
+          code: "E2005",
+          severity: "error",
+          message:
+            'Button "' +
+            statement.label +
+            '" increases unknown state "' +
+            statement.action.stateName +
+            '".',
+          span: statement.action.span,
+          help:
+            'Declare state ' +
+            statement.action.stateName +
+            " starts 0 in the same screen.",
         });
       }
     }
@@ -79,4 +128,37 @@ export function analyze(program: Program): {
         }),
     diagnostics,
   };
+}
+
+function collectStates(
+  screen: ScreenDeclaration,
+  diagnostics: Diagnostic[],
+): ReadonlyMap<string, StateDeclaration> {
+  const states = new Map<string, StateDeclaration>();
+
+  for (const statement of screen.body) {
+    if (statement.kind !== "StateDeclaration") continue;
+
+    const previous = states.get(statement.name);
+
+    if (previous) {
+      diagnostics.push({
+        code: "E2003",
+        severity: "error",
+        message:
+          'State "' +
+          statement.name +
+          '" is declared more than once in screen "' +
+          screen.name +
+          '".',
+        span: statement.span,
+        help: "Give each state in a screen a unique name.",
+      });
+      continue;
+    }
+
+    states.set(statement.name, statement);
+  }
+
+  return states;
 }

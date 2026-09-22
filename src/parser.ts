@@ -17,6 +17,8 @@ import type {
   IncrementAction,
   LetStatement,
   ListExpression,
+  MatchCase,
+  MatchExpression,
   NavigationAction,
   NumberExpression,
   Program,
@@ -321,6 +323,47 @@ class Parser {
   }
 
   private parseExpression(): Expression {
+    if (this.match("match")) {
+      const start = this.previous();
+      const value = this.parseComparison();
+      const cases: MatchCase[] = [];
+
+      while (this.match("case")) {
+        const caseStart = this.previous();
+        const caseName = this.consume(
+          "identifier",
+          "Expected a choice case name after case.",
+        );
+        this.consume(
+          "then",
+          'Expected "then" after the match case name.',
+        );
+        const expression = this.parseExpression();
+
+        cases.push({
+          caseName: caseName.value ?? caseName.lexeme,
+          expression,
+          span: {
+            start: caseStart.span.start,
+            end: expression.span.end,
+          },
+        });
+      }
+
+      const end = this.consume(
+        "end",
+        'Expected "end" to close the match expression.',
+      );
+
+      const expression: MatchExpression = {
+        kind: "MatchExpression",
+        value,
+        cases,
+        span: spanFrom(start, end),
+      };
+      return expression;
+    }
+
     if (this.match("if")) {
       const start = this.previous();
       const condition = this.parseComparison();

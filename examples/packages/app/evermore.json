@@ -1,0 +1,11 @@
+{
+  "name": "package-app",
+  "version": "0.1.0",
+  "entry": "main.ever",
+  "dependencies": {
+    "shared": {
+      "path": "../shared",
+      "version": "1.0.0"
+    }
+  }
+}

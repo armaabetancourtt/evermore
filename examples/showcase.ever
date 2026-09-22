@@ -1,0 +1,63 @@
+app "Evermore Showcase"
+
+component Navigation
+
+  stack horizontal
+
+    button "Home"
+      opens Home
+
+    button "Counter"
+      opens Counter
+
+    button "About"
+      opens About
+
+  end
+
+end
+
+screen Home
+
+  title "Build software like you think."
+
+  text "Human-first syntax. Typed semantics. Framework-independent intent."
+
+  stack vertical
+
+    text "This interface is described in Evermore."
+
+    use Navigation
+
+  end
+
+screen Counter
+
+  title "State without ceremony"
+
+  state count starts 0
+
+  stack horizontal
+
+    show count
+
+    button "Add"
+      increases count
+
+  end
+
+  use Navigation
+
+screen About
+
+  title "Designed to endure"
+
+  stack vertical
+
+    text "Evermore lowers product intent through a stable IR."
+
+    text "Vue is a target today. Other runtimes can arrive tomorrow."
+
+    use Navigation
+
+  end

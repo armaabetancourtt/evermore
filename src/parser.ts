@@ -335,6 +335,14 @@ class Parser {
       };
     }
 
+    if (this.match("none")) {
+      const token = this.previous();
+      return {
+        kind: "NoneExpression",
+        span: token.span,
+      };
+    }
+
     if (this.match("lbracket")) {
       const start = this.previous();
       const elements: Expression[] = [];

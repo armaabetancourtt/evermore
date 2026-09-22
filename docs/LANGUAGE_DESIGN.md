@@ -110,7 +110,7 @@ function_item    ::= generic_parameter
                    | return_type
                    | let_statement
                    | return_statement ;
-generic_parameter ::= "generic" identifier ;
+generic_parameter ::= "generic" identifier ("conforms" identifier)? ;
 parameter        ::= "takes" identifier type_annotation ;
 return_type      ::= "returns" type_annotation ;
 let_statement    ::= "let" identifier "=" expression ;
@@ -278,7 +278,7 @@ data User
 end
 ~~~
 
-The compiler verifies conformance before lowering to a target. Protocol-typed values, member-based protocol APIs and method requirements remain M2 work.
+The compiler verifies conformance before lowering to a target. Protocol-typed values and field member access are executable, and protocols can constrain generic function parameters. Method requirements remain M2 work.
 
 ### Algebraic data — partially implemented
 
@@ -309,18 +309,22 @@ end
 
 ### Generics — implemented for functions
 
-Generic function parameters are declared once and inferred at call sites:
+Generic function parameters are declared once and inferred at call sites. They may also be constrained by a protocol:
 
 ~~~evermore
-function identity
-  generic T
+protocol Identified
+  id id
+end
+
+function identifier
+  generic T conforms Identified
   takes value T
-  returns T
-  return value
+  returns id
+  return value.id
 end
 ~~~
 
-Evermore infers generic substitutions from arguments and, where unambiguous, from the expected result type. Generic data/choice declarations and constraints remain later M2 work.
+Evermore infers generic substitutions from arguments and, where unambiguous, from the expected result type. A constrained generic exposes the fields guaranteed by its protocol, and generated TypeScript preserves the constraint with an `extends` clause. Generic data and choice declarations remain later M2 work.
 
 ### Collections — partially implemented
 

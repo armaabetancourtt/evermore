@@ -87,13 +87,14 @@ declaration      ::= protocol
                    | screen ;
 
 protocol         ::= "protocol" identifier protocol_body ;
-protocol_body    ::= "{" data_field* "}"
-                   | data_field* "end" ;
+protocol_body    ::= "{" protocol_item* "}"
+                   | protocol_item* "end" ;
+protocol_item    ::= data_field | function ;
 
 data             ::= "data" identifier data_body ;
 data_body        ::= "{" data_item* "}"
                    | data_item* "end" ;
-data_item        ::= conformance | data_field ;
+data_item        ::= conformance | data_field | function ;
 conformance      ::= "conforms" identifier ;
 data_field       ::= identifier type_annotation ;
 
@@ -160,6 +161,7 @@ primary          ::= integer
                    | map_literal
                    | identifier
                    | identifier "." identifier
+                   | identifier "." identifier "(" arguments? ")"
                    | identifier "(" arguments? ")"
                    | "(" expression ")" ;
 
@@ -278,23 +280,32 @@ end
 
 `let` is immutable by default. `var` opts into mutation, and every `set` must remain assignable to the variable's inferred storage type. Parameters remain immutable. Broader module/global lifetimes are deliberately deferred to module semantics rather than being implicit mutable globals.
 
-### Protocol contracts — partially implemented
+### Protocol contracts — implemented core
 
-Field contracts are executable today:
+Field and method contracts are executable today:
 
 ~~~evermore
 protocol Named
   name text
+
+  function display
+    returns text
+  end
 end
 
 data User
   conforms Named
   name text
   age number
+
+  function display
+    returns text
+    return name
+  end
 end
 ~~~
 
-The compiler verifies conformance before lowering to a target. Protocol-typed values, member access through protocol contracts, and protocol-constrained generics are executable today. Method requirements remain M2 work.
+The compiler verifies field and method conformance before lowering to a target. Protocol-typed values can read declared fields and call declared methods, including through protocol-constrained generics. Data methods are executable and may read their own fields directly as immutable values. Protocol methods are signature-only requirements; generic methods are deliberately deferred while top-level protocol-constrained generics remain the supported generic behavior boundary.
 
 ### Algebraic data — partially implemented
 

@@ -1,4 +1,5 @@
 import type {
+  ChoiceDeclaration,
   DataDeclaration,
   Expression,
   FunctionDeclaration,
@@ -24,9 +25,14 @@ export type FunctionTypeModel = {
   readonly signaturesByName: ReadonlyMap<string, FunctionSignature>;
 };
 
+export type NamedTypeContext = {
+  readonly dataByName: ReadonlyMap<string, DataDeclaration>;
+  readonly choicesByName: ReadonlyMap<string, ChoiceDeclaration>;
+};
+
 export function validateFunctions(
   functions: readonly FunctionDeclaration[],
-  dataByName: ReadonlyMap<string, DataDeclaration>,
+  types: NamedTypeContext,
   diagnostics: Diagnostic[],
 ): FunctionTypeModel {
   const functionsByName = new Map<string, FunctionDeclaration>();
@@ -73,7 +79,7 @@ export function validateFunctions(
       const resolved = resolveType(
         parameter.type,
         parameter.span,
-        dataByName,
+        types,
         diagnostics,
       );
 
@@ -87,7 +93,7 @@ export function validateFunctions(
     const returnType = resolveType(
       fn.returnType,
       fn.span,
-      dataByName,
+      types,
       diagnostics,
     );
 
@@ -108,7 +114,7 @@ export function validateFunctions(
     validateFunctionBody(
       signature,
       signaturesByName,
-      dataByName,
+      types,
       diagnostics,
     );
   }
@@ -122,7 +128,7 @@ export function validateFunctions(
 function validateFunctionBody(
   signature: FunctionSignature,
   signatures: ReadonlyMap<string, FunctionSignature>,
-  dataByName: ReadonlyMap<string, DataDeclaration>,
+  types: NamedTypeContext,
   diagnostics: Diagnostic[],
 ): void {
   const env = new Map<string, TypeRef>();
@@ -142,7 +148,7 @@ function validateFunctionBody(
       signature,
       env,
       signatures,
-      dataByName,
+      types,
       diagnostics,
     );
 
@@ -173,7 +179,7 @@ function validateFunctionStatement(
   signature: FunctionSignature,
   env: Map<string, TypeRef>,
   signatures: ReadonlyMap<string, FunctionSignature>,
-  dataByName: ReadonlyMap<string, DataDeclaration>,
+  types: NamedTypeContext,
   diagnostics: Diagnostic[],
 ): void {
   if (statement.kind === "LetStatement") {
@@ -181,7 +187,7 @@ function validateFunctionStatement(
       statement.expression,
       env,
       signatures,
-      dataByName,
+      types,
       diagnostics,
     );
 
@@ -212,7 +218,7 @@ function validateFunctionStatement(
     statement.expression,
     env,
     signatures,
-    dataByName,
+    types,
     diagnostics,
   );
 
@@ -238,7 +244,7 @@ function inferExpression(
   expression: Expression,
   env: ReadonlyMap<string, TypeRef>,
   signatures: ReadonlyMap<string, FunctionSignature>,
-  dataByName: ReadonlyMap<string, DataDeclaration>,
+  types: NamedTypeContext,
   diagnostics: Diagnostic[],
 ): TypeRef | undefined {
   switch (expression.kind) {
@@ -253,6 +259,46 @@ function inferExpression(
 
     case "NoneExpression":
       return { kind: "None" };
+
+    case "ChoiceCaseExpression": {
+      const choice = types.choicesByName.get(expression.choiceName);
+
+      if (!choice) {
+        diagnostics.push({
+          code: "E2304",
+          severity: "error",
+          message:
+            'Unknown choice type "' + expression.choiceName + '".',
+          span: expression.span,
+          help: "Declare the choice type before using one of its cases.",
+        });
+        return undefined;
+      }
+
+      if (!choice.cases.some((item) => item.name === expression.caseName)) {
+        diagnostics.push({
+          code: "E2305",
+          severity: "error",
+          message:
+            'Choice "' +
+            expression.choiceName +
+            '" has no case "' +
+            expression.caseName +
+            '".',
+          span: expression.span,
+          help:
+            "Use one of: " +
+            choice.cases.map((item) => item.name).join(", ") +
+            ".",
+        });
+        return undefined;
+      }
+
+      return {
+        kind: "Named",
+        name: expression.choiceName,
+      };
+    }
 
     case "ListExpression": {
       if (expression.elements.length === 0) {
@@ -271,7 +317,7 @@ function inferExpression(
         expression.elements[0]!,
         env,
         signatures,
-        dataByName,
+        types,
         diagnostics,
       );
 
@@ -285,7 +331,7 @@ function inferExpression(
           element,
           env,
           signatures,
-          dataByName,
+          types,
           diagnostics,
         );
 
@@ -343,21 +389,21 @@ function inferExpression(
         expression.condition,
         env,
         signatures,
-        dataByName,
+        types,
         diagnostics,
       );
       const thenType = inferExpression(
         expression.thenExpression,
         env,
         signatures,
-        dataByName,
+        types,
         diagnostics,
       );
       const elseType = inferExpression(
         expression.elseExpression,
         env,
         signatures,
-        dataByName,
+        types,
         diagnostics,
       );
 
@@ -405,14 +451,14 @@ function inferExpression(
         expression.left,
         env,
         signatures,
-        dataByName,
+        types,
         diagnostics,
       );
       const right = inferExpression(
         expression.right,
         env,
         signatures,
-        dataByName,
+        types,
         diagnostics,
       );
 
@@ -509,7 +555,7 @@ function inferExpression(
             argument,
             env,
             signatures,
-            dataByName,
+            types,
             diagnostics,
           );
         }
@@ -539,7 +585,7 @@ function inferExpression(
           argument,
           env,
           signatures,
-          dataByName,
+          types,
           diagnostics,
         );
         const expected = callee.parameters[index];
@@ -572,10 +618,10 @@ function inferExpression(
 function resolveType(
   annotation: TypeAnnotation,
   span: FunctionDeclaration["span"],
-  dataByName: ReadonlyMap<string, DataDeclaration>,
+  types: NamedTypeContext,
   diagnostics: Diagnostic[],
 ): TypeRef | undefined {
-  const unknown = findUnknownType(annotation, dataByName);
+  const unknown = findUnknownType(annotation, types);
 
   if (unknown) {
     diagnostics.push({
@@ -584,7 +630,7 @@ function resolveType(
       message: 'Unknown function type "' + unknown + '".',
       span,
       help:
-        "Use a primitive type (text, number, boolean, id), list/optional composition, or a declared data type.",
+        "Use a primitive type, list/optional composition, or a declared data/choice type.",
     });
     return undefined;
   }
@@ -594,20 +640,21 @@ function resolveType(
 
 function findUnknownType(
   annotation: TypeAnnotation,
-  dataByName: ReadonlyMap<string, DataDeclaration>,
+  types: NamedTypeContext,
 ): string | undefined {
   switch (annotation.kind) {
     case "NamedTypeAnnotation":
       return !isPrimitiveTypeName(annotation.name) &&
-        !dataByName.has(annotation.name)
+        !types.dataByName.has(annotation.name) &&
+        !types.choicesByName.has(annotation.name)
         ? annotation.name
         : undefined;
 
     case "ListTypeAnnotation":
-      return findUnknownType(annotation.elementType, dataByName);
+      return findUnknownType(annotation.elementType, types);
 
     case "OptionalTypeAnnotation":
-      return findUnknownType(annotation.valueType, dataByName);
+      return findUnknownType(annotation.valueType, types);
   }
 }
 

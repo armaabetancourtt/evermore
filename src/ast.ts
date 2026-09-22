@@ -71,9 +71,15 @@ export type ChoiceCase = {
 export type FunctionDeclaration = {
   readonly kind: "FunctionDeclaration";
   readonly name: string;
+  readonly typeParameters: readonly TypeParameter[];
   readonly parameters: readonly FunctionParameter[];
   readonly returnType: TypeAnnotation;
   readonly body: readonly FunctionStatement[];
+  readonly span: SourceSpan;
+};
+
+export type TypeParameter = {
+  readonly name: string;
   readonly span: SourceSpan;
 };
 

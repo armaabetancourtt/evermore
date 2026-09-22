@@ -1,0 +1,12 @@
+app "Packages"
+import "shared/models"
+
+function greeting
+  returns text
+  let user = makeUser("Ada")
+  return user.display()
+end
+
+screen Home
+  title "Packages are typed"
+  text "Local packages resolve through exact manifest identities."

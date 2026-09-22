@@ -37,9 +37,39 @@ async function main(): Promise<void> {
     case "check": {
       const readSource = (filePath: string) =>
         readFile(filePath, "utf8");
-      const project = packageInput
-        ? await loadPackageProject(absoluteSource, readSource)
-        : await loadProject(absoluteSource, readSource);
+
+      if (packageInput) {
+        const project = await loadPackageProject(
+          absoluteSource,
+          readSource,
+        );
+        const analysis = analyze(project.program);
+
+        for (const diagnostic of analysis.diagnostics) {
+          console.log(formatDiagnostic(diagnostic, sourcePath));
+        }
+
+        if (!analysis.model) process.exitCode = 1;
+        else {
+          console.log(
+            "✓ package " +
+              project.rootPackage.manifest.name +
+              "@" +
+              project.rootPackage.manifest.version +
+              " is semantically valid across " +
+              project.packages.length +
+              " package(s) and " +
+              project.units.length +
+              " source file(s).",
+          );
+        }
+        return;
+      }
+
+      const project = await loadProject(
+        absoluteSource,
+        readSource,
+      );
       const analysis = analyze(project.program);
 
       for (const diagnostic of analysis.diagnostics) {
@@ -47,19 +77,7 @@ async function main(): Promise<void> {
       }
 
       if (!analysis.model) process.exitCode = 1;
-      else if ("rootPackage" in project) {
-        console.log(
-          "✓ package " +
-            project.rootPackage.manifest.name +
-            "@" +
-            project.rootPackage.manifest.version +
-            " is semantically valid across " +
-            project.packages.length +
-            " package(s) and " +
-            project.units.length +
-            " source file(s).",
-        );
-      } else {
+      else {
         console.log(
           "✓ " +
             project.program.appName +

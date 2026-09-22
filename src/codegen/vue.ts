@@ -18,7 +18,7 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
             type: "module",
             scripts: {
               dev: "vite",
-              build: "vite build",
+              build: "vue-tsc --noEmit -p tsconfig.json && vite build",
               preview: "vite preview",
             },
             dependencies: {
@@ -29,7 +29,33 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
               "@vitejs/plugin-vue": "^6.0.0",
               typescript: "^5.9.0",
               vite: "^7.0.0",
+              "vue-tsc": "^3.0.0",
             },
+          },
+          null,
+          2,
+        ) + "\n",
+    },
+    {
+      path: "tsconfig.json",
+      content:
+        JSON.stringify(
+          {
+            compilerOptions: {
+              target: "ES2022",
+              module: "ESNext",
+              moduleResolution: "Bundler",
+              strict: true,
+              noEmit: true,
+              skipLibCheck: true,
+              lib: ["ES2022", "DOM", "DOM.Iterable"],
+              types: ["vite/client"],
+            },
+            include: [
+              "src/**/*.ts",
+              "src/**/*.vue",
+              "vite.config.ts",
+            ],
           },
           null,
           2,

@@ -2,11 +2,13 @@ import type {
   Expression,
   FunctionDeclaration,
   FunctionStatement,
+  TypeAnnotation,
 } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
 import {
   isPrimitiveTypeName,
   typeRef,
+  typeRefFromAnnotation,
   type TypeRef,
 } from "./types.js";
 import type { DataDeclaration } from "./ast.js";
@@ -69,7 +71,7 @@ export function validateFunctions(
       }
 
       const resolved = resolveType(
-        parameter.typeName,
+        parameter.type,
         parameter.span,
         dataByName,
         diagnostics,
@@ -83,7 +85,7 @@ export function validateFunctions(
     }
 
     const returnType = resolveType(
-      fn.returnTypeName,
+      fn.returnType,
       fn.span,
       dataByName,
       diagnostics,
@@ -382,34 +384,80 @@ function inferExpression(
 }
 
 function resolveType(
-  name: string,
+  annotation: TypeAnnotation,
   span: FunctionDeclaration["span"],
   dataByName: ReadonlyMap<string, DataDeclaration>,
   diagnostics: Diagnostic[],
 ): TypeRef | undefined {
-  if (isPrimitiveTypeName(name)) {
-    return typeRef(name);
+  const unknown = findUnknownType(annotation, dataByName);
+
+  if (unknown) {
+    diagnostics.push({
+      code: "E2202",
+      severity: "error",
+      message: 'Unknown function type "' + unknown + '".',
+      span,
+      help:
+        "Use a primitive type (text, number, boolean, id), list/optional composition, or a declared data type.",
+    });
+    return undefined;
   }
 
-  if (dataByName.has(name)) {
-    return typeRef(name);
-  }
+  return typeRefFromAnnotation(annotation);
+}
 
-  diagnostics.push({
-    code: "E2202",
-    severity: "error",
-    message: 'Unknown function type "' + name + '".',
-    span,
-    help:
-      "Use a primitive type (text, number, boolean, id) or a declared data type.",
-  });
-  return undefined;
+function findUnknownType(
+  annotation: TypeAnnotation,
+  dataByName: ReadonlyMap<string, DataDeclaration>,
+): string | undefined {
+  switch (annotation.kind) {
+    case "NamedTypeAnnotation":
+      return !isPrimitiveTypeName(annotation.name) &&
+        !dataByName.has(annotation.name)
+        ? annotation.name
+        : undefined;
+
+    case "ListTypeAnnotation":
+      return findUnknownType(annotation.elementType, dataByName);
+
+    case "OptionalTypeAnnotation":
+      return findUnknownType(annotation.valueType, dataByName);
+  }
 }
 
 function sameType(left: TypeRef, right: TypeRef): boolean {
-  return left.kind === right.kind && left.name === right.name;
+  if (left.kind !== right.kind) return false;
+
+  switch (left.kind) {
+    case "Primitive":
+    case "Named":
+      return (
+        right.kind === left.kind &&
+        left.name === right.name
+      );
+
+    case "List":
+      return (
+        right.kind === "List" &&
+        sameType(left.elementType, right.elementType)
+      );
+
+    case "Optional":
+      return (
+        right.kind === "Optional" &&
+        sameType(left.valueType, right.valueType)
+      );
+  }
 }
 
 function describeType(type: TypeRef): string {
-  return type.name;
+  switch (type.kind) {
+    case "Primitive":
+    case "Named":
+      return type.name;
+    case "List":
+      return "list of " + describeType(type.elementType);
+    case "Optional":
+      return "optional " + describeType(type.valueType);
+  }
 }

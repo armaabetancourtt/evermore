@@ -531,19 +531,71 @@ Advanced styling remains possible, but beautiful and usable should be the defaul
 
 # Current implementation
 
-Evermore has completed its **M0 compiler foundation** and is now in early **M1: human syntax + web vertical slice**.
+Evermore has completed **M0: compiler foundation** and the executable **M1: human syntax + web vertical slice**.
 
 Implemented today:
 
-- natural and explicit screen syntax;
+- natural and explicit syntax with equivalent semantics;
 - indentation-independent parsing;
-- title, text, buttons and navigation;
+- canonical formatter with natural/explicit output;
+- title, text and buttons;
+- navigation between screens;
+- reactive integer state with `state`, `show` and `increases`;
+- nested vertical and horizontal stacks;
+- reusable stateless components with `component` and `use`;
+- semantic checks for screens, state, components and component cycles;
 - parser multi-error recovery;
-- canonical formatter;
-- semantic navigation validation;
 - framework-neutral Evermore IR;
 - complete Vue 3 + Vite application generation;
-- golden tests and generated-target compilation in CI.
+- accessibility defaults including visible focus, reduced-motion behavior, touch sizing and polite live state output;
+- generated-target builds in CI, including a three-screen M1 showcase.
+
+A complete executable example now looks like:
+
+~~~evermore
+app "Evermore Showcase"
+
+component Navigation
+
+  stack horizontal
+
+    button "Home"
+      opens Home
+
+    button "Counter"
+      opens Counter
+
+  end
+
+end
+
+screen Home
+
+  title "Build software like you think."
+
+  text "Human-first syntax. Typed semantics. Framework-independent intent."
+
+  use Navigation
+
+screen Counter
+
+  title "State without ceremony"
+
+  state count starts 0
+
+  stack horizontal
+
+    show count
+
+    button "Add"
+      increases count
+
+  end
+
+  use Navigation
+~~~
+
+The compiler pipeline exercised by CI is:
 
 ~~~text
 Evermore source
@@ -554,18 +606,18 @@ parser
    ↓
 AST
    ↓
-semantic checks
+semantic analysis
    ↓
 Evermore IR
    ↓
 Vue/Vite backend
    ↓
-real target build in CI
+npm install + production target build
 ~~~
 
-The repository will not claim AI, mobile, data or infrastructure support until executable implementations exist.
+The repository still does **not** claim implemented AI, mobile, Python/data or infrastructure support. Those remain later milestones until executable evidence exists.
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone definitions.
+See [examples/showcase.ever](examples/showcase.ever) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 
@@ -633,8 +685,8 @@ As the implementation grows, compiler stages and target backends will be split i
 ### M0 — Foundation
 Language principles, bilingual documentation, grammar experiments, lexer, parser, diagnostics and AST.
 
-### M1 — First vertical slice
-Screens, text, buttons, navigation and a minimal Vue/Vite target.
+### M1 — Human syntax + web vertical slice
+Natural/explicit syntax, state, nested layout, reusable components, accessible defaults and a Vue/Vite target that builds in CI.
 
 ### M2 — Type system
 Data declarations, functions, collections, optionals, generics, interfaces, classes and effect tracking.
@@ -686,7 +738,7 @@ The source should describe enduring product and system intent. Targets can evolv
 
 ## Status
 
-**Experimental · Pre-alpha · Language design and compiler foundation**
+**Experimental · Pre-alpha · M1 web vertical slice complete; M2 core language underway**
 
 Do not use Evermore for production systems yet.
 

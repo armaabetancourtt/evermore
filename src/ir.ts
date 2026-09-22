@@ -74,6 +74,7 @@ export type IRExpression =
   | IRListExpression
   | IRIfExpression
   | IRMatchExpression
+  | IRMemberExpression
   | IRChoiceCaseExpression
   | IRIdentifierExpression
   | IRBinaryExpression
@@ -112,6 +113,12 @@ export type IRMatchExpression = {
 export type IRMatchCase = {
   readonly caseName: string;
   readonly expression: IRExpression;
+};
+
+export type IRMemberExpression = {
+  readonly kind: "Member";
+  readonly object: IRExpression;
+  readonly member: string;
 };
 
 export type IRChoiceCaseExpression = {
@@ -233,6 +240,9 @@ export function lowerToIR(model: SemanticModel): IRProgram {
       const genericNames = new Set(
         fn.typeParameters.map((parameter) => parameter.name),
       );
+      const protocolNames = new Set(
+        model.program.protocols.map((protocol) => protocol.name),
+      );
 
       return {
         name: fn.name,
@@ -244,13 +254,17 @@ export function lowerToIR(model: SemanticModel): IRProgram {
           type: typeRefFromAnnotation(
             parameter.type,
             genericNames,
+            protocolNames,
           ),
         })),
         returnType: typeRefFromAnnotation(
           fn.returnType,
           genericNames,
+          protocolNames,
         ),
-        body: fn.body.map(lowerFunctionStatement),
+        body: fn.body.map((statement) =>
+          lowerFunctionStatement(statement, model),
+        ),
       };
     }),
     screens: model.program.screens.map((screen) => {
@@ -289,22 +303,26 @@ export function lowerToIR(model: SemanticModel): IRProgram {
 
 function lowerFunctionStatement(
   statement: FunctionStatement,
+  model: SemanticModel,
 ): IRFunctionStatement {
   if (statement.kind === "LetStatement") {
     return {
       kind: "Let",
       name: statement.name,
-      expression: lowerExpression(statement.expression),
+      expression: lowerExpression(statement.expression, model),
     };
   }
 
   return {
     kind: "Return",
-    expression: lowerExpression(statement.expression),
+    expression: lowerExpression(statement.expression, model),
   };
 }
 
-function lowerExpression(expression: Expression): IRExpression {
+function lowerExpression(
+  expression: Expression,
+  model: SemanticModel,
+): IRExpression {
   switch (expression.kind) {
     case "NumberExpression":
       return { kind: "Number", value: expression.value };
@@ -321,26 +339,47 @@ function lowerExpression(expression: Expression): IRExpression {
     case "ListExpression":
       return {
         kind: "List",
-        elements: expression.elements.map(lowerExpression),
+        elements: expression.elements.map((element) =>
+          lowerExpression(element, model),
+        ),
       };
 
     case "IfExpression":
       return {
         kind: "If",
-        condition: lowerExpression(expression.condition),
-        thenExpression: lowerExpression(expression.thenExpression),
-        elseExpression: lowerExpression(expression.elseExpression),
+        condition: lowerExpression(expression.condition, model),
+        thenExpression: lowerExpression(expression.thenExpression, model),
+        elseExpression: lowerExpression(expression.elseExpression, model),
       };
 
     case "MatchExpression":
       return {
         kind: "Match",
-        value: lowerExpression(expression.value),
+        value: lowerExpression(expression.value, model),
         cases: expression.cases.map((branch) => ({
           caseName: branch.caseName,
-          expression: lowerExpression(branch.expression),
+          expression: lowerExpression(branch.expression, model),
         })),
       };
+
+    case "MemberExpression": {
+      if (
+        expression.object.kind === "IdentifierExpression" &&
+        model.choicesByName.has(expression.object.name)
+      ) {
+        return {
+          kind: "ChoiceCase",
+          choiceName: expression.object.name,
+          caseName: expression.member,
+        };
+      }
+
+      return {
+        kind: "Member",
+        object: lowerExpression(expression.object, model),
+        member: expression.member,
+      };
+    }
 
     case "ChoiceCaseExpression":
       return {
@@ -356,15 +395,17 @@ function lowerExpression(expression: Expression): IRExpression {
       return {
         kind: "Binary",
         operator: expression.operator,
-        left: lowerExpression(expression.left),
-        right: lowerExpression(expression.right),
+        left: lowerExpression(expression.left, model),
+        right: lowerExpression(expression.right, model),
       };
 
     case "CallExpression":
       return {
         kind: "Call",
         callee: expression.callee,
-        arguments: expression.arguments.map(lowerExpression),
+        arguments: expression.arguments.map((argument) =>
+          lowerExpression(argument, model),
+        ),
       };
   }
 }

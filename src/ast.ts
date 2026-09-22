@@ -23,10 +23,19 @@ export type ScreenDeclaration = {
   readonly span: SourceSpan;
 };
 
-export type UIStatement = TitleStatement | ButtonStatement;
+export type UIStatement =
+  | TitleStatement
+  | TextStatement
+  | ButtonStatement;
 
 export type TitleStatement = {
   readonly kind: "TitleStatement";
+  readonly text: string;
+  readonly span: SourceSpan;
+};
+
+export type TextStatement = {
+  readonly kind: "TextStatement";
   readonly text: string;
   readonly span: SourceSpan;
 };

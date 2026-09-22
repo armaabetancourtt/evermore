@@ -1,0 +1,24 @@
+app "Typed Product"
+
+data User
+
+  id id
+  name text
+  age number
+  active boolean
+  address Address
+
+end
+
+data Address
+
+  street text
+  city text
+
+end
+
+screen Home
+
+  title "Types belong to the language"
+
+  text "User and Address are checked before code generation."

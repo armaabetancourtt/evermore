@@ -370,7 +370,7 @@ function emptyNames
 end
 ~~~
 
-Set, map, queue, tree, graph and broader collection APIs remain future work.
+Higher-level collection APIs and specialized structures such as queues, trees and graphs remain standard-library/ecosystem work rather than blockers for the M2 core collection families.
 
 ### Object-oriented programming
 

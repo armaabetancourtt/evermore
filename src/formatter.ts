@@ -2,7 +2,7 @@ import type {
   ButtonStatement,
   Program,
   ScreenDeclaration,
-  UIStatement,
+  ScreenStatement,
 } from "./ast.js";
 import { parse } from "./parser.js";
 
@@ -57,16 +57,28 @@ function formatScreen(
 }
 
 function formatStatement(
-  statement: UIStatement,
+  statement: ScreenStatement,
   style: FormatStyle,
   depth: number,
 ): string {
   switch (statement.kind) {
+    case "StateDeclaration":
+      return (
+        indent(depth) +
+        "state " +
+        statement.name +
+        " starts " +
+        String(statement.initialValue)
+      );
+
     case "TitleStatement":
       return indent(depth) + 'title "' + escapeString(statement.text) + '"';
 
     case "TextStatement":
       return indent(depth) + 'text "' + escapeString(statement.text) + '"';
+
+    case "ShowStatement":
+      return indent(depth) + "show " + statement.stateName;
 
     case "ButtonStatement":
       return formatButton(statement, style, depth);
@@ -83,26 +95,24 @@ function formatButton(
 
   if (!button.action) return head;
 
+  const action =
+    button.action.kind === "NavigationAction"
+      ? "opens " + button.action.target
+      : "increases " + button.action.stateName;
+
   if (style === "explicit") {
     return (
       head +
       " {\n" +
       indent(depth + 1) +
-      "opens " +
-      button.action.target +
+      action +
       "\n" +
       indent(depth) +
       "}"
     );
   }
 
-  return (
-    head +
-    "\n" +
-    indent(depth + 1) +
-    "opens " +
-    button.action.target
-  );
+  return head + "\n" + indent(depth + 1) + action;
 }
 
 function indent(depth: number): string {

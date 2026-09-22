@@ -65,6 +65,7 @@ export type IRExpression =
   | IRNoneExpression
   | IRListExpression
   | IRIfExpression
+  | IRMatchExpression
   | IRChoiceCaseExpression
   | IRIdentifierExpression
   | IRBinaryExpression
@@ -92,6 +93,17 @@ export type IRNoneExpression = {
 export type IRListExpression = {
   readonly kind: "List";
   readonly elements: readonly IRExpression[];
+};
+
+export type IRMatchExpression = {
+  readonly kind: "Match";
+  readonly value: IRExpression;
+  readonly cases: readonly IRMatchCase[];
+};
+
+export type IRMatchCase = {
+  readonly caseName: string;
+  readonly expression: IRExpression;
 };
 
 export type IRChoiceCaseExpression = {
@@ -285,6 +297,16 @@ function lowerExpression(expression: Expression): IRExpression {
         condition: lowerExpression(expression.condition),
         thenExpression: lowerExpression(expression.thenExpression),
         elseExpression: lowerExpression(expression.elseExpression),
+      };
+
+    case "MatchExpression":
+      return {
+        kind: "Match",
+        value: lowerExpression(expression.value),
+        cases: expression.cases.map((branch) => ({
+          caseName: branch.caseName,
+          expression: lowerExpression(branch.expression),
+        })),
       };
 
     case "ChoiceCaseExpression":

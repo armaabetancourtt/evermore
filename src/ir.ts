@@ -1,4 +1,8 @@
-import type { VisualStatement } from "./ast.js";
+import type {
+  Expression,
+  FunctionStatement,
+  VisualStatement,
+} from "./ast.js";
 import type { SemanticModel } from "./semantic.js";
 import { typeRef, type TypeRef } from "./types.js";
 
@@ -6,6 +10,7 @@ export type IRProgram = {
   readonly kind: "IRProgram";
   readonly appName: string;
   readonly data: readonly IRDataModel[];
+  readonly functions: readonly IRFunction[];
   readonly screens: readonly IRScreen[];
 };
 
@@ -17,6 +22,72 @@ export type IRDataModel = {
 export type IRDataField = {
   readonly name: string;
   readonly type: TypeRef;
+};
+
+export type IRFunction = {
+  readonly name: string;
+  readonly parameters: readonly IRFunctionParameter[];
+  readonly returnType: TypeRef;
+  readonly body: readonly IRFunctionStatement[];
+};
+
+export type IRFunctionParameter = {
+  readonly name: string;
+  readonly type: TypeRef;
+};
+
+export type IRFunctionStatement = IRLet | IRReturn;
+
+export type IRLet = {
+  readonly kind: "Let";
+  readonly name: string;
+  readonly expression: IRExpression;
+};
+
+export type IRReturn = {
+  readonly kind: "Return";
+  readonly expression: IRExpression;
+};
+
+export type IRExpression =
+  | IRNumberExpression
+  | IRStringExpression
+  | IRBooleanExpression
+  | IRIdentifierExpression
+  | IRBinaryExpression
+  | IRCallExpression;
+
+export type IRNumberExpression = {
+  readonly kind: "Number";
+  readonly value: number;
+};
+
+export type IRStringExpression = {
+  readonly kind: "String";
+  readonly value: string;
+};
+
+export type IRBooleanExpression = {
+  readonly kind: "Boolean";
+  readonly value: boolean;
+};
+
+export type IRIdentifierExpression = {
+  readonly kind: "Identifier";
+  readonly name: string;
+};
+
+export type IRBinaryExpression = {
+  readonly kind: "Binary";
+  readonly operator: "+" | "-" | "*" | "/";
+  readonly left: IRExpression;
+  readonly right: IRExpression;
+};
+
+export type IRCallExpression = {
+  readonly kind: "Call";
+  readonly callee: string;
+  readonly arguments: readonly IRExpression[];
 };
 
 export type IRScreen = {
@@ -79,6 +150,15 @@ export function lowerToIR(model: SemanticModel): IRProgram {
         type: typeRef(field.typeName),
       })),
     })),
+    functions: model.program.functions.map((fn) => ({
+      name: fn.name,
+      parameters: fn.parameters.map((parameter) => ({
+        name: parameter.name,
+        type: typeRef(parameter.typeName),
+      })),
+      returnType: typeRef(fn.returnTypeName),
+      body: fn.body.map(lowerFunctionStatement),
+    })),
     screens: model.program.screens.map((screen) => {
       const title = screen.body.find(
         (statement) => statement.kind === "TitleStatement",
@@ -111,6 +191,54 @@ export function lowerToIR(model: SemanticModel): IRProgram {
       };
     }),
   };
+}
+
+function lowerFunctionStatement(
+  statement: FunctionStatement,
+): IRFunctionStatement {
+  if (statement.kind === "LetStatement") {
+    return {
+      kind: "Let",
+      name: statement.name,
+      expression: lowerExpression(statement.expression),
+    };
+  }
+
+  return {
+    kind: "Return",
+    expression: lowerExpression(statement.expression),
+  };
+}
+
+function lowerExpression(expression: Expression): IRExpression {
+  switch (expression.kind) {
+    case "NumberExpression":
+      return { kind: "Number", value: expression.value };
+
+    case "StringExpression":
+      return { kind: "String", value: expression.value };
+
+    case "BooleanExpression":
+      return { kind: "Boolean", value: expression.value };
+
+    case "IdentifierExpression":
+      return { kind: "Identifier", name: expression.name };
+
+    case "BinaryExpression":
+      return {
+        kind: "Binary",
+        operator: expression.operator,
+        left: lowerExpression(expression.left),
+        right: lowerExpression(expression.right),
+      };
+
+    case "CallExpression":
+      return {
+        kind: "Call",
+        callee: expression.callee,
+        arguments: expression.arguments.map(lowerExpression),
+      };
+  }
 }
 
 function lowerVisual(

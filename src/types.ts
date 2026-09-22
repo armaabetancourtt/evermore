@@ -19,6 +19,9 @@ export function isPrimitiveTypeName(
 
 export type TypeRef =
   | {
+      readonly kind: "None";
+    }
+  | {
       readonly kind: "Primitive";
       readonly name: PrimitiveTypeName;
     }
@@ -64,6 +67,8 @@ export function typeRefFromAnnotation(
 
 export function describeTypeRef(type: TypeRef): string {
   switch (type.kind) {
+    case "None":
+      return "none";
     case "Primitive":
     case "Named":
       return type.name;

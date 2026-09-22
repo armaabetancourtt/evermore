@@ -6,9 +6,14 @@ export type TokenKind =
   | "screen"
   | "title"
   | "text"
+  | "state"
+  | "starts"
+  | "show"
   | "button"
   | "opens"
+  | "increases"
   | "identifier"
+  | "number"
   | "string"
   | "lbrace"
   | "rbrace"
@@ -26,8 +31,12 @@ const keywords = new Map<string, TokenKind>([
   ["screen", "screen"],
   ["title", "title"],
   ["text", "text"],
+  ["state", "state"],
+  ["starts", "starts"],
+  ["show", "show"],
   ["button", "button"],
   ["opens", "opens"],
+  ["increases", "increases"],
 ]);
 
 export function lex(source: string): readonly Token[] {
@@ -66,6 +75,11 @@ class Lexer {
 
       if (char === '"') {
         tokens.push(this.scanString(start));
+        continue;
+      }
+
+      if (/[0-9]/.test(char)) {
+        tokens.push(this.scanNumber(start));
         continue;
       }
 
@@ -164,6 +178,20 @@ class Lexer {
       kind: "string",
       lexeme: this.source.slice(start.offset, this.index),
       value,
+      span: { start, end: this.position() },
+    };
+  }
+
+  private scanNumber(start: SourcePosition): Token {
+    while (!this.atEnd() && /[0-9]/.test(this.peek())) {
+      this.advance();
+    }
+
+    const lexeme = this.source.slice(start.offset, this.index);
+    return {
+      kind: "number",
+      lexeme,
+      value: lexeme,
       span: { start, end: this.position() },
     };
   }

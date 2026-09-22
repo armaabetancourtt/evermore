@@ -6,6 +6,7 @@ export type TokenKind =
   | "data"
   | "choice"
   | "function"
+  | "generic"
   | "takes"
   | "returns"
   | "list"
@@ -72,6 +73,7 @@ const keywords = new Map<string, TokenKind>([
   ["data", "data"],
   ["choice", "choice"],
   ["function", "function"],
+  ["generic", "generic"],
   ["takes", "takes"],
   ["returns", "returns"],
   ["list", "list"],

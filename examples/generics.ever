@@ -1,0 +1,60 @@
+app "Generics"
+
+function identity
+
+  generic T
+  takes value T
+  returns T
+
+  return value
+
+end
+
+function wrap
+
+  generic T
+  takes value T
+  returns list of T
+
+  return [value]
+
+end
+
+function empty
+
+  generic T
+  returns list of T
+
+  return []
+
+end
+
+function numberIdentity
+
+  returns number
+
+  return identity(42)
+
+end
+
+function textIdentity
+
+  returns text
+
+  return identity("Evermore")
+
+end
+
+function emptyNumbers
+
+  returns list of number
+
+  return empty()
+
+end
+
+screen Home
+
+  title "Generic without ceremony"
+
+  text "Type parameters are declared once and inferred at every call."

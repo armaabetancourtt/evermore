@@ -1,0 +1,80 @@
+app "Protocol Values"
+
+protocol Named
+
+  name text
+
+end
+
+data User
+
+  conforms Named
+
+  id id
+  name text
+  age number
+
+end
+
+data Machine
+
+  id id
+
+end
+
+choice Status
+
+  active
+  archived
+
+end
+
+function displayName
+
+  takes value Named
+  returns text
+
+  return value.name
+
+end
+
+function userName
+
+  takes user User
+  returns text
+
+  return displayName(user)
+
+end
+
+function directUserName
+
+  takes user User
+  returns text
+
+  return user.name
+
+end
+
+function asNamed
+
+  takes user User
+  returns Named
+
+  return user
+
+end
+
+function defaultStatus
+
+  returns Status
+
+  return Status.active
+
+end
+
+screen Home
+
+  title "Protocols become usable types"
+
+  text "Concrete data can flow through protocol contracts with checked member access."

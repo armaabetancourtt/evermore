@@ -1,0 +1,27 @@
+app "Layout"
+
+screen Home
+
+  title "Designed in Evermore"
+
+  stack vertical
+
+    text "Compose interfaces with intent."
+
+    stack horizontal
+
+      button "Explore"
+        opens Details
+
+      button "Again"
+        opens Home
+
+    end
+
+  end
+
+screen Details
+
+  title "Layout without framework ceremony"
+
+  text "Stacks are language semantics, not Vue syntax."

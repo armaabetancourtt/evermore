@@ -13,7 +13,7 @@ Architecture documents do not count as feature completion.
 
 ## M0 — Compiler foundation
 
-**Status: in progress**
+**Status: complete ✅**
 
 Goals:
 
@@ -27,8 +27,8 @@ Goals:
 - [x] compiler tests;
 - [x] CI green on main;
 - [x] example language program compiled to target artifacts in CI;
-- [ ] golden tests for generated output;
-- [ ] parser error-recovery strategy.
+- [x] golden tests for generated output;
+- [x] parser error-recovery strategy.
 
 Exit condition:
 
@@ -48,7 +48,7 @@ Goals:
 - reusable components;
 - first Vue/Vite application shell;
 - accessibility defaults;
-- generated target compile tests.
+- [x] generated target compile tests.
 
 Research:
 

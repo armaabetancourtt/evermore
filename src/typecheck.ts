@@ -783,6 +783,207 @@ function inferExpression(
         : undefined;
     }
 
+    case "SetExpression": {
+      const expectedElement =
+        expected?.kind === "Set" ? expected.elementType : undefined;
+
+      if (expression.elements.length === 0) {
+        if (expected?.kind === "Set") {
+          return expected;
+        }
+
+        diagnostics.push({
+          code: "E2235",
+          severity: "error",
+          message:
+            "Cannot infer the type of an empty set without context.",
+          span: expression.span,
+          help:
+            "Use the empty set where a set type is already expected, or add at least one element.",
+        });
+        return undefined;
+      }
+
+      const first = inferExpression(
+        expression.elements[0]!,
+        env,
+        signatures,
+        types,
+        diagnostics,
+        expectedElement,
+      );
+
+      if (!first) return undefined;
+
+      let common = first;
+      let valid = true;
+
+      for (const element of expression.elements.slice(1)) {
+        const elementType = inferExpression(
+          element,
+          env,
+          signatures,
+          types,
+          diagnostics,
+          expectedElement,
+        );
+
+        if (!elementType) {
+          valid = false;
+          continue;
+        }
+
+        const merged = commonType(common, elementType, types);
+
+        if (!merged) {
+          diagnostics.push({
+            code: "E2236",
+            severity: "error",
+            message:
+              "Set elements do not have a compatible common type. Found " +
+              describeType(common) +
+              " and " +
+              describeType(elementType) +
+              ".",
+            span: element.span,
+            help:
+              "Use compatible set elements. A value and none may combine into an optional type.",
+          });
+          valid = false;
+          continue;
+        }
+
+        common = merged;
+      }
+
+      return valid
+        ? { kind: "Set", elementType: common }
+        : undefined;
+    }
+
+    case "MapExpression": {
+      const expectedKey =
+        expected?.kind === "Map" ? expected.keyType : undefined;
+      const expectedValue =
+        expected?.kind === "Map" ? expected.valueType : undefined;
+
+      if (expression.entries.length === 0) {
+        if (expected?.kind === "Map") {
+          return expected;
+        }
+
+        diagnostics.push({
+          code: "E2237",
+          severity: "error",
+          message:
+            "Cannot infer the types of an empty map without context.",
+          span: expression.span,
+          help:
+            "Use the empty map where a map type is already expected, or add at least one entry.",
+        });
+        return undefined;
+      }
+
+      const firstEntry = expression.entries[0]!;
+      const firstKey = inferExpression(
+        firstEntry.key,
+        env,
+        signatures,
+        types,
+        diagnostics,
+        expectedKey,
+      );
+      const firstValue = inferExpression(
+        firstEntry.value,
+        env,
+        signatures,
+        types,
+        diagnostics,
+        expectedValue,
+      );
+
+      if (!firstKey || !firstValue) return undefined;
+
+      let commonKey = firstKey;
+      let commonValue = firstValue;
+      let valid = true;
+
+      for (const entry of expression.entries.slice(1)) {
+        const keyType = inferExpression(
+          entry.key,
+          env,
+          signatures,
+          types,
+          diagnostics,
+          expectedKey,
+        );
+        const valueType = inferExpression(
+          entry.value,
+          env,
+          signatures,
+          types,
+          diagnostics,
+          expectedValue,
+        );
+
+        if (!keyType || !valueType) {
+          valid = false;
+          continue;
+        }
+
+        const mergedKey = commonType(commonKey, keyType, types);
+        if (!mergedKey) {
+          diagnostics.push({
+            code: "E2238",
+            severity: "error",
+            message:
+              "Map keys do not have a compatible common type. Found " +
+              describeType(commonKey) +
+              " and " +
+              describeType(keyType) +
+              ".",
+            span: entry.key.span,
+            help: "Use compatible key types in every map entry.",
+          });
+          valid = false;
+        } else {
+          commonKey = mergedKey;
+        }
+
+        const mergedValue = commonType(
+          commonValue,
+          valueType,
+          types,
+        );
+        if (!mergedValue) {
+          diagnostics.push({
+            code: "E2239",
+            severity: "error",
+            message:
+              "Map values do not have a compatible common type. Found " +
+              describeType(commonValue) +
+              " and " +
+              describeType(valueType) +
+              ".",
+            span: entry.value.span,
+            help:
+              "Use compatible value types. A value and none may combine into an optional type.",
+          });
+          valid = false;
+        } else {
+          commonValue = mergedValue;
+        }
+      }
+
+      return valid
+        ? {
+            kind: "Map",
+            keyType: commonKey,
+            valueType: commonValue,
+          }
+        : undefined;
+    }
+
     case "IdentifierExpression": {
       const resolved = env.get(expression.name);
 
@@ -1169,7 +1370,7 @@ function resolveType(
       message: 'Unknown function type "' + unknown + '".',
       span,
       help:
-        "Use a primitive type, list/optional composition, or a declared data/choice type.",
+        "Use a primitive type, collection/optional composition, or a declared data/protocol/choice type.",
     });
     return undefined;
   }
@@ -1198,10 +1399,17 @@ function findUnknownType(
         : undefined;
 
     case "ListTypeAnnotation":
+    case "SetTypeAnnotation":
       return findUnknownType(
         annotation.elementType,
         types,
         genericNames,
+      );
+
+    case "MapTypeAnnotation":
+      return (
+        findUnknownType(annotation.keyType, types, genericNames) ??
+        findUnknownType(annotation.valueType, types, genericNames)
       );
 
     case "OptionalTypeAnnotation":
@@ -1253,6 +1461,36 @@ function bindGenericTypes(
     );
   }
 
+  if (pattern.kind === "Set") {
+    return (
+      actual.kind === "Set" &&
+      bindGenericTypes(
+        pattern.elementType,
+        actual.elementType,
+        bindings,
+        types,
+      )
+    );
+  }
+
+  if (pattern.kind === "Map") {
+    return (
+      actual.kind === "Map" &&
+      bindGenericTypes(
+        pattern.keyType,
+        actual.keyType,
+        bindings,
+        types,
+      ) &&
+      bindGenericTypes(
+        pattern.valueType,
+        actual.valueType,
+        bindings,
+        types,
+      )
+    );
+  }
+
   if (pattern.kind === "Optional") {
     if (actual.kind === "None") return true;
 
@@ -1286,6 +1524,19 @@ function substituteGenerics(
       return {
         kind: "List",
         elementType: substituteGenerics(type.elementType, bindings),
+      };
+
+    case "Set":
+      return {
+        kind: "Set",
+        elementType: substituteGenerics(type.elementType, bindings),
+      };
+
+    case "Map":
+      return {
+        kind: "Map",
+        keyType: substituteGenerics(type.keyType, bindings),
+        valueType: substituteGenerics(type.valueType, bindings),
       };
 
     case "Optional":
@@ -1337,6 +1588,21 @@ function isAssignable(
     );
   }
 
+  if (actual.kind === "Set" && expected.kind === "Set") {
+    return isAssignable(
+      actual.elementType,
+      expected.elementType,
+      types,
+    );
+  }
+
+  if (actual.kind === "Map" && expected.kind === "Map") {
+    return (
+      isAssignable(actual.keyType, expected.keyType, types) &&
+      isAssignable(actual.valueType, expected.valueType, types)
+    );
+  }
+
   return false;
 }
 
@@ -1382,6 +1648,28 @@ function commonType(
     return elementType ? { kind: "List", elementType } : undefined;
   }
 
+  if (left.kind === "Set" && right.kind === "Set") {
+    const elementType = commonType(
+      left.elementType,
+      right.elementType,
+      types,
+    );
+    return elementType ? { kind: "Set", elementType } : undefined;
+  }
+
+  if (left.kind === "Map" && right.kind === "Map") {
+    const keyType = commonType(left.keyType, right.keyType, types);
+    const valueType = commonType(
+      left.valueType,
+      right.valueType,
+      types,
+    );
+
+    return keyType && valueType
+      ? { kind: "Map", keyType, valueType }
+      : undefined;
+  }
+
   if (isAssignable(left, right, types)) return right;
   if (isAssignable(right, left, types)) return left;
 
@@ -1407,6 +1695,19 @@ function sameType(left: TypeRef, right: TypeRef): boolean {
         sameType(left.elementType, right.elementType)
       );
 
+    case "Set":
+      return (
+        right.kind === "Set" &&
+        sameType(left.elementType, right.elementType)
+      );
+
+    case "Map":
+      return (
+        right.kind === "Map" &&
+        sameType(left.keyType, right.keyType) &&
+        sameType(left.valueType, right.valueType)
+      );
+
     case "Optional":
       return (
         right.kind === "Optional" &&
@@ -1428,6 +1729,17 @@ function describeType(type: TypeRef): string {
 
     case "List":
       return "list of " + describeType(type.elementType);
+
+    case "Set":
+      return "set of " + describeType(type.elementType);
+
+    case "Map":
+      return (
+        "map of " +
+        describeType(type.keyType) +
+        " to " +
+        describeType(type.valueType)
+      );
 
     case "Optional":
       return "optional " + describeType(type.valueType);

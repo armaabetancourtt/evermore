@@ -1295,6 +1295,10 @@ function sameMethodContract(
     return false;
   }
 
+  if (!actual.returnType || !required.returnType) {
+    return false;
+  }
+
   if (!sameTypeAnnotation(actual.returnType, required.returnType)) {
     return false;
   }

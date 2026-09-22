@@ -53,6 +53,9 @@ jobs:
       - name: Check M1 showcase
         run: npm run evermore -- check examples/showcase.ever
 
+      - name: Check typed data example
+        run: npm run evermore -- check examples/data.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -104,3 +107,17 @@ jobs:
       - name: Build M1 showcase
         working-directory: /tmp/evermore-showcase
         run: npm run build
+
+      - name: Generate typed data application
+        run: npm run evermore -- build examples/data.ever --out /tmp/evermore-data
+
+      - name: Install typed data application
+        working-directory: /tmp/evermore-data
+        run: npm install
+
+      - name: Build typed data application
+        working-directory: /tmp/evermore-data
+        run: npm run build
+
+      - name: Verify generated type model
+        run: test -f /tmp/evermore-data/src/generated/models.ts

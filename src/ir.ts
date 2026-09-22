@@ -43,9 +43,15 @@ export type IRDataField = {
 export type IRFunction = {
   readonly name: string;
   readonly typeParameters: readonly string[];
+  readonly typeParameterConstraints: readonly IRGenericConstraint[];
   readonly parameters: readonly IRFunctionParameter[];
   readonly returnType: TypeRef;
   readonly body: readonly IRFunctionStatement[];
+};
+
+export type IRGenericConstraint = {
+  readonly typeParameter: string;
+  readonly protocolName: string;
 };
 
 export type IRFunctionParameter = {
@@ -248,6 +254,17 @@ export function lowerToIR(model: SemanticModel): IRProgram {
         name: fn.name,
         typeParameters: fn.typeParameters.map(
           (parameter) => parameter.name,
+        ),
+        typeParameterConstraints: fn.typeParameters.flatMap(
+          (parameter) =>
+            parameter.constraint
+              ? [
+                  {
+                    typeParameter: parameter.name,
+                    protocolName: parameter.constraint.name,
+                  },
+                ]
+              : [],
         ),
         parameters: fn.parameters.map((parameter) => ({
           name: parameter.name,

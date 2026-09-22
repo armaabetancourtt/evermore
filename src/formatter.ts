@@ -191,6 +191,16 @@ function formatExpression(
     case "IdentifierExpression":
       return expression.name;
 
+    case "IfExpression":
+      return (
+        "if " +
+        formatExpression(expression.condition) +
+        " then " +
+        formatExpression(expression.thenExpression) +
+        " else " +
+        formatExpression(expression.elseExpression)
+      );
+
     case "CallExpression":
       return (
         expression.callee +
@@ -204,8 +214,10 @@ function formatExpression(
     case "BinaryExpression": {
       const precedence =
         expression.operator === "*" || expression.operator === "/"
-          ? 2
-          : 1;
+          ? 3
+          : expression.operator === "+" || expression.operator === "-"
+            ? 2
+            : 1;
 
       const left = formatExpression(
         expression.left,

@@ -1,10 +1,20 @@
 app "Contextual Inference"
 
+function identity
+
+  generic T
+  takes value T
+  returns T
+
+  return value
+
+end
+
 function emptyNames
 
   returns list of text
 
-  return []
+  return identity([])
 
 end
 
@@ -37,4 +47,4 @@ screen Home
 
   title "Inference where context is enough"
 
-  text "Empty collections stay strict when no expected type exists."
+  text "Expected result types can flow backward through generic calls; ambiguous locals still fail."

@@ -94,6 +94,7 @@ export type FunctionDeclaration = {
 
 export type TypeParameter = {
   readonly name: string;
+  readonly constraintName?: string;
   readonly span: SourceSpan;
 };
 

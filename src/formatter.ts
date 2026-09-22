@@ -9,6 +9,7 @@ import type {
   ScreenDeclaration,
   ScreenStatement,
   StackStatement,
+  TypeAnnotation,
 } from "./ast.js";
 import { parse } from "./parser.js";
 
@@ -55,7 +56,7 @@ function formatData(
   const body = declaration.fields
     .map(
       (field) =>
-        indent(1) + field.name + " " + field.typeName,
+        indent(1) + field.name + " " + formatTypeAnnotation(field.type),
     )
     .join("\n");
 
@@ -78,6 +79,19 @@ function formatData(
   );
 }
 
+function formatTypeAnnotation(
+  annotation: TypeAnnotation,
+): string {
+  switch (annotation.kind) {
+    case "NamedTypeAnnotation":
+      return annotation.name;
+    case "ListTypeAnnotation":
+      return "list of " + formatTypeAnnotation(annotation.elementType);
+    case "OptionalTypeAnnotation":
+      return "optional " + formatTypeAnnotation(annotation.valueType);
+  }
+}
+
 function formatFunction(
   fn: FunctionDeclaration,
   style: FormatStyle,
@@ -90,12 +104,12 @@ function formatFunction(
         "takes " +
         parameter.name +
         " " +
-        parameter.typeName,
+        formatTypeAnnotation(parameter.type),
     );
   }
 
   lines.push(
-    indent(1) + "returns " + fn.returnTypeName,
+    indent(1) + "returns " + formatTypeAnnotation(fn.returnType),
   );
 
   if (fn.body.length > 0) {

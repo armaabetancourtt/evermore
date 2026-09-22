@@ -13,6 +13,8 @@ export type TokenKind =
   | "optional"
   | "none"
   | "if"
+  | "match"
+  | "case"
   | "then"
   | "else"
   | "let"
@@ -77,6 +79,8 @@ const keywords = new Map<string, TokenKind>([
   ["optional", "optional"],
   ["none", "none"],
   ["if", "if"],
+  ["match", "match"],
+  ["case", "case"],
   ["then", "then"],
   ["else", "else"],
   ["let", "let"],

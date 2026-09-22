@@ -181,14 +181,14 @@ function formatFunctionStatement(
       "let " +
       statement.name +
       " = " +
-      formatExpression(statement.expression)
+      formatExpression(statement.expression, 0, false, depth)
     );
   }
 
   return (
     indent(depth) +
     "return " +
-    formatExpression(statement.expression)
+    formatExpression(statement.expression, 0, false, depth)
   );
 }
 
@@ -196,6 +196,7 @@ function formatExpression(
   expression: Expression,
   parentPrecedence = 0,
   rightChild = false,
+  depth = 0,
 ): string {
   switch (expression.kind) {
     case "NumberExpression":
@@ -214,9 +215,34 @@ function formatExpression(
       return (
         "[" +
         expression.elements
-          .map((element) => formatExpression(element))
+          .map((element) => formatExpression(element, 0, false, depth))
           .join(", ") +
         "]"
+      );
+
+    case "MatchExpression":
+      return (
+        "match " +
+        formatExpression(expression.value, 0, false, depth) +
+        "\n" +
+        expression.cases
+          .map(
+            (branch) =>
+              indent(depth + 1) +
+              "case " +
+              branch.caseName +
+              " then " +
+              formatExpression(
+                branch.expression,
+                0,
+                false,
+                depth + 1,
+              ),
+          )
+          .join("\n") +
+        "\n" +
+        indent(depth) +
+        "end"
       );
 
     case "ChoiceCaseExpression":
@@ -228,11 +254,11 @@ function formatExpression(
     case "IfExpression":
       return (
         "if " +
-        formatExpression(expression.condition) +
+        formatExpression(expression.condition, 0, false, depth) +
         " then " +
-        formatExpression(expression.thenExpression) +
+        formatExpression(expression.thenExpression, 0, false, depth) +
         " else " +
-        formatExpression(expression.elseExpression)
+        formatExpression(expression.elseExpression, 0, false, depth)
       );
 
     case "CallExpression":
@@ -240,7 +266,7 @@ function formatExpression(
         expression.callee +
         "(" +
         expression.arguments
-          .map((argument) => formatExpression(argument))
+          .map((argument) => formatExpression(argument, 0, false, depth))
           .join(", ") +
         ")"
       );
@@ -257,11 +283,13 @@ function formatExpression(
         expression.left,
         precedence,
         false,
+        depth,
       );
       const right = formatExpression(
         expression.right,
         precedence,
         true,
+        depth,
       );
       const source =
         left + " " + expression.operator + " " + right;

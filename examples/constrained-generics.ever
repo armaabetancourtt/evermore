@@ -1,0 +1,59 @@
+app "Constrained Generics"
+
+protocol Named
+
+  name text
+
+end
+
+data User
+
+  conforms Named
+
+  name text
+  age number
+
+end
+
+data Product
+
+  conforms Named
+
+  name text
+  price number
+
+end
+
+function label
+
+  generic T conforms Named
+  takes value T
+  returns text
+
+  return value.name
+
+end
+
+function userLabel
+
+  takes user User
+  returns text
+
+  return label(user)
+
+end
+
+function productLabel
+
+  takes product Product
+  returns text
+
+  return label(product)
+
+end
+
+screen Home
+
+  title "Generic power with human constraints"
+
+  text "The compiler infers T while enforcing the Named contract."

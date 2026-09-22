@@ -4,6 +4,11 @@
 
 [English](README.md) · [Español](README.es.md)
 
+![Status](https://img.shields.io/badge/status-pre--alpha-111111)
+![Compiler](https://img.shields.io/badge/compiler-TypeScript-111111?logo=typescript&logoColor=white)
+![Language](https://img.shields.io/badge/language-Evermore-111111)
+[![CI](https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml/badge.svg)](https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml)
+
 > **Evermore is an experimental programming language and software-construction platform for building products, intelligence and infrastructure with dramatically less accidental complexity.**
 
 Evermore explores a simple question:

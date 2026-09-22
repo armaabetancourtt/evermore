@@ -226,10 +226,20 @@ function formatFunctionStatement(
   statement: FunctionStatement,
   depth: number,
 ): string {
-  if (statement.kind === "LetStatement") {
+  if (statement.kind === "LetStatement" || statement.kind === "VarStatement") {
     return (
       indent(depth) +
-      "let " +
+      (statement.kind === "LetStatement" ? "let " : "var ") +
+      statement.name +
+      " = " +
+      formatExpression(statement.expression, 0, false, depth)
+    );
+  }
+
+  if (statement.kind === "SetStatement") {
+    return (
+      indent(depth) +
+      "set " +
       statement.name +
       " = " +
       formatExpression(statement.expression, 0, false, depth)

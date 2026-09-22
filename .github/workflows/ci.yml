@@ -59,6 +59,9 @@ jobs:
       - name: Check typed function example
         run: npm run evermore -- check examples/functions.ever
 
+      - name: Check choice example
+        run: npm run evermore -- check examples/choices.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -138,3 +141,17 @@ jobs:
 
       - name: Verify generated functions
         run: test -f /tmp/evermore-functions/src/generated/functions.ts
+
+      - name: Generate choice application
+        run: npm run evermore -- build examples/choices.ever --out /tmp/evermore-choices
+
+      - name: Install choice application
+        working-directory: /tmp/evermore-choices
+        run: npm install
+
+      - name: Build choice application
+        working-directory: /tmp/evermore-choices
+        run: npm run build
+
+      - name: Verify generated choice model
+        run: grep -q '"Status"' /tmp/evermore-choices/src/generated/models.ts

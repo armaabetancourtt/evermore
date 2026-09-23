@@ -1,6 +1,7 @@
 import type { Program } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
 import { EvermoreDiagnosticError } from "./diagnostics.js";
+import { emitNode } from "./codegen/node.js";
 import { emitVue, type GeneratedFile } from "./codegen/vue.js";
 import { lowerToIR } from "./ir.js";
 import { parse } from "./parser.js";
@@ -11,7 +12,7 @@ import {
 } from "./project.js";
 import { analyze } from "./semantic.js";
 
-export type CompileTarget = "vue";
+export type CompileTarget = "vue" | "node";
 
 export type CompileResult = {
   readonly appName: string;
@@ -121,6 +122,13 @@ export function compileProgram(
         target,
         diagnostics: analysis.diagnostics,
         files: emitVue(ir),
+      };
+    case "node":
+      return {
+        appName: ir.appName,
+        target,
+        diagnostics: analysis.diagnostics,
+        files: emitNode(ir),
       };
   }
 }

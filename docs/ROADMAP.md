@@ -80,17 +80,18 @@ Goals:
 - [x] expressions (literals, arithmetic, comparisons, calls, lists, conditionals and exhaustive matches);
 - [x] pure typed functions;
 - [x] nominal data structures (typed field contracts, nominal construction and member access);
-- [x] enums / algebraic choices (nominal payload-free `choice` types);
+- [x] enums / algebraic choices (nominal `choice` types with optional typed payloads, validated constructors and exhaustive payload bindings);
 - [x] optionals (`optional T`, `none`, optional lifting);
 - [x] collections (`list of T`, `set of T`, `map of K to V`, typed literals, recursive composition and contextual empty-collection inference);
-- [x] generics (function type parameters with argument/context inference);
+- [x] generics (function type parameters plus generic nominal `data`/`class` types, applied type arguments, argument/context inference and protocol constraints);
 - [x] interfaces / protocols (field and method contracts, `data` conformance, protocol-typed values, member/method access and protocol-constrained generics);
 - [x] classes and encapsulation (nominal classes, public/private constructor fields, executable methods, protocol conformance, and enforced private-field access);
 - [x] pattern matching (exhaustive matching over nominal choices and typed results with payload bindings);
 - [x] error model (`result of T error E`, contextual `ok(...)`/`error(...)`, exhaustive result matching and typed payload bindings);
 - [x] modules (app entrypoint + imported module files, recursive relative imports, cycle detection, deduplication and project-wide semantic composition);
 - [x] package semantics (evermore.json identity/version/entry manifests, exact local dependencies, bare package/submodule imports, transitive graph validation and deterministic generated package graph);
-- [x] type inference where unambiguous (literal/local inference, branch common types, contextual empty collections, bidirectional generic inference and compatible repeated generic evidence).
+- [x] type inference where unambiguous (literal/local inference, branch common types, contextual empty collections, bidirectional generic inference and compatible repeated generic evidence);
+- [x] explicit async/effect/capability function boundaries (declared effects and authority, transitive call-graph validation, sync-to-async rejection and async TypeScript lowering).
 
 Research:
 

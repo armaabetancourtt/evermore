@@ -569,7 +569,14 @@ function formatChoice(
   style: FormatStyle,
 ): string {
   const body = choice.cases
-    .map((item) => indent(1) + item.name)
+    .map(
+      (item) =>
+        indent(1) +
+        item.name +
+        (item.payloadType
+          ? "(" + formatTypeAnnotation(item.payloadType) + ")"
+          : ""),
+    )
     .join("\n");
 
   if (style === "explicit") {

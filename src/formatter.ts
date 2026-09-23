@@ -682,6 +682,48 @@ function formatFunctionStatement(
     );
   }
 
+  if (
+    statement.kind === "BreakStatement" ||
+    statement.kind === "ContinueStatement"
+  ) {
+    return (
+      indent(depth) +
+      (statement.kind === "BreakStatement" ? "break" : "continue")
+    );
+  }
+
+  if (statement.kind === "ForEachStatement") {
+    const head =
+      indent(depth) +
+      "for " +
+      statement.bindingName +
+      " in " +
+      formatExpression(statement.collection, 0, false, depth);
+    const body = statement.body
+      .map((nested) =>
+        formatFunctionStatement(nested, depth + 1, style),
+      )
+      .join("\n");
+
+    if (style === "explicit") {
+      return (
+        head +
+        " {\n" +
+        (body ? body + "\n" : "") +
+        indent(depth) +
+        "}"
+      );
+    }
+
+    return (
+      head +
+      (body ? "\n" + body : "") +
+      "\n" +
+      indent(depth) +
+      "end"
+    );
+  }
+
   if (statement.kind === "WhileStatement") {
     const head =
       indent(depth) +

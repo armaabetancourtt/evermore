@@ -8,6 +8,7 @@ import type {
   ContextDeclaration,
   DataDeclaration,
   DatasetDeclaration,
+  DeploymentDeclaration,
   EvaluationDeclaration,
   Expression,
   FunctionDeclaration,
@@ -69,6 +70,9 @@ export function formatProgram(
     ...program.arrays.map((array) => formatArray(array)),
     ...program.pythonBridges.map((bridge) => formatPython(bridge)),
     ...program.pipelines.map((pipeline) => formatPipeline(pipeline)),
+    ...program.deployments.map((deployment) =>
+      formatDeployment(deployment),
+    ),
     ...program.components.map((component) =>
       formatComponent(component, style),
     ),
@@ -452,6 +456,54 @@ function formatPipeline(pipeline: PipelineDeclaration): string {
     indent(1) +
     "tracking " +
     JSON.stringify(pipeline.tracking) +
+    "\nend"
+  );
+}
+
+function formatDeployment(
+  deployment: DeploymentDeclaration,
+): string {
+  const lines: string[] = [];
+
+  for (const service of deployment.services) {
+    lines.push(
+      indent(1) + "service " + service.name,
+      indent(2) + "server " + service.serverName,
+      indent(2) + "replicas " + service.replicas,
+      indent(2) + "health " + JSON.stringify(service.healthPath),
+      indent(2) + "readiness " + JSON.stringify(service.readinessPath),
+      indent(2) + "cpu " + JSON.stringify(service.cpu),
+      indent(2) + "memory " + JSON.stringify(service.memory),
+      indent(1) + "end",
+    );
+  }
+
+  lines.push(
+    ...deployment.env.map(
+      (name) => indent(1) + "env " + JSON.stringify(name),
+    ),
+    ...deployment.secrets.map(
+      (name) => indent(1) + "secret " + JSON.stringify(name),
+    ),
+  );
+
+  if (deployment.kubernetes) {
+    lines.push(indent(1) + "kubernetes");
+  }
+
+  if (deployment.observability) {
+    lines.push(indent(1) + "observability");
+  }
+
+  lines.push(
+    indent(1) + "rollback " + deployment.rollbackRevisions,
+  );
+
+  return (
+    "deployment " +
+    deployment.name +
+    "\n\n" +
+    lines.join("\n") +
     "\nend"
   );
 }

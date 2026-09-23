@@ -37,33 +37,10 @@ export type TokenKind =
   | "true"
   | "false"
   | "server"
-  | "port"
-  | "endpoint"
-  | "uses"
-  | "auth"
-  | "database"
-  | "postgres"
-  | "connection"
-  | "repository"
-  | "model"
-  | "using"
-  | "job"
-  | "every"
-  | "realtime"
-  | "message"
   | "tool"
-  | "permission"
   | "agent"
-  | "accepts"
   | "context"
-  | "include"
-  | "budget"
-  | "tokens"
-  | "cost"
-  | "approval"
-  | "trace"
   | "evaluation"
-  | "overflow"
   | "screen"
   | "component"
   | "use"
@@ -147,33 +124,10 @@ const keywords = new Map<string, TokenKind>([
   ["true", "true"],
   ["false", "false"],
   ["server", "server"],
-  ["port", "port"],
-  ["endpoint", "endpoint"],
-  ["uses", "uses"],
-  ["auth", "auth"],
-  ["database", "database"],
-  ["postgres", "postgres"],
-  ["connection", "connection"],
-  ["repository", "repository"],
-  ["model", "model"],
-  ["using", "using"],
-  ["job", "job"],
-  ["every", "every"],
-  ["realtime", "realtime"],
-  ["message", "message"],
   ["tool", "tool"],
-  ["permission", "permission"],
   ["agent", "agent"],
-  ["accepts", "accepts"],
   ["context", "context"],
-  ["include", "include"],
-  ["budget", "budget"],
-  ["tokens", "tokens"],
-  ["cost", "cost"],
-  ["approval", "approval"],
-  ["trace", "trace"],
   ["evaluation", "evaluation"],
-  ["overflow", "overflow"],
   ["screen", "screen"],
   ["component", "component"],
   ["use", "use"],

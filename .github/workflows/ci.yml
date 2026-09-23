@@ -116,6 +116,9 @@ jobs:
       - name: Check mobile example
         run: npm run evermore -- check examples/mobile.ever
 
+      - name: Check data science example
+        run: npm run evermore -- check examples/data-science.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -509,3 +512,25 @@ jobs:
           test -f /tmp/evermore-mobile-flutter/lib/main.dart
           grep -q 'MaterialApp' /tmp/evermore-mobile-flutter/lib/main.dart
           grep -q 'flutter-experiment' /tmp/evermore-mobile-flutter/evermore.mobile.json
+
+
+      - name: Generate Python data pipeline
+        run: npm run evermore -- build examples/data-science.ever --target python --out /tmp/evermore-data
+
+      - name: Compile generated Python modules
+        run: python -m py_compile /tmp/evermore-data/run.py /tmp/evermore-data/evermore_generated/*.py
+
+      - name: Verify M6 data artifacts
+        run: |
+          test -f /tmp/evermore-data/requirements.txt
+          test -f /tmp/evermore-data/evermore_generated/contracts.py
+          test -f /tmp/evermore-data/evermore_generated/datasets.py
+          test -f /tmp/evermore-data/evermore_generated/arrays.py
+          test -f /tmp/evermore-data/evermore_generated/bridges.py
+          test -f /tmp/evermore-data/evermore_generated/tracking.py
+          test -f /tmp/evermore-data/evermore_generated/pipelines.py
+          grep -q 'pandas as pd' /tmp/evermore-data/evermore_generated/datasets.py
+          grep -q 'numpy as np' /tmp/evermore-data/evermore_generated/arrays.py
+          grep -q 'sha256' /tmp/evermore-data/evermore_generated/datasets.py
+          grep -q 'random.seed(42)' /tmp/evermore-data/evermore_generated/pipelines.py
+          grep -q 'deterministicSeeds' /tmp/evermore-data/evermore.data.json

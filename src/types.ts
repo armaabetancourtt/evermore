@@ -30,6 +30,11 @@ export type TypeRef =
       readonly name: string;
     }
   | {
+      readonly kind: "Applied";
+      readonly name: string;
+      readonly arguments: readonly TypeRef[];
+    }
+  | {
       readonly kind: "Generic";
       readonly name: string;
       readonly constraint?: string;
@@ -89,6 +94,20 @@ export function typeRefFromAnnotation(
       }
 
       return typeRef(annotation.name);
+
+    case "AppliedTypeAnnotation":
+      return {
+        kind: "Applied",
+        name: annotation.name,
+        arguments: annotation.arguments.map((argument) =>
+          typeRefFromAnnotation(
+            argument,
+            genericNames,
+            protocolNames,
+            genericConstraints,
+          ),
+        ),
+      };
 
     case "ListTypeAnnotation":
       return {
@@ -168,6 +187,13 @@ export function describeTypeRef(type: TypeRef): string {
     case "Generic":
     case "Protocol":
       return type.name;
+    case "Applied":
+      return (
+        type.name +
+        "<" +
+        type.arguments.map(describeTypeRef).join(", ") +
+        ">"
+      );
     case "List":
       return "list of " + describeTypeRef(type.elementType);
     case "Set":

@@ -35,6 +35,9 @@ jobs:
       - name: Reproduce M1 syntax study
         run: npm run research:m1
 
+      - name: Reproduce M2 type-system study
+        run: npm run research:m2
+
       - name: Build compiler
         run: npm run build
 
@@ -223,8 +226,10 @@ jobs:
         working-directory: /tmp/evermore-inference
         run: npm run build
 
-      - name: Verify contextual empty-list generation
-        run: grep -q 'return \[\];' /tmp/evermore-inference/src/generated/functions.ts
+      - name: Verify bidirectional generic inference generation
+        run: |
+          grep -Eq 'return fn_[0-9]+\(\[\]\);' /tmp/evermore-inference/src/generated/functions.ts
+          grep -Eq 'function fn_[0-9]+<T0>\(arg_0: T0\): T0' /tmp/evermore-inference/src/generated/functions.ts
 
       - name: Generate generics application
         run: npm run evermore -- build examples/generics.ever --out /tmp/evermore-generics

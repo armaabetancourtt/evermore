@@ -67,7 +67,7 @@ Exit condition:
 
 ## M2 — Core language
 
-**Status: in progress — executable typed domain core operational**
+**Status: complete ✅ — executable typed domain core operational**
 
 Goals:
 
@@ -85,13 +85,13 @@ Goals:
 - [x] error model (`result of T error E`, contextual `ok(...)`/`error(...)`, exhaustive result matching and typed payload bindings);
 - [x] modules (app entrypoint + imported module files, recursive relative imports, cycle detection, deduplication and project-wide semantic composition);
 - [x] package semantics (evermore.json identity/version/entry manifests, exact local dependencies, bare package/submodule imports, transitive graph validation and deterministic generated package graph);
-- [ ] type inference where unambiguous (local `let`, homogeneous lists, optional branch lifting, contextual empty-list inference and generic call inference implemented; broader inference pending).
+- [x] type inference where unambiguous (literal/local inference, branch common types, contextual empty collections, bidirectional generic inference and compatible repeated generic evidence).
 
 Research:
 
-- type system soundness;
-- effect inference ergonomics;
-- nominal vs structural typing boundaries.
+- [x] type system soundness notes backed by executable accepted/rejected counterexamples and generated-target checking;
+- [x] effect inference ergonomics decision (no ambient effect inference in M2; explicit capabilities first when effects arrive);
+- [x] nominal vs structural typing boundary decision (nominal domain types, explicit protocol conformance, recursive structural containers).
 
 Exit condition:
 

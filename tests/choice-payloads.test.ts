@@ -76,7 +76,7 @@ test("typechecks payload construction and match bindings", () => {
     /\(\{ kind: "loaded", payload: arg_0 \} as const\)/,
   );
   assert.match(functions.content, /case "loaded"/);
-  assert.match(functions.content, /"payload" in matchValue/);
+  assert.match(functions.content, /\(matchValue as any\)\.payload/);
 });
 
 test("rejects missing payload construction", () => {

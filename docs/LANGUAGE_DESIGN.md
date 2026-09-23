@@ -423,6 +423,45 @@ end
 
 Higher-level collection APIs and specialized structures such as queues, trees and graphs remain standard-library/ecosystem work rather than blockers for the M2 core collection families.
 
+### Full-stack server semantics — implemented M3 core
+
+Evermore can declare an operational Node.js service without duplicating request/response models outside the language:
+
+~~~evermore
+server Api
+  port 4100
+
+  endpoint POST "/users"
+    takes CreateUser
+    returns User
+    uses createUser
+    auth bearer
+  end
+
+  database Primary postgres
+    connection "DATABASE_URL"
+  end
+
+  repository Users
+    model User
+    using Primary
+  end
+
+  job NightlyMaintenance
+    every "0 2 * * *"
+    uses nightlyMaintenance
+  end
+
+  realtime UserEvents
+    message User
+  end
+end
+~~~
+
+Endpoint contracts reuse the same nominal and recursive types as ordinary Evermore functions. Semantic analysis requires handler arity, request type and return type to match the endpoint contract. The Node target emits runtime request/response validation, public/bearer authentication boundaries, typed contract metadata, PostgreSQL repository interfaces/adapters, scheduled jobs through cron, and server-sent-event realtime channels.
+
+The same project may be compiled for `vue` and `node`; shared domain models and function contracts originate from one Evermore semantic model.
+
 ### Modules — implemented core
 
 Evermore projects may split declarations across files without falling through to target-language imports:

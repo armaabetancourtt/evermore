@@ -230,3 +230,95 @@ screen Home
     },
   );
 });
+
+
+test("keeps awaits valid inside generated match expression IIFEs", () => {
+  const nested = String.raw`
+app "Nested Async Match"
+
+choice LoadState
+  ready
+  waiting
+end
+
+function fetchName
+  async
+  effects network
+  using Network
+  returns text
+  return "Ada"
+end
+
+function describe
+  async
+  effects network
+  using Network
+  takes current LoadState
+  returns text
+  return match current
+    case ready then fetchName()
+    case waiting then "Later"
+  end
+end
+
+screen Home
+  title "Nested"
+`;
+
+  const result = compile(nested);
+  const functions = result.files.find(
+    (file) => file.path === "src/generated/functions.ts",
+  );
+
+  assert.ok(functions);
+  assert.match(
+    functions.content,
+    /return await \(async \(\) => \{ const matchValue = arg_0;/,
+  );
+  assert.match(functions.content, /return await fn_0\(\);/);
+});
+
+test("keeps awaits valid inside constructors that generate IIFEs", () => {
+  const nested = String.raw`
+app "Nested Async Construct"
+
+data Box
+  value text
+
+  function get
+    returns text
+    return value
+  end
+end
+
+function fetchName
+  async
+  effects network
+  using Network
+  returns text
+  return "Ada"
+end
+
+function makeBox
+  async
+  effects network
+  using Network
+  returns Box
+  return Box(fetchName())
+end
+
+screen Home
+  title "Nested"
+`;
+
+  const result = compile(nested);
+  const functions = result.files.find(
+    (file) => file.path === "src/generated/functions.ts",
+  );
+
+  assert.ok(functions);
+  assert.match(
+    functions.content,
+    /return await \(async \(\) => \{ const field_0 = await fn_0\(\);/,
+  );
+});

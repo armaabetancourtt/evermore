@@ -414,6 +414,13 @@ function pythonType(type: TypeRef): string {
     case "Protocol":
     case "Generic":
       return safeName(type.name);
+    case "Applied":
+      return (
+        safeName(type.name) +
+        "[" +
+        type.arguments.map(pythonType).join(", ") +
+        "]"
+      );
     case "List":
       return "list[" + pythonType(type.elementType) + "]";
     case "Set":
@@ -449,6 +456,11 @@ function describeType(type: TypeRef): unknown {
     case "Protocol":
     case "Generic":
       return type.name;
+    case "Applied":
+      return {
+        applied: type.name,
+        arguments: type.arguments.map(describeType),
+      };
     case "List":
       return { list: describeType(type.elementType) };
     case "Set":

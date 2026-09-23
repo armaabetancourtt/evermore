@@ -394,6 +394,8 @@ function schemaLiteral(type: TypeRef): string {
     case "Named":
     case "Protocol":
       return JSON.stringify({ kind: "named", name: type.name });
+    case "Applied":
+      return JSON.stringify({ kind: "named", name: type.name });
     case "Generic":
       return JSON.stringify({ kind: "named", name: "__generic" });
     case "List":

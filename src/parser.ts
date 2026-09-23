@@ -300,6 +300,7 @@ class Parser {
     const start = this.consume("data", "Expected a data declaration.");
     const name = this.consume("identifier", "Expected a data type name.");
     const explicitBlock = this.match("lbrace");
+    const typeParameters: TypeParameter[] = [];
     const conformances: ProtocolConformance[] = [];
     const fields: DataField[] = [];
     const methods: FunctionDeclaration[] = [];
@@ -309,6 +310,11 @@ class Parser {
       !(explicitBlock && this.check("rbrace")) &&
       !(!explicitBlock && this.check("end"))
     ) {
+      if (this.match("generic")) {
+        typeParameters.push(this.parseTypeParameter(this.previous()));
+        continue;
+      }
+
       if (this.match("conforms")) {
         const protocolName = this.consume(
           "identifier",
@@ -350,6 +356,7 @@ class Parser {
     return {
       kind: "DataDeclaration",
       name: name.value ?? name.lexeme,
+      typeParameters,
       conformances,
       fields,
       methods,
@@ -361,6 +368,7 @@ class Parser {
     const start = this.consume("class", "Expected a class declaration.");
     const name = this.consume("identifier", "Expected a class name.");
     const explicitBlock = this.match("lbrace");
+    const typeParameters: TypeParameter[] = [];
     const conformances: ProtocolConformance[] = [];
     const fields: ClassField[] = [];
     const methods: FunctionDeclaration[] = [];
@@ -370,6 +378,11 @@ class Parser {
       !(explicitBlock && this.check("rbrace")) &&
       !(!explicitBlock && this.check("end"))
     ) {
+      if (this.match("generic")) {
+        typeParameters.push(this.parseTypeParameter(this.previous()));
+        continue;
+      }
+
       if (this.match("conforms")) {
         const protocolName = this.consume(
           "identifier",
@@ -422,6 +435,7 @@ class Parser {
     return {
       kind: "ClassDeclaration",
       name: name.value ?? name.lexeme,
+      typeParameters,
       conformances,
       fields,
       methods,
@@ -528,6 +542,34 @@ class Parser {
     };
   }
 
+  private parseTypeParameter(start: Token): TypeParameter {
+    const typeName = this.consume(
+      "identifier",
+      "Expected a generic type parameter name.",
+    );
+
+    let constraintName: string | undefined;
+    let end = typeName.span.end;
+
+    if (this.match("conforms")) {
+      const constraint = this.consume(
+        "identifier",
+        "Expected a protocol name after conforms.",
+      );
+      constraintName = constraint.value ?? constraint.lexeme;
+      end = constraint.span.end;
+    }
+
+    return {
+      name: typeName.value ?? typeName.lexeme,
+      ...(constraintName ? { constraintName } : {}),
+      span: {
+        start: start.span.start,
+        end,
+      },
+    };
+  }
+
   private parseFunction(): FunctionDeclaration {
     const start = this.consume("function", "Expected a function declaration.");
     const name = this.consume("identifier", "Expected a function name.");
@@ -544,31 +586,7 @@ class Parser {
     ) {
       try {
         if (this.match("generic")) {
-          const typeName = this.consume(
-            "identifier",
-            "Expected a generic type parameter name.",
-          );
-
-          let constraintName: string | undefined;
-          let end = typeName.span.end;
-
-          if (this.match("conforms")) {
-            const constraint = this.consume(
-              "identifier",
-              "Expected a protocol name after conforms.",
-            );
-            constraintName = constraint.value ?? constraint.lexeme;
-            end = constraint.span.end;
-          }
-
-          typeParameters.push({
-            name: typeName.value ?? typeName.lexeme,
-            ...(constraintName ? { constraintName } : {}),
-            span: {
-              start: typeName.span.start,
-              end,
-            },
-          });
+          typeParameters.push(this.parseTypeParameter(this.previous()));
           continue;
         }
 
@@ -1409,10 +1427,36 @@ class Parser {
 
     if (this.match("identifier") || this.match("text")) {
       const token = this.previous();
+      const name = token.value ?? token.lexeme;
+
+      if (this.match("lt")) {
+        const args: TypeAnnotation[] = [];
+
+        if (!this.check("gt")) {
+          do {
+            args.push(this.parseTypeAnnotation());
+          } while (this.match("comma"));
+        }
+
+        const close = this.consume(
+          "gt",
+          'Expected ">" after generic type arguments.',
+        );
+
+        return {
+          kind: "AppliedTypeAnnotation",
+          name,
+          arguments: args,
+          span: {
+            start: token.span.start,
+            end: close.span.end,
+          },
+        };
+      }
 
       return {
         kind: "NamedTypeAnnotation",
-        name: token.lexeme,
+        name,
         span: token.span,
       };
     }

@@ -7,6 +7,7 @@ import type {
   FunctionStatement,
   ProtocolDeclaration,
   TypeAnnotation,
+  TypeParameter,
 } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
 import {
@@ -39,6 +40,7 @@ export type FunctionValidationOptions = {
   readonly initialValues?: ReadonlyMap<string, TypeRef>;
   readonly bodyCallSignatures?: ReadonlyMap<string, FunctionSignature>;
   readonly validateBodies?: boolean;
+  readonly ambientTypeParameters?: readonly TypeParameter[];
 };
 
 export function validateFunctions(
@@ -68,8 +70,18 @@ export function validateFunctions(
   for (const fn of functionsByName.values()) {
     const parameterTypes: TypeRef[] = [];
     const parameterNames = new Set<string>();
-    const genericNames = new Set<string>();
-    const genericConstraints = new Map<string, string>();
+    const ambientTypeParameters = options.ambientTypeParameters ?? [];
+    const genericNames = new Set<string>(
+      ambientTypeParameters.map((parameter) => parameter.name),
+    );
+    const genericConstraints = new Map<string, string>(
+      ambientTypeParameters
+        .filter((parameter) => parameter.constraintName)
+        .map(
+          (parameter) =>
+            [parameter.name, parameter.constraintName!] as const,
+        ),
+    );
     let signatureValid = true;
 
     for (const parameter of fn.typeParameters) {
@@ -188,7 +200,7 @@ export function validateFunctions(
     if (signatureValid && returnType) {
       signaturesByName.set(fn.name, {
         declaration: fn,
-        typeParameters: [...genericNames],
+        typeParameters: fn.typeParameters.map((parameter) => parameter.name),
         parameters: parameterTypes,
         returnType,
       });
@@ -818,7 +830,7 @@ function inferExpression(
       }
 
       const owner =
-        objectType.kind === "Named"
+        objectType.kind === "Named" || objectType.kind === "Applied"
           ? (types.dataByName.get(objectType.name) ??
             types.classesByName.get(objectType.name))
           : objectType.kind === "Protocol"
@@ -864,7 +876,7 @@ function inferExpression(
       }
 
       if (
-        objectType.kind === "Named" &&
+        (objectType.kind === "Named" || objectType.kind === "Applied") &&
         types.classesByName.has(objectType.name) &&
         "visibility" in field &&
         field.visibility === "private"
@@ -885,10 +897,36 @@ function inferExpression(
         return undefined;
       }
 
-      return typeRefFromAnnotation(
-        field.type,
-        new Set(),
-        new Set(types.protocolsByName.keys()),
+      const ownerTypeParameters =
+        "typeParameters" in owner ? owner.typeParameters : [];
+      const ownerGenericNames = new Set(
+        ownerTypeParameters.map((parameter) => parameter.name),
+      );
+      const ownerGenericConstraints = new Map(
+        ownerTypeParameters
+          .filter((parameter) => parameter.constraintName)
+          .map(
+            (parameter) =>
+              [parameter.name, parameter.constraintName!] as const,
+          ),
+      );
+      const ownerBindings = new Map<string, TypeRef>();
+
+      if (objectType.kind === "Applied") {
+        ownerTypeParameters.forEach((parameter, index) => {
+          const argument = objectType.arguments[index];
+          if (argument) ownerBindings.set(parameter.name, argument);
+        });
+      }
+
+      return substituteGenerics(
+        typeRefFromAnnotation(
+          field.type,
+          ownerGenericNames,
+          new Set(types.protocolsByName.keys()),
+          ownerGenericConstraints,
+        ),
+        ownerBindings,
       );
     }
 
@@ -1036,7 +1074,7 @@ function inferExpression(
       }
 
       const owner =
-        objectType.kind === "Named"
+        objectType.kind === "Named" || objectType.kind === "Applied"
           ? (types.dataByName.get(objectType.name) ??
             types.classesByName.get(objectType.name))
           : objectType.kind === "Protocol"
@@ -1081,6 +1119,28 @@ function inferExpression(
         return undefined;
       }
 
+      const ownerTypeParameters =
+        "typeParameters" in owner ? owner.typeParameters : [];
+      const ownerGenericNames = new Set(
+        ownerTypeParameters.map((parameter) => parameter.name),
+      );
+      const ownerGenericConstraints = new Map(
+        ownerTypeParameters
+          .filter((parameter) => parameter.constraintName)
+          .map(
+            (parameter) =>
+              [parameter.name, parameter.constraintName!] as const,
+          ),
+      );
+      const ownerBindings = new Map<string, TypeRef>();
+
+      if (objectType.kind === "Applied") {
+        ownerTypeParameters.forEach((parameter, index) => {
+          const argument = objectType.arguments[index];
+          if (argument) ownerBindings.set(parameter.name, argument);
+        });
+      }
+
       if (expression.arguments.length !== method.parameters.length) {
         diagnostics.push({
           code: "E2325",
@@ -1101,10 +1161,14 @@ function inferExpression(
       expression.arguments.forEach((argument, index) => {
         const parameter = method.parameters[index];
         const parameterType = parameter
-          ? typeRefFromAnnotation(
-              parameter.type,
-              new Set(),
-              new Set(types.protocolsByName.keys()),
+          ? substituteGenerics(
+              typeRefFromAnnotation(
+                parameter.type,
+                ownerGenericNames,
+                new Set(types.protocolsByName.keys()),
+                ownerGenericConstraints,
+              ),
+              ownerBindings,
             )
           : undefined;
         const actual = inferExpression(
@@ -1140,10 +1204,14 @@ function inferExpression(
         }
       });
 
-      return typeRefFromAnnotation(
-        method.returnType,
-        new Set(),
-        new Set(types.protocolsByName.keys()),
+      return substituteGenerics(
+        typeRefFromAnnotation(
+          method.returnType,
+          ownerGenericNames,
+          new Set(types.protocolsByName.keys()),
+          ownerGenericConstraints,
+        ),
+        ownerBindings,
       );
     }
 
@@ -1820,14 +1888,54 @@ function inferExpression(
           });
         }
 
+        const genericNames = new Set(
+          constructor.typeParameters.map((parameter) => parameter.name),
+        );
+        const genericConstraints = new Map(
+          constructor.typeParameters
+            .filter((parameter) => parameter.constraintName)
+            .map(
+              (parameter) =>
+                [parameter.name, parameter.constraintName!] as const,
+            ),
+        );
+        const bindings = new Map<string, TypeRef>();
+        const constructorPattern: TypeRef =
+          constructor.typeParameters.length > 0
+            ? {
+                kind: "Applied",
+                name: constructor.name,
+                arguments: constructor.typeParameters.map((parameter) => ({
+                  kind: "Generic",
+                  name: parameter.name,
+                  ...(parameter.constraintName
+                    ? { constraint: parameter.constraintName }
+                    : {}),
+                })),
+              }
+            : { kind: "Named", name: constructor.name };
+
+        if (expected) {
+          bindGenericTypes(
+            constructorPattern,
+            expected,
+            bindings,
+            types,
+          );
+        }
+
         expression.arguments.forEach((argument, index) => {
           const field = constructor.fields[index];
-          const fieldType = field
+          const fieldPattern = field
             ? typeRefFromAnnotation(
                 field.type,
-                new Set(),
+                genericNames,
                 new Set(types.protocolsByName.keys()),
+                genericConstraints,
               )
+            : undefined;
+          const contextualExpected = fieldPattern
+            ? substituteGenerics(fieldPattern, bindings)
             : undefined;
 
           const actual = inferExpression(
@@ -1836,12 +1944,19 @@ function inferExpression(
             signatures,
             types,
             diagnostics,
-            fieldType,
+            contextualExpected,
           );
 
-          if (!actual || !field || !fieldType) return;
+          if (!actual || !field || !fieldPattern) return;
 
-          if (!isAssignable(actual, fieldType, types)) {
+          const compatible = bindGenericTypes(
+            fieldPattern,
+            actual,
+            bindings,
+            types,
+          );
+
+          if (!compatible) {
             diagnostics.push({
               code: "E2231",
               severity: "error",
@@ -1853,7 +1968,9 @@ function inferExpression(
                 '" receives ' +
                 describeType(actual) +
                 " but expects " +
-                describeType(fieldType) +
+                describeType(
+                  substituteGenerics(fieldPattern, bindings),
+                ) +
                 ".",
               span: argument.span,
               help:
@@ -1861,6 +1978,39 @@ function inferExpression(
             });
           }
         });
+
+        const unresolved = constructor.typeParameters.filter(
+          (parameter) => !bindings.has(parameter.name),
+        );
+
+        if (unresolved.length > 0) {
+          diagnostics.push({
+            code: "E2235",
+            severity: "error",
+            message:
+              'Cannot infer generic type ' +
+              unresolved
+                .map((parameter) => '"' + parameter.name + '"')
+                .join(", ") +
+              ' for constructor "' +
+              constructor.name +
+              '".',
+            span: expression.span,
+            help:
+              "Pass field values that determine every generic type, or construct the value where an applied nominal type is expected.",
+          });
+          return undefined;
+        }
+
+        if (constructor.typeParameters.length > 0) {
+          return {
+            kind: "Applied",
+            name: constructor.name,
+            arguments: constructor.typeParameters.map(
+              (parameter) => bindings.get(parameter.name)!,
+            ),
+          };
+        }
 
         return {
           kind: "Named",
@@ -2014,12 +2164,136 @@ function resolveType(
     return undefined;
   }
 
-  return typeRefFromAnnotation(
+  const invalidApplication = findInvalidNominalApplication(
+    annotation,
+    types,
+    genericNames,
+  );
+
+  if (invalidApplication) {
+    diagnostics.push({
+      code: "E2234",
+      severity: "error",
+      message:
+        'Type "' +
+        invalidApplication.name +
+        '" expects ' +
+        invalidApplication.expected +
+        " type argument(s) but received " +
+        invalidApplication.actual +
+        ".",
+      span: annotation.span,
+      help:
+        invalidApplication.expected > 0
+          ? "Apply the nominal type with the declared number of type arguments."
+          : "Remove type arguments from this non-generic type.",
+    });
+    return undefined;
+  }
+
+  const resolved = typeRefFromAnnotation(
     annotation,
     genericNames,
     new Set(types.protocolsByName.keys()),
     genericConstraints,
   );
+  const constraintViolation = findNominalConstraintViolation(
+    resolved,
+    types,
+  );
+
+  if (constraintViolation) {
+    diagnostics.push({
+      code: "E2236",
+      severity: "error",
+      message:
+        'Type argument ' +
+        describeType(constraintViolation.actual) +
+        ' for "' +
+        constraintViolation.nominal +
+        "." +
+        constraintViolation.parameter +
+        '" does not conform to protocol "' +
+        constraintViolation.constraint +
+        '".',
+      span: annotation.span,
+      help:
+        "Use a type that conforms to the declared nominal generic constraint.",
+    });
+    return undefined;
+  }
+
+  return resolved;
+}
+
+function findNominalConstraintViolation(
+  type: TypeRef,
+  types: NamedTypeContext,
+): {
+  readonly nominal: string;
+  readonly parameter: string;
+  readonly constraint: string;
+  readonly actual: TypeRef;
+} | undefined {
+  if (type.kind === "Applied") {
+    const nominal =
+      types.dataByName.get(type.name) ??
+      types.classesByName.get(type.name);
+
+    if (nominal) {
+      for (let index = 0; index < nominal.typeParameters.length; index++) {
+        const parameter = nominal.typeParameters[index];
+        const argument = type.arguments[index];
+
+        if (
+          parameter?.constraintName &&
+          argument &&
+          !isAssignable(
+            argument,
+            { kind: "Protocol", name: parameter.constraintName },
+            types,
+          )
+        ) {
+          return {
+            nominal: type.name,
+            parameter: parameter.name,
+            constraint: parameter.constraintName,
+            actual: argument,
+          };
+        }
+      }
+    }
+
+    for (const argument of type.arguments) {
+      const nested = findNominalConstraintViolation(argument, types);
+      if (nested) return nested;
+    }
+    return undefined;
+  }
+
+  if (type.kind === "List" || type.kind === "Set") {
+    return findNominalConstraintViolation(type.elementType, types);
+  }
+
+  if (type.kind === "Map") {
+    return (
+      findNominalConstraintViolation(type.keyType, types) ??
+      findNominalConstraintViolation(type.valueType, types)
+    );
+  }
+
+  if (type.kind === "Result") {
+    return (
+      findNominalConstraintViolation(type.okType, types) ??
+      findNominalConstraintViolation(type.errorType, types)
+    );
+  }
+
+  if (type.kind === "Optional") {
+    return findNominalConstraintViolation(type.valueType, types);
+  }
+
+  return undefined;
 }
 
 function findUnknownType(
@@ -2037,6 +2311,24 @@ function findUnknownType(
         !types.choicesByName.has(annotation.name)
         ? annotation.name
         : undefined;
+
+    case "AppliedTypeAnnotation":
+      if (
+        !types.dataByName.has(annotation.name) &&
+        !types.classesByName.has(annotation.name)
+      ) {
+        return annotation.name;
+      }
+
+      for (const argument of annotation.arguments) {
+        const unknown = findUnknownType(
+          argument,
+          types,
+          genericNames,
+        );
+        if (unknown) return unknown;
+      }
+      return undefined;
 
     case "ListTypeAnnotation":
     case "SetTypeAnnotation":
@@ -2065,6 +2357,94 @@ function findUnknownType(
         genericNames,
       );
   }
+}
+
+function findInvalidNominalApplication(
+  annotation: TypeAnnotation,
+  types: NamedTypeContext,
+  genericNames: ReadonlySet<string>,
+): { readonly name: string; readonly expected: number; readonly actual: number } | undefined {
+  if (annotation.kind === "NamedTypeAnnotation") {
+    if (genericNames.has(annotation.name)) return undefined;
+    const nominal =
+      types.dataByName.get(annotation.name) ??
+      types.classesByName.get(annotation.name);
+    if (nominal && nominal.typeParameters.length > 0) {
+      return {
+        name: annotation.name,
+        expected: nominal.typeParameters.length,
+        actual: 0,
+      };
+    }
+    return undefined;
+  }
+
+  if (annotation.kind === "AppliedTypeAnnotation") {
+    const nominal =
+      types.dataByName.get(annotation.name) ??
+      types.classesByName.get(annotation.name);
+    if (nominal && nominal.typeParameters.length !== annotation.arguments.length) {
+      return {
+        name: annotation.name,
+        expected: nominal.typeParameters.length,
+        actual: annotation.arguments.length,
+      };
+    }
+
+    for (const argument of annotation.arguments) {
+      const invalid = findInvalidNominalApplication(
+        argument,
+        types,
+        genericNames,
+      );
+      if (invalid) return invalid;
+    }
+    return undefined;
+  }
+
+  if (
+    annotation.kind === "ListTypeAnnotation" ||
+    annotation.kind === "SetTypeAnnotation" ||
+    annotation.kind === "OptionalTypeAnnotation"
+  ) {
+    const nested =
+      annotation.kind === "OptionalTypeAnnotation"
+        ? annotation.valueType
+        : annotation.elementType;
+    return findInvalidNominalApplication(nested, types, genericNames);
+  }
+
+  if (annotation.kind === "MapTypeAnnotation") {
+    return (
+      findInvalidNominalApplication(
+        annotation.keyType,
+        types,
+        genericNames,
+      ) ??
+      findInvalidNominalApplication(
+        annotation.valueType,
+        types,
+        genericNames,
+      )
+    );
+  }
+
+  if (annotation.kind === "ResultTypeAnnotation") {
+    return (
+      findInvalidNominalApplication(
+        annotation.okType,
+        types,
+        genericNames,
+      ) ??
+      findInvalidNominalApplication(
+        annotation.errorType,
+        types,
+        genericNames,
+      )
+    );
+  }
+
+  return undefined;
 }
 
 function bindGenericTypes(
@@ -2115,6 +2495,22 @@ function bindGenericTypes(
 
     bindings.set(pattern.name, unified);
     return true;
+  }
+
+  if (pattern.kind === "Applied") {
+    return (
+      actual.kind === "Applied" &&
+      actual.name === pattern.name &&
+      actual.arguments.length === pattern.arguments.length &&
+      pattern.arguments.every((argument, index) =>
+        bindGenericTypes(
+          argument,
+          actual.arguments[index]!,
+          bindings,
+          types,
+        ),
+      )
+    );
   }
 
   if (pattern.kind === "List") {
@@ -2206,6 +2602,15 @@ function substituteGenerics(
     case "Generic":
       return bindings.get(type.name) ?? type;
 
+    case "Applied":
+      return {
+        kind: "Applied",
+        name: type.name,
+        arguments: type.arguments.map((argument) =>
+          substituteGenerics(argument, bindings),
+        ),
+      };
+
     case "List":
       return {
         kind: "List",
@@ -2254,7 +2659,7 @@ function isAssignable(
   if (sameType(actual, expected)) return true;
 
   if (expected.kind === "Protocol") {
-    if (actual.kind === "Named") {
+    if (actual.kind === "Named" || actual.kind === "Applied") {
       const nominal =
         types.dataByName.get(actual.name) ??
         types.classesByName.get(actual.name);
@@ -2268,6 +2673,20 @@ function isAssignable(
     if (actual.kind === "Generic" && actual.constraint) {
       return actual.constraint === expected.name;
     }
+  }
+
+  if (actual.kind === "Applied" && expected.kind === "Applied") {
+    return (
+      actual.name === expected.name &&
+      actual.arguments.length === expected.arguments.length &&
+      actual.arguments.every((argument, index) =>
+        isAssignable(
+          argument,
+          expected.arguments[index]!,
+          types,
+        ),
+      )
+    );
   }
 
   if (expected.kind === "Optional") {
@@ -2341,6 +2760,22 @@ function commonType(
     return right;
   }
 
+  if (
+    left.kind === "Applied" &&
+    right.kind === "Applied" &&
+    left.name === right.name &&
+    left.arguments.length === right.arguments.length
+  ) {
+    const arguments_ = left.arguments.map((argument, index) =>
+      commonType(argument, right.arguments[index]!, types),
+    );
+    return arguments_.every(
+      (argument): argument is TypeRef => argument !== undefined,
+    )
+      ? { kind: "Applied", name: left.name, arguments: arguments_ }
+      : undefined;
+  }
+
   if (left.kind === "List" && right.kind === "List") {
     const elementType = commonType(
       left.elementType,
@@ -2404,6 +2839,16 @@ function sameType(left: TypeRef, right: TypeRef): boolean {
     case "Protocol":
       return right.kind === left.kind && left.name === right.name;
 
+    case "Applied":
+      return (
+        right.kind === "Applied" &&
+        left.name === right.name &&
+        left.arguments.length === right.arguments.length &&
+        left.arguments.every((argument, index) =>
+          sameType(argument, right.arguments[index]!),
+        )
+      );
+
     case "List":
       return (
         right.kind === "List" &&
@@ -2448,6 +2893,14 @@ function describeType(type: TypeRef): string {
     case "Generic":
     case "Protocol":
       return type.name;
+
+    case "Applied":
+      return (
+        type.name +
+        "<" +
+        type.arguments.map(describeType).join(", ") +
+        ">"
+      );
 
     case "List":
       return "list of " + describeType(type.elementType);

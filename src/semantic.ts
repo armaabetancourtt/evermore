@@ -319,6 +319,72 @@ export function analyze(program: Program): {
     }
   }
 
+  for (const declaration of [...program.data, ...program.classes]) {
+    const names = new Set<string>();
+
+    for (const parameter of declaration.typeParameters) {
+      if (names.has(parameter.name)) {
+        diagnostics.push({
+          code: "E2510",
+          severity: "error",
+          message:
+            'Generic type "' +
+            parameter.name +
+            '" is declared more than once in "' +
+            declaration.name +
+            '".',
+          span: parameter.span,
+          help: "Give each nominal generic parameter a unique name.",
+        });
+        continue;
+      }
+
+      if (
+        isPrimitiveTypeName(parameter.name) ||
+        dataByName.has(parameter.name) ||
+        classesByName.has(parameter.name) ||
+        protocolsByName.has(parameter.name) ||
+        choicesByName.has(parameter.name)
+      ) {
+        diagnostics.push({
+          code: "E2511",
+          severity: "error",
+          message:
+            'Generic type "' +
+            parameter.name +
+            '" in "' +
+            declaration.name +
+            '" conflicts with an existing type name.',
+          span: parameter.span,
+          help: "Choose a fresh generic type parameter such as T or Value.",
+        });
+        continue;
+      }
+
+      names.add(parameter.name);
+
+      if (
+        parameter.constraintName &&
+        !protocolsByName.has(parameter.constraintName)
+      ) {
+        diagnostics.push({
+          code: "E2512",
+          severity: "error",
+          message:
+            'Generic type "' +
+            parameter.name +
+            '" in "' +
+            declaration.name +
+            '" is constrained by unknown protocol "' +
+            parameter.constraintName +
+            '".',
+          span: parameter.span,
+          help: "Generic constraints must name a declared protocol.",
+        });
+      }
+    }
+  }
+
   for (const protocol of program.protocols) {
     const fieldNames = new Set<string>();
 
@@ -428,6 +494,9 @@ export function analyze(program: Program): {
 
   for (const declaration of program.data) {
     const fieldNames = new Set<string>();
+    const genericNames = new Set(
+      declaration.typeParameters.map((parameter) => parameter.name),
+    );
 
     for (const field of declaration.fields) {
       if (fieldNames.has(field.name)) {
@@ -452,6 +521,7 @@ export function analyze(program: Program): {
         dataByName,
         classesByName,
         choicesByName,
+        genericNames,
       );
 
       if (unknownType) {
@@ -541,6 +611,9 @@ export function analyze(program: Program): {
 
   for (const declaration of program.classes) {
     const fieldNames = new Set<string>();
+    const genericNames = new Set(
+      declaration.typeParameters.map((parameter) => parameter.name),
+    );
 
     for (const field of declaration.fields) {
       if (fieldNames.has(field.name)) {
@@ -565,6 +638,7 @@ export function analyze(program: Program): {
         dataByName,
         classesByName,
         choicesByName,
+        genericNames,
       );
 
       if (unknownType) {
@@ -939,6 +1013,17 @@ export function analyze(program: Program): {
   }
 
   for (const declaration of program.data) {
+    const genericNames = new Set(
+      declaration.typeParameters.map((parameter) => parameter.name),
+    );
+    const genericConstraints = new Map(
+      declaration.typeParameters
+        .filter((parameter) => parameter.constraintName)
+        .map(
+          (parameter) =>
+            [parameter.name, parameter.constraintName!] as const,
+        ),
+    );
     const initialValues = new Map(
       declaration.fields.map(
         (field) =>
@@ -946,8 +1031,9 @@ export function analyze(program: Program): {
             field.name,
             typeRefFromAnnotation(
               field.type,
-              new Set(),
+              genericNames,
               new Set(protocolsByName.keys()),
+              genericConstraints,
             ),
           ] as const,
       ),
@@ -960,11 +1046,23 @@ export function analyze(program: Program): {
       {
         initialValues,
         bodyCallSignatures: functionTypes.signaturesByName,
+        ambientTypeParameters: declaration.typeParameters,
       },
     );
   }
 
   for (const declaration of program.classes) {
+    const genericNames = new Set(
+      declaration.typeParameters.map((parameter) => parameter.name),
+    );
+    const genericConstraints = new Map(
+      declaration.typeParameters
+        .filter((parameter) => parameter.constraintName)
+        .map(
+          (parameter) =>
+            [parameter.name, parameter.constraintName!] as const,
+        ),
+    );
     const initialValues = new Map(
       declaration.fields.map(
         (field) =>
@@ -972,8 +1070,9 @@ export function analyze(program: Program): {
             field.name,
             typeRefFromAnnotation(
               field.type,
-              new Set(),
+              genericNames,
               new Set(protocolsByName.keys()),
+              genericConstraints,
             ),
           ] as const,
       ),
@@ -986,6 +1085,7 @@ export function analyze(program: Program): {
       {
         initialValues,
         bodyCallSignatures: functionTypes.signaturesByName,
+        ambientTypeParameters: declaration.typeParameters,
       },
     );
   }
@@ -2700,6 +2800,16 @@ function sameTypeAnnotation(
         left.name === right.name
       );
 
+    case "AppliedTypeAnnotation":
+      return (
+        right.kind === "AppliedTypeAnnotation" &&
+        left.name === right.name &&
+        left.arguments.length === right.arguments.length &&
+        left.arguments.every((argument, index) =>
+          sameTypeAnnotation(argument, right.arguments[index]!),
+        )
+      );
+
     case "ListTypeAnnotation":
       return (
         right.kind === "ListTypeAnnotation" &&
@@ -2739,15 +2849,37 @@ function findUnknownType(
   dataByName: ReadonlyMap<string, DataDeclaration>,
   classesByName: ReadonlyMap<string, ClassDeclaration>,
   choicesByName: ReadonlyMap<string, ChoiceDeclaration>,
+  genericNames: ReadonlySet<string> = new Set(),
 ): string | undefined {
   switch (annotation.kind) {
     case "NamedTypeAnnotation":
-      return !isPrimitiveTypeName(annotation.name) &&
+      return !genericNames.has(annotation.name) &&
+        !isPrimitiveTypeName(annotation.name) &&
         !dataByName.has(annotation.name) &&
         !classesByName.has(annotation.name) &&
         !choicesByName.has(annotation.name)
         ? annotation.name
         : undefined;
+
+    case "AppliedTypeAnnotation":
+      if (
+        !dataByName.has(annotation.name) &&
+        !classesByName.has(annotation.name)
+      ) {
+        return annotation.name;
+      }
+
+      for (const argument of annotation.arguments) {
+        const unknown = findUnknownType(
+          argument,
+          dataByName,
+          classesByName,
+          choicesByName,
+          genericNames,
+        );
+        if (unknown) return unknown;
+      }
+      return undefined;
 
     case "ListTypeAnnotation":
     case "SetTypeAnnotation":
@@ -2756,6 +2888,7 @@ function findUnknownType(
         dataByName,
         classesByName,
         choicesByName,
+        genericNames,
       );
 
     case "MapTypeAnnotation":
@@ -2765,12 +2898,14 @@ function findUnknownType(
           dataByName,
           classesByName,
           choicesByName,
+          genericNames,
         ) ??
         findUnknownType(
           annotation.valueType,
           dataByName,
           classesByName,
           choicesByName,
+          genericNames,
         )
       );
 
@@ -2781,12 +2916,14 @@ function findUnknownType(
           dataByName,
           classesByName,
           choicesByName,
+          genericNames,
         ) ??
         findUnknownType(
           annotation.errorType,
           dataByName,
           classesByName,
           choicesByName,
+          genericNames,
         )
       );
 
@@ -2796,6 +2933,7 @@ function findUnknownType(
         dataByName,
         classesByName,
         choicesByName,
+        genericNames,
       );
   }
 }

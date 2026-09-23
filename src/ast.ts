@@ -44,6 +44,7 @@ export type ImportDeclaration = {
 export type DataDeclaration = {
   readonly kind: "DataDeclaration";
   readonly name: string;
+  readonly typeParameters: readonly TypeParameter[];
   readonly conformances: readonly ProtocolConformance[];
   readonly fields: readonly DataField[];
   readonly methods: readonly FunctionDeclaration[];
@@ -53,6 +54,7 @@ export type DataDeclaration = {
 export type ClassDeclaration = {
   readonly kind: "ClassDeclaration";
   readonly name: string;
+  readonly typeParameters: readonly TypeParameter[];
   readonly conformances: readonly ProtocolConformance[];
   readonly fields: readonly ClassField[];
   readonly methods: readonly FunctionDeclaration[];
@@ -87,6 +89,7 @@ export type DataField = {
 
 export type TypeAnnotation =
   | NamedTypeAnnotation
+  | AppliedTypeAnnotation
   | ListTypeAnnotation
   | SetTypeAnnotation
   | MapTypeAnnotation
@@ -96,6 +99,13 @@ export type TypeAnnotation =
 export type NamedTypeAnnotation = {
   readonly kind: "NamedTypeAnnotation";
   readonly name: string;
+  readonly span: SourceSpan;
+};
+
+export type AppliedTypeAnnotation = {
+  readonly kind: "AppliedTypeAnnotation";
+  readonly name: string;
+  readonly arguments: readonly TypeAnnotation[];
   readonly span: SourceSpan;
 };
 

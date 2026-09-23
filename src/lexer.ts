@@ -63,8 +63,6 @@ export type TokenKind =
   | "approval"
   | "trace"
   | "evaluation"
-  | "input"
-  | "expected"
   | "overflow"
   | "screen"
   | "component"
@@ -175,8 +173,6 @@ const keywords = new Map<string, TokenKind>([
   ["approval", "approval"],
   ["trace", "trace"],
   ["evaluation", "evaluation"],
-  ["input", "input"],
-  ["expected", "expected"],
   ["overflow", "overflow"],
   ["screen", "screen"],
   ["component", "component"],

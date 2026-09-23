@@ -107,6 +107,9 @@ jobs:
       - name: Check local package graph
         run: npm run evermore -- check examples/packages/app/evermore.json
 
+      - name: Check full-stack example
+        run: npm run evermore -- check examples/full-stack.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -413,3 +416,36 @@ jobs:
           grep -q '"makeUser"' /tmp/evermore-package/src/generated/functions.ts
 
 
+
+
+      - name: Generate full-stack Vue client
+        run: npm run evermore -- build examples/full-stack.ever --target vue --out /tmp/evermore-fullstack-web
+
+      - name: Install full-stack Vue client
+        working-directory: /tmp/evermore-fullstack-web
+        run: npm install
+
+      - name: Build full-stack Vue client
+        working-directory: /tmp/evermore-fullstack-web
+        run: npm run build
+
+      - name: Generate full-stack Node service
+        run: npm run evermore -- build examples/full-stack.ever --target node --out /tmp/evermore-fullstack-node
+
+      - name: Install full-stack Node service
+        working-directory: /tmp/evermore-fullstack-node
+        run: npm install
+
+      - name: Build full-stack Node service
+        working-directory: /tmp/evermore-fullstack-node
+        run: npm run build
+
+      - name: Verify M3 server artifacts
+        run: |
+          test -f /tmp/evermore-fullstack-node/src/generated/contracts.ts
+          test -f /tmp/evermore-fullstack-node/src/generated/validation.ts
+          test -f /tmp/evermore-fullstack-node/src/generated/repositories.ts
+          test -f /tmp/evermore-fullstack-node/src/generated/jobs.ts
+          test -f /tmp/evermore-fullstack-node/src/generated/realtime.ts
+          grep -q 'DATABASE_URL' /tmp/evermore-fullstack-node/src/generated/repositories.ts
+          grep -q 'authorization' /tmp/evermore-fullstack-node/src/generated/server.ts

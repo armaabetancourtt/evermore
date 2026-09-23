@@ -179,6 +179,7 @@ export async function loadProject(
     contexts: ordered.flatMap((unit) => unit.program.contexts),
     agents: ordered.flatMap((unit) => unit.program.agents),
     evaluations: ordered.flatMap((unit) => unit.program.evaluations),
+    mobiles: ordered.flatMap((unit) => unit.program.mobiles),
     components: ordered.flatMap((unit) => unit.program.components),
     screens: ordered.flatMap((unit) => unit.program.screens),
     span: root.span,

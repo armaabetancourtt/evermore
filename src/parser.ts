@@ -144,6 +144,7 @@ class Parser {
     const arrays: ArrayDeclaration[] = [];
     const pythonBridges: PythonDeclaration[] = [];
     const pipelines: PipelineDeclaration[] = [];
+    const deployments: DeploymentDeclaration[] = [];
     const components: ComponentDeclaration[] = [];
     const screens: ScreenDeclaration[] = [];
 
@@ -224,6 +225,11 @@ class Parser {
           continue;
         }
 
+        if (this.check("deployment")) {
+          deployments.push(this.parseDeployment());
+          continue;
+        }
+
         if (this.check("component")) {
           components.push(this.parseComponent());
           continue;
@@ -274,6 +280,7 @@ class Parser {
       arrays,
       pythonBridges,
       pipelines,
+      deployments,
       components,
       screens,
       span: {
@@ -2089,6 +2096,188 @@ class Parser {
     };
   }
 
+  private parseDeployment(): DeploymentDeclaration {
+    const start = this.consume(
+      "deployment",
+      "Expected a deployment declaration.",
+    );
+    const name = this.consume(
+      "identifier",
+      "Expected a deployment name.",
+    );
+    const services: DeploymentService[] = [];
+    const env: string[] = [];
+    const secrets: string[] = [];
+    let kubernetes = false;
+    let observability = false;
+    let rollbackRevisions = 3;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.matchWord("service")) {
+        const serviceStart = this.previous();
+        const serviceName = this.consume(
+          "identifier",
+          "Expected a deployment service name.",
+        );
+        let serverName: string | undefined;
+        let replicas = 1;
+        let healthPath = "/health";
+        let readinessPath = "/ready";
+        let cpu = "500m";
+        let memory = "512Mi";
+
+        while (!this.check("eof") && !this.check("end")) {
+          if (this.matchWord("server")) {
+            const value = this.consume(
+              "identifier",
+              "Expected an Evermore server name.",
+            );
+            serverName = value.value ?? value.lexeme;
+            continue;
+          }
+
+          if (this.matchWord("replicas")) {
+            const value = this.consume(
+              "number",
+              "Expected a replica count.",
+            );
+            replicas = Number(value.value ?? value.lexeme);
+            continue;
+          }
+
+          if (this.matchWord("health")) {
+            const value = this.consume(
+              "string",
+              "Expected a health endpoint path.",
+            );
+            healthPath = value.value ?? "";
+            continue;
+          }
+
+          if (this.matchWord("readiness")) {
+            const value = this.consume(
+              "string",
+              "Expected a readiness endpoint path.",
+            );
+            readinessPath = value.value ?? "";
+            continue;
+          }
+
+          if (this.matchWord("cpu")) {
+            const value = this.consume(
+              "string",
+              "Expected a CPU resource value.",
+            );
+            cpu = value.value ?? "";
+            continue;
+          }
+
+          if (this.matchWord("memory")) {
+            const value = this.consume(
+              "string",
+              "Expected a memory resource value.",
+            );
+            memory = value.value ?? "";
+            continue;
+          }
+
+          return this.fail(
+            this.peek(),
+            "E1500",
+            "Expected a deployment service option.",
+            "Use server, replicas, health, readiness, cpu, or memory.",
+          );
+        }
+
+        const serviceEnd = this.consume(
+          "end",
+          'Expected "end" to close the deployment service.',
+        );
+
+        if (!serverName) {
+          return this.fail(
+            serviceEnd,
+            "E1501",
+            "Deployment services require server <Name>.",
+          );
+        }
+
+        services.push({
+          name: serviceName.value ?? serviceName.lexeme,
+          serverName,
+          replicas,
+          healthPath,
+          readinessPath,
+          cpu,
+          memory,
+          span: spanFrom(serviceStart, serviceEnd),
+        });
+        continue;
+      }
+
+      if (this.matchWord("env")) {
+        const value = this.consume(
+          "string",
+          "Expected an environment variable name.",
+        );
+        env.push(value.value ?? "");
+        continue;
+      }
+
+      if (this.matchWord("secret")) {
+        const value = this.consume(
+          "string",
+          "Expected a secret name.",
+        );
+        secrets.push(value.value ?? "");
+        continue;
+      }
+
+      if (this.matchWord("kubernetes")) {
+        kubernetes = true;
+        continue;
+      }
+
+      if (this.matchWord("observability")) {
+        observability = true;
+        continue;
+      }
+
+      if (this.matchWord("rollback")) {
+        const value = this.consume(
+          "number",
+          "Expected rollback revision count.",
+        );
+        rollbackRevisions = Number(value.value ?? value.lexeme);
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1502",
+        "Expected a deployment option.",
+        "Use service, env, secret, kubernetes, observability, or rollback.",
+      );
+    }
+
+    const end = this.consume(
+      "end",
+      'Expected "end" to close the deployment.',
+    );
+
+    return {
+      kind: "DeploymentDeclaration",
+      name: name.value ?? name.lexeme,
+      services,
+      env,
+      secrets,
+      kubernetes,
+      observability,
+      rollbackRevisions,
+      span: spanFrom(start, end),
+    };
+  }
+
   private parseComponent(): ComponentDeclaration {
     const start = this.consume("component", "Expected a component declaration.");
     const name = this.consume("identifier", "Expected a component name.");
@@ -2457,6 +2646,7 @@ class Parser {
       this.check("array") ||
       this.check("python") ||
       this.check("pipeline") ||
+      this.check("deployment") ||
       this.check("component") ||
       this.check("screen")
     );

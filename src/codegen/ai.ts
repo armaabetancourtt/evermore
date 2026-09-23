@@ -248,7 +248,7 @@ function emitRuntime(program: IRProgram): string {
     "",
     "const agents = " + JSON.stringify(agents, null, 2) + " as const;",
     "const tools = " + JSON.stringify(tools, null, 2) + " as const;",
-    "const contexts = " + JSON.stringify(contexts, null, 2) + " as const;",
+    'const contexts: readonly { readonly name: string; readonly includes: readonly string[]; readonly tokenBudget: number; readonly overflow: "summarize" | "reject" }[] = ' + JSON.stringify(contexts, null, 2) + ";",
     "",
     "function agentSpec(name: string) { const spec = agents.find((item) => item.name === name); if (!spec) throw new Error(\"Unknown Evermore agent \" + name); return spec; }",
     "function toolSpec(name: string) { const spec = tools.find((item) => item.name === name); if (!spec) throw new Error(\"Unknown Evermore tool \" + name); return spec; }",

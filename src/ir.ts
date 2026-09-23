@@ -162,6 +162,7 @@ export type IRExpression =
   | IRConstructExpression
   | IRChoiceCaseExpression
   | IRIdentifierExpression
+  | IRUnaryExpression
   | IRBinaryExpression
   | IRCallExpression;
 
@@ -266,9 +267,17 @@ export type IRIfExpression = {
   readonly elseExpression: IRExpression;
 };
 
+export type IRUnaryExpression = {
+  readonly kind: "Unary";
+  readonly operator: "not";
+  readonly expression: IRExpression;
+};
+
 export type IRBinaryExpression = {
   readonly kind: "Binary";
   readonly operator:
+    | "and"
+    | "or"
     | "+"
     | "-"
     | "*"
@@ -968,6 +977,13 @@ function lowerExpression(
 
     case "IdentifierExpression":
       return { kind: "Identifier", name: expression.name };
+
+    case "UnaryExpression":
+      return {
+        kind: "Unary",
+        operator: expression.operator,
+        expression: lowerExpression(expression.expression, model),
+      };
 
     case "BinaryExpression":
       return {

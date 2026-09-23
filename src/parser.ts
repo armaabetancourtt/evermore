@@ -11,10 +11,13 @@ import type {
   ComponentDeclaration,
   DataDeclaration,
   DataField,
+  DatabaseDeclaration,
+  EndpointDeclaration,
   Expression,
   FunctionDeclaration,
   FunctionParameter,
   FunctionStatement,
+  HttpMethod,
   IdentifierExpression,
   ImportDeclaration,
   IncrementAction,
@@ -28,12 +31,16 @@ import type {
   MethodCallExpression,
   NavigationAction,
   NumberExpression,
+  JobDeclaration,
   Program,
   ProtocolConformance,
   ProtocolDeclaration,
+  RealtimeDeclaration,
+  RepositoryDeclaration,
   ReturnStatement,
   SetExpression,
   SetStatement,
+  ServerDeclaration,
   ScreenDeclaration,
   ScreenStatement,
   ShowStatement,
@@ -118,6 +125,7 @@ class Parser {
     const protocols: ProtocolDeclaration[] = [];
     const choices: ChoiceDeclaration[] = [];
     const functions: FunctionDeclaration[] = [];
+    const servers: ServerDeclaration[] = [];
     const components: ComponentDeclaration[] = [];
     const screens: ScreenDeclaration[] = [];
 
@@ -148,6 +156,11 @@ class Parser {
           continue;
         }
 
+        if (this.check("server")) {
+          servers.push(this.parseServer());
+          continue;
+        }
+
         if (this.check("component")) {
           components.push(this.parseComponent());
           continue;
@@ -162,7 +175,7 @@ class Parser {
           this.peek(),
           "E1007",
           "Expected a top-level declaration.",
-          "Imports must appear immediately after the app/module header; otherwise declare data, a class, a protocol, a choice, a function, a component, or a screen.",
+          "Imports must appear immediately after the app/module header; otherwise declare data, a class, a protocol, a choice, a function, a server, a component, or a screen.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -188,6 +201,7 @@ class Parser {
       protocols,
       choices,
       functions,
+      servers,
       components,
       screens,
       span: {
@@ -1081,6 +1095,328 @@ class Parser {
     );
   }
 
+  private parseServer(): ServerDeclaration {
+    const start = this.consume("server", "Expected a server declaration.");
+    const name = this.consume("identifier", "Expected a server name.");
+    const explicitBlock = this.match("lbrace");
+    let port = 3000;
+    const endpoints: EndpointDeclaration[] = [];
+    const databases: DatabaseDeclaration[] = [];
+    const repositories: RepositoryDeclaration[] = [];
+    const jobs: JobDeclaration[] = [];
+    const realtime: RealtimeDeclaration[] = [];
+
+    while (
+      !this.check("eof") &&
+      !(explicitBlock && this.check("rbrace")) &&
+      !(!explicitBlock && this.check("end"))
+    ) {
+      if (this.match("port")) {
+        const value = this.consume("number", "Expected a numeric server port.");
+        port = Number(value.value ?? value.lexeme);
+        continue;
+      }
+
+      if (this.check("endpoint")) {
+        endpoints.push(this.parseEndpoint());
+        continue;
+      }
+
+      if (this.check("database")) {
+        databases.push(this.parseDatabase());
+        continue;
+      }
+
+      if (this.check("repository")) {
+        repositories.push(this.parseRepository());
+        continue;
+      }
+
+      if (this.check("job")) {
+        jobs.push(this.parseJob());
+        continue;
+      }
+
+      if (this.check("realtime")) {
+        realtime.push(this.parseRealtime());
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1100",
+        "Expected a server declaration item.",
+        "Use port, endpoint, database, repository, job, or realtime.",
+      );
+    }
+
+    const end = explicitBlock
+      ? this.consume("rbrace", 'Expected "}" to close the server.')
+      : this.consume("end", 'Expected "end" to close the server.');
+
+    return {
+      kind: "ServerDeclaration",
+      name: name.value ?? name.lexeme,
+      port,
+      endpoints,
+      databases,
+      repositories,
+      jobs,
+      realtime,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseEndpoint(): EndpointDeclaration {
+    const start = this.consume("endpoint", "Expected an endpoint declaration.");
+    const method = this.consume("identifier", "Expected an HTTP method.");
+    const rawMethod = (method.value ?? method.lexeme).toUpperCase();
+    const allowed = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
+
+    if (!allowed.has(rawMethod)) {
+      return this.fail(
+        method,
+        "E1101",
+        'Unsupported HTTP method "' + rawMethod + '".',
+        "Use GET, POST, PUT, PATCH, or DELETE.",
+      );
+    }
+
+    const pathToken = this.consume("string", "Expected an endpoint path.");
+    let requestType: TypeAnnotation | undefined;
+    let responseType: TypeAnnotation | undefined;
+    let handler: string | undefined;
+    let auth: "public" | "bearer" = "public";
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("takes")) {
+        requestType = this.parseTypeAnnotation();
+        continue;
+      }
+
+      if (this.match("returns")) {
+        responseType = this.parseTypeAnnotation();
+        continue;
+      }
+
+      if (this.match("uses")) {
+        const fn = this.consume("identifier", "Expected a handler function name.");
+        handler = fn.value ?? fn.lexeme;
+        continue;
+      }
+
+      if (this.match("auth")) {
+        if (this.match("public")) {
+          auth = "public";
+          continue;
+        }
+
+        const mode = this.consume("identifier", "Expected public or bearer authentication.");
+        if ((mode.value ?? mode.lexeme) !== "bearer") {
+          return this.fail(
+            mode,
+            "E1102",
+            "Expected public or bearer authentication.",
+          );
+        }
+        auth = "bearer";
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1103",
+        "Expected an endpoint option.",
+        "Use takes, returns, uses, or auth.",
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the endpoint.');
+
+    if (!responseType || !handler) {
+      return this.fail(
+        end,
+        "E1104",
+        "Endpoints require both returns <Type> and uses <function>.",
+      );
+    }
+
+    return {
+      method: rawMethod as HttpMethod,
+      path: pathToken.value ?? "",
+      ...(requestType ? { requestType } : {}),
+      responseType,
+      handler,
+      auth,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseDatabase(): DatabaseDeclaration {
+    const start = this.consume("database", "Expected a database declaration.");
+    const name = this.consume("identifier", "Expected a database name.");
+    this.consume("postgres", 'Expected "postgres" as the M3 database engine.');
+    let connectionEnv: string | undefined;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("connection")) {
+        const value = this.consume("string", "Expected the connection environment variable name.");
+        connectionEnv = value.value ?? "";
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1105",
+        "Expected a database option.",
+        'Use connection "DATABASE_URL".',
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the database.');
+
+    if (!connectionEnv) {
+      return this.fail(
+        end,
+        "E1106",
+        "Postgres databases require a connection environment variable.",
+      );
+    }
+
+    return {
+      name: name.value ?? name.lexeme,
+      engine: "postgres",
+      connectionEnv,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseRepository(): RepositoryDeclaration {
+    const start = this.consume("repository", "Expected a repository declaration.");
+    const name = this.consume("identifier", "Expected a repository name.");
+    let modelName: string | undefined;
+    let databaseName: string | undefined;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("model")) {
+        const value = this.consume("identifier", "Expected a data/class model name.");
+        modelName = value.value ?? value.lexeme;
+        continue;
+      }
+
+      if (this.match("using")) {
+        const value = this.consume("identifier", "Expected a database name.");
+        databaseName = value.value ?? value.lexeme;
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1107",
+        "Expected a repository option.",
+        "Use model <Type> and using <Database>.",
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the repository.');
+
+    if (!modelName || !databaseName) {
+      return this.fail(
+        end,
+        "E1108",
+        "Repositories require model <Type> and using <Database>.",
+      );
+    }
+
+    return {
+      name: name.value ?? name.lexeme,
+      modelName,
+      databaseName,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseJob(): JobDeclaration {
+    const start = this.consume("job", "Expected a job declaration.");
+    const name = this.consume("identifier", "Expected a job name.");
+    let schedule: string | undefined;
+    let handler: string | undefined;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("every")) {
+        const value = this.consume("string", "Expected a cron schedule string.");
+        schedule = value.value ?? "";
+        continue;
+      }
+
+      if (this.match("uses")) {
+        const value = this.consume("identifier", "Expected a job handler function.");
+        handler = value.value ?? value.lexeme;
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1109",
+        "Expected a job option.",
+        'Use every "<cron>" and uses <function>.',
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the job.');
+
+    if (!schedule || !handler) {
+      return this.fail(
+        end,
+        "E1110",
+        "Jobs require a schedule and handler.",
+      );
+    }
+
+    return {
+      name: name.value ?? name.lexeme,
+      schedule,
+      handler,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseRealtime(): RealtimeDeclaration {
+    const start = this.consume("realtime", "Expected a realtime declaration.");
+    const name = this.consume("identifier", "Expected a realtime channel name.");
+    let messageType: TypeAnnotation | undefined;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("message")) {
+        messageType = this.parseTypeAnnotation();
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1111",
+        "Expected a realtime option.",
+        "Use message <Type>.",
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the realtime declaration.');
+
+    if (!messageType) {
+      return this.fail(
+        end,
+        "E1112",
+        "Realtime channels require a message type.",
+      );
+    }
+
+    return {
+      name: name.value ?? name.lexeme,
+      messageType,
+      span: spanFrom(start, end),
+    };
+  }
+
   private parseComponent(): ComponentDeclaration {
     const start = this.consume("component", "Expected a component declaration.");
     const name = this.consume("identifier", "Expected a component name.");
@@ -1439,6 +1775,7 @@ class Parser {
       this.check("protocol") ||
       this.check("choice") ||
       this.check("function") ||
+      this.check("server") ||
       this.check("component") ||
       this.check("screen")
     );

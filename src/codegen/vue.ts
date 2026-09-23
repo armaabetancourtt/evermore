@@ -1248,13 +1248,28 @@ function emitFunctionExpression(
       return generated;
     }
 
+    case "Unary":
+      return (
+        "(!" +
+        emitFunctionExpression(
+          expression.expression,
+          values,
+          functions,
+        ) +
+        ")"
+      );
+
     case "Binary": {
       const operator =
         expression.operator === "=="
           ? "==="
           : expression.operator === "!="
             ? "!=="
-            : expression.operator;
+            : expression.operator === "and"
+              ? "&&"
+              : expression.operator === "or"
+                ? "||"
+                : expression.operator;
 
       return (
         "(" +

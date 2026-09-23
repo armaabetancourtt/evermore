@@ -77,6 +77,9 @@ export type IRClassField = {
 export type IRFunction = {
   readonly name: string;
   readonly typeParameters: readonly IRTypeParameter[];
+  readonly isAsync: boolean;
+  readonly effects: readonly string[];
+  readonly capabilities: readonly string[];
   readonly parameters: readonly IRFunctionParameter[];
   readonly returnType: TypeRef;
   readonly body: readonly IRFunctionStatement[];
@@ -303,6 +306,7 @@ export type IRBinaryExpression = {
 export type IRCallExpression = {
   readonly kind: "Call";
   readonly callee: string;
+  readonly isAsync: boolean;
   readonly arguments: readonly IRExpression[];
 };
 
@@ -630,6 +634,9 @@ export function lowerToIR(model: SemanticModel): IRProgram {
             ? { constraint: parameter.constraintName }
             : {}),
         })),
+        isAsync: fn.isAsync,
+        effects: fn.effects,
+        capabilities: fn.capabilities,
         parameters: fn.parameters.map((parameter) => ({
           name: parameter.name,
           type: typeRefFromAnnotation(
@@ -1125,6 +1132,9 @@ function lowerExpression(
       return {
         kind: "Call",
         callee: expression.callee,
+        isAsync:
+          model.functionSignaturesByName.get(expression.callee)?.isAsync ??
+          false,
         arguments: expression.arguments.map((argument) =>
           lowerExpression(argument, model),
         ),

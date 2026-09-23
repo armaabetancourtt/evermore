@@ -385,6 +385,34 @@ export function analyze(program: Program): {
     }
   }
 
+  for (const owner of [
+    ...program.protocols,
+    ...program.data,
+    ...program.classes,
+  ]) {
+    for (const method of owner.methods) {
+      if (
+        method.isAsync ||
+        method.effects.length > 0 ||
+        method.capabilities.length > 0
+      ) {
+        diagnostics.push({
+          code: "E2415",
+          severity: "error",
+          message:
+            'Method "' +
+            owner.name +
+            "." +
+            method.name +
+            '" cannot declare async/effects/capabilities in the current core.',
+          span: method.span,
+          help:
+            "Keep methods pure and move effectful work to an explicit top-level function boundary.",
+        });
+      }
+    }
+  }
+
   for (const protocol of program.protocols) {
     const fieldNames = new Set<string>();
 

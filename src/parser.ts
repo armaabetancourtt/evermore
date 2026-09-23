@@ -570,13 +570,40 @@ class Parser {
     };
   }
 
+  private parseQualifiedNameList(kind: string): string[] {
+    const names: string[] = [];
+
+    do {
+      const first = this.consume(
+        "identifier",
+        "Expected a " + kind + " name.",
+      );
+      let name = first.value ?? first.lexeme;
+
+      while (this.match("dot")) {
+        const part = this.consume(
+          "identifier",
+          'Expected a name after "." in the ' + kind + ".",
+        );
+        name += "." + (part.value ?? part.lexeme);
+      }
+
+      names.push(name);
+    } while (this.match("comma"));
+
+    return names;
+  }
+
   private parseFunction(): FunctionDeclaration {
     const start = this.consume("function", "Expected a function declaration.");
     const name = this.consume("identifier", "Expected a function name.");
     const explicitBlock = this.match("lbrace");
     const typeParameters: TypeParameter[] = [];
+    const effects: string[] = [];
+    const capabilities: string[] = [];
     const parameters: FunctionParameter[] = [];
     const body: FunctionStatement[] = [];
+    let isAsync = false;
     let returnType: TypeAnnotation | undefined;
 
     while (
@@ -587,6 +614,33 @@ class Parser {
       try {
         if (this.match("generic")) {
           typeParameters.push(this.parseTypeParameter(this.previous()));
+          continue;
+        }
+
+        if (this.matchWord("async")) {
+          if (isAsync) {
+            this.fail(
+              this.previous(),
+              "E1017",
+              'Function "' +
+                (name.value ?? name.lexeme) +
+                '" declares async more than once.',
+              "Keep a single async declaration.",
+            );
+          }
+          isAsync = true;
+          continue;
+        }
+
+        if (this.matchWord("effects")) {
+          effects.push(...this.parseQualifiedNameList("effect"));
+          continue;
+        }
+
+        if (this.matchWord("using")) {
+          capabilities.push(
+            ...this.parseQualifiedNameList("capability"),
+          );
           continue;
         }
 
@@ -668,7 +722,7 @@ class Parser {
           this.peek(),
           "E1010",
           "Expected a function declaration item or statement.",
-          "Use generic, takes, returns, let, var, set, while, for, break, continue, or return.",
+          "Use generic, async, effects, using, takes, returns, let, var, set, while, for, break, continue, or return.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -694,6 +748,9 @@ class Parser {
       kind: "FunctionDeclaration",
       name: name.value ?? name.lexeme,
       typeParameters,
+      isAsync,
+      effects,
+      capabilities,
       parameters,
       returnType,
       body,

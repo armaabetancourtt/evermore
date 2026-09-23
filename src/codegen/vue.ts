@@ -700,13 +700,17 @@ export function emitFunctions(
     });
 
     lines.push(
-      "function " +
+      (fn.isAsync ? "async function " : "function ") +
         generatedName +
         genericClause +
         "(" +
         params.join(", ") +
         "): " +
-        emitTypeRef(fn.returnType, genericNames) +
+        (fn.isAsync
+          ? "Promise<" +
+            emitTypeRef(fn.returnType, genericNames) +
+            ">"
+          : emitTypeRef(fn.returnType, genericNames)) +
         " {",
     );
 
@@ -1131,6 +1135,80 @@ function emitMethodProperty(
   );
 }
 
+function containsAsyncCall(expression: IRExpression): boolean {
+  switch (expression.kind) {
+    case "Number":
+    case "String":
+    case "Boolean":
+    case "None":
+    case "Identifier":
+      return false;
+
+    case "Call":
+      return (
+        expression.isAsync ||
+        expression.arguments.some(containsAsyncCall)
+      );
+
+    case "Result":
+      return containsAsyncCall(expression.value);
+
+    case "List":
+    case "Set":
+      return expression.elements.some(containsAsyncCall);
+
+    case "Map":
+      return expression.entries.some(
+        (entry) =>
+          containsAsyncCall(entry.key) ||
+          containsAsyncCall(entry.value),
+      );
+
+    case "If":
+      return (
+        containsAsyncCall(expression.condition) ||
+        containsAsyncCall(expression.thenExpression) ||
+        containsAsyncCall(expression.elseExpression)
+      );
+
+    case "Match":
+      return (
+        containsAsyncCall(expression.value) ||
+        expression.cases.some((branch) =>
+          containsAsyncCall(branch.expression),
+        )
+      );
+
+    case "Member":
+      return containsAsyncCall(expression.object);
+
+    case "MethodCall":
+      return (
+        containsAsyncCall(expression.object) ||
+        expression.arguments.some(containsAsyncCall)
+      );
+
+    case "Construct":
+      return expression.fields.some((field) =>
+        containsAsyncCall(field.value),
+      );
+
+    case "ChoiceCase":
+      return expression.payload
+        ? containsAsyncCall(expression.payload)
+        : false;
+
+    case "Unary":
+      return containsAsyncCall(expression.expression);
+
+    case "Binary":
+      return (
+        containsAsyncCall(expression.left) ||
+        containsAsyncCall(expression.right)
+      );
+  }
+}
+
 function emitFunctionExpression(
   expression: IRExpression,
   values: ReadonlyMap<string, string>,
@@ -1236,6 +1314,9 @@ function emitFunctionExpression(
       const hasPayloadBinding = expression.cases.some(
         (branch) => branch.bindingName !== undefined,
       );
+      const iifeStart = containsAsyncCall(expression)
+        ? "await (async () => { "
+        : "(() => { ";
       const isResultPayloadMatch =
         expression.cases.length > 0 &&
         expression.cases.every(
@@ -1288,7 +1369,8 @@ function emitFunctionExpression(
 
         if (isResultPayloadMatch) {
           return (
-            "(() => { const matchValue = " +
+            iifeStart +
+            "const matchValue = " +
             source +
             "; switch (matchValue.kind) { " +
             branches +
@@ -1297,7 +1379,8 @@ function emitFunctionExpression(
         }
 
         return (
-          "(() => { const matchValue = " +
+          iifeStart +
+          "const matchValue = " +
           source +
           '; const matchCase = typeof matchValue === "object" && matchValue !== null ? (matchValue as unknown as { readonly kind: string }).kind : matchValue;' +
           " switch (matchCase) { " +
@@ -1307,7 +1390,8 @@ function emitFunctionExpression(
       }
 
       return (
-        "(() => { const matchValue = " +
+        iifeStart +
+        "const matchValue = " +
         source +
         '; const matchCase = typeof matchValue === "object" && matchValue !== null ? (matchValue as unknown as { readonly kind: string }).kind : matchValue;' +
         " switch (matchCase) { " +
@@ -1409,7 +1493,11 @@ function emitFunctionExpression(
       ];
 
       return (
-        "(() => { " +
+        (expression.fields.some((field) =>
+          containsAsyncCall(field.value),
+        )
+          ? "await (async () => { "
+          : "(() => { ") +
         setup.join(" ") +
         " return { " +
         properties.join(", ") +
@@ -1486,6 +1574,7 @@ function emitFunctionExpression(
       }
 
       return (
+        (expression.isAsync ? "await " : "") +
         generated +
         "(" +
         expression.arguments

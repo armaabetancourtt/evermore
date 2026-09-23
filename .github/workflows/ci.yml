@@ -554,3 +554,15 @@ jobs:
           grep -q 'secretKeyRef' /tmp/evermore-infra/deploy/production/kubernetes.yaml
           grep -q 'revisionHistoryLimit: 5' /tmp/evermore-infra/deploy/production/kubernetes.yaml
           grep -q 'EVERMORE_APPLY' /tmp/evermore-infra/deploy/production/apply.sh
+
+
+      - name: Generate M8 documentation artifact
+        run: npm run docs -- examples/showcase.ever /tmp/evermore-showcase.md
+
+      - name: Verify M8 tooling artifacts
+        run: |
+          grep -q '# Evermore Showcase' /tmp/evermore-showcase.md
+          test -f playground/index.html
+          test -f studio/index.html
+          test -f docs/PACKAGE_REGISTRY.md
+          test -f src/tooling/lsp-server.ts

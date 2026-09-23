@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Evermore Playground Prototype</title>
+<style>
+  body{font-family:ui-sans-serif,system-ui;margin:0;background:#0b0d12;color:#eef2ff}
+  main{max-width:1100px;margin:0 auto;padding:48px 24px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  textarea,pre{box-sizing:border-box;width:100%;min-height:420px;border:1px solid #2a3140;border-radius:16px;background:#111621;color:#eef2ff;padding:18px;font:14px/1.55 ui-monospace,monospace}
+  h1{font-size:40px;margin:0 0 8px} p{color:#aeb8cc}
+</style>
+<main>
+  <h1>Evermore Playground</h1>
+  <p>M8 research prototype for editing source beside inspectable compiler intent.</p>
+  <div class="grid">
+    <textarea id="source">app "Hello"
+
+screen Home
+  title "Build software like you think."</textarea>
+    <pre id="preview"></pre>
+  </div>
+</main>
+<script>
+  const source=document.querySelector("#source");
+  const preview=document.querySelector("#preview");
+  const render=()=>preview.textContent="Source preview\n\n"+source.value+"\n\nConnect an Evermore LSP/compiler worker for live diagnostics and generated artifacts.";
+  source.addEventListener("input",render); render();
+</script>
+</html>

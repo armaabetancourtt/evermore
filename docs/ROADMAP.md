@@ -233,17 +233,19 @@ Exit condition:
 
 ## M8 — Tooling and ecosystem
 
+**Status: complete ✅ — language-service tooling baseline operational**
+
 Goals:
 
-- Language Server Protocol;
-- editor diagnostics;
-- formatting;
-- semantic highlighting;
-- refactoring;
-- package registry design;
-- documentation generator;
-- playground;
-- Evermore Studio research prototype.
+- [x] Language Server Protocol;
+- [x] editor diagnostics;
+- [x] formatting;
+- [x] semantic highlighting;
+- [x] identifier rename refactoring;
+- [x] package registry design;
+- [x] documentation generator;
+- [x] playground research prototype;
+- [x] Evermore Studio research prototype.
 
 ---
 

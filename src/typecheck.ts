@@ -2164,6 +2164,33 @@ function resolveType(
     return undefined;
   }
 
+  const invalidApplication = findInvalidNominalApplication(
+    annotation,
+    types,
+    genericNames,
+  );
+
+  if (invalidApplication) {
+    diagnostics.push({
+      code: "E2234",
+      severity: "error",
+      message:
+        'Type "' +
+        invalidApplication.name +
+        '" expects ' +
+        invalidApplication.expected +
+        " type argument(s) but received " +
+        invalidApplication.actual +
+        ".",
+      span: annotation.span,
+      help:
+        invalidApplication.expected > 0
+          ? "Apply the nominal type with the declared number of type arguments."
+          : "Remove type arguments from this non-generic type.",
+    });
+    return undefined;
+  }
+
   return typeRefFromAnnotation(
     annotation,
     genericNames,
@@ -2187,6 +2214,24 @@ function findUnknownType(
         !types.choicesByName.has(annotation.name)
         ? annotation.name
         : undefined;
+
+    case "AppliedTypeAnnotation":
+      if (
+        !types.dataByName.has(annotation.name) &&
+        !types.classesByName.has(annotation.name)
+      ) {
+        return annotation.name;
+      }
+
+      for (const argument of annotation.arguments) {
+        const unknown = findUnknownType(
+          argument,
+          types,
+          genericNames,
+        );
+        if (unknown) return unknown;
+      }
+      return undefined;
 
     case "ListTypeAnnotation":
     case "SetTypeAnnotation":
@@ -2215,6 +2260,94 @@ function findUnknownType(
         genericNames,
       );
   }
+}
+
+function findInvalidNominalApplication(
+  annotation: TypeAnnotation,
+  types: NamedTypeContext,
+  genericNames: ReadonlySet<string>,
+): { readonly name: string; readonly expected: number; readonly actual: number } | undefined {
+  if (annotation.kind === "NamedTypeAnnotation") {
+    if (genericNames.has(annotation.name)) return undefined;
+    const nominal =
+      types.dataByName.get(annotation.name) ??
+      types.classesByName.get(annotation.name);
+    if (nominal && nominal.typeParameters.length > 0) {
+      return {
+        name: annotation.name,
+        expected: nominal.typeParameters.length,
+        actual: 0,
+      };
+    }
+    return undefined;
+  }
+
+  if (annotation.kind === "AppliedTypeAnnotation") {
+    const nominal =
+      types.dataByName.get(annotation.name) ??
+      types.classesByName.get(annotation.name);
+    if (nominal && nominal.typeParameters.length !== annotation.arguments.length) {
+      return {
+        name: annotation.name,
+        expected: nominal.typeParameters.length,
+        actual: annotation.arguments.length,
+      };
+    }
+
+    for (const argument of annotation.arguments) {
+      const invalid = findInvalidNominalApplication(
+        argument,
+        types,
+        genericNames,
+      );
+      if (invalid) return invalid;
+    }
+    return undefined;
+  }
+
+  if (
+    annotation.kind === "ListTypeAnnotation" ||
+    annotation.kind === "SetTypeAnnotation" ||
+    annotation.kind === "OptionalTypeAnnotation"
+  ) {
+    const nested =
+      annotation.kind === "OptionalTypeAnnotation"
+        ? annotation.valueType
+        : annotation.elementType;
+    return findInvalidNominalApplication(nested, types, genericNames);
+  }
+
+  if (annotation.kind === "MapTypeAnnotation") {
+    return (
+      findInvalidNominalApplication(
+        annotation.keyType,
+        types,
+        genericNames,
+      ) ??
+      findInvalidNominalApplication(
+        annotation.valueType,
+        types,
+        genericNames,
+      )
+    );
+  }
+
+  if (annotation.kind === "ResultTypeAnnotation") {
+    return (
+      findInvalidNominalApplication(
+        annotation.okType,
+        types,
+        genericNames,
+      ) ??
+      findInvalidNominalApplication(
+        annotation.errorType,
+        types,
+        genericNames,
+      )
+    );
+  }
+
+  return undefined;
 }
 
 function bindGenericTypes(
@@ -2265,6 +2398,22 @@ function bindGenericTypes(
 
     bindings.set(pattern.name, unified);
     return true;
+  }
+
+  if (pattern.kind === "Applied") {
+    return (
+      actual.kind === "Applied" &&
+      actual.name === pattern.name &&
+      actual.arguments.length === pattern.arguments.length &&
+      pattern.arguments.every((argument, index) =>
+        bindGenericTypes(
+          argument,
+          actual.arguments[index]!,
+          bindings,
+          types,
+        ),
+      )
+    );
   }
 
   if (pattern.kind === "List") {
@@ -2356,6 +2505,15 @@ function substituteGenerics(
     case "Generic":
       return bindings.get(type.name) ?? type;
 
+    case "Applied":
+      return {
+        kind: "Applied",
+        name: type.name,
+        arguments: type.arguments.map((argument) =>
+          substituteGenerics(argument, bindings),
+        ),
+      };
+
     case "List":
       return {
         kind: "List",
@@ -2404,7 +2562,7 @@ function isAssignable(
   if (sameType(actual, expected)) return true;
 
   if (expected.kind === "Protocol") {
-    if (actual.kind === "Named") {
+    if (actual.kind === "Named" || actual.kind === "Applied") {
       const nominal =
         types.dataByName.get(actual.name) ??
         types.classesByName.get(actual.name);
@@ -2418,6 +2576,20 @@ function isAssignable(
     if (actual.kind === "Generic" && actual.constraint) {
       return actual.constraint === expected.name;
     }
+  }
+
+  if (actual.kind === "Applied" && expected.kind === "Applied") {
+    return (
+      actual.name === expected.name &&
+      actual.arguments.length === expected.arguments.length &&
+      actual.arguments.every((argument, index) =>
+        isAssignable(
+          argument,
+          expected.arguments[index]!,
+          types,
+        ),
+      )
+    );
   }
 
   if (expected.kind === "Optional") {
@@ -2491,6 +2663,22 @@ function commonType(
     return right;
   }
 
+  if (
+    left.kind === "Applied" &&
+    right.kind === "Applied" &&
+    left.name === right.name &&
+    left.arguments.length === right.arguments.length
+  ) {
+    const arguments_ = left.arguments.map((argument, index) =>
+      commonType(argument, right.arguments[index]!, types),
+    );
+    return arguments_.every(
+      (argument): argument is TypeRef => argument !== undefined,
+    )
+      ? { kind: "Applied", name: left.name, arguments: arguments_ }
+      : undefined;
+  }
+
   if (left.kind === "List" && right.kind === "List") {
     const elementType = commonType(
       left.elementType,
@@ -2554,6 +2742,16 @@ function sameType(left: TypeRef, right: TypeRef): boolean {
     case "Protocol":
       return right.kind === left.kind && left.name === right.name;
 
+    case "Applied":
+      return (
+        right.kind === "Applied" &&
+        left.name === right.name &&
+        left.arguments.length === right.arguments.length &&
+        left.arguments.every((argument, index) =>
+          sameType(argument, right.arguments[index]!),
+        )
+      );
+
     case "List":
       return (
         right.kind === "List" &&
@@ -2598,6 +2796,14 @@ function describeType(type: TypeRef): string {
     case "Generic":
     case "Protocol":
       return type.name;
+
+    case "Applied":
+      return (
+        type.name +
+        "<" +
+        type.arguments.map(describeType).join(", ") +
+        ">"
+      );
 
     case "List":
       return "list of " + describeType(type.elementType);

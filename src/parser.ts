@@ -494,9 +494,25 @@ class Parser {
         "Expected a choice case name.",
       );
 
+      let payloadType: TypeAnnotation | undefined;
+      let caseEnd = caseToken.span.end;
+
+      if (this.match("lparen")) {
+        payloadType = this.parseTypeAnnotation();
+        const close = this.consume(
+          "rparen",
+          'Expected ")" after the choice case payload type.',
+        );
+        caseEnd = close.span.end;
+      }
+
       cases.push({
         name: caseToken.value ?? caseToken.lexeme,
-        span: caseToken.span,
+        ...(payloadType ? { payloadType } : {}),
+        span: {
+          start: caseToken.span.start,
+          end: caseEnd,
+        },
       });
     }
 

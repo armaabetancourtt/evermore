@@ -67,6 +67,16 @@ function optimizeStatement(
   statement: IRFunctionStatement,
   stats: { foldedConstants: number; eliminatedConstantBranches: number },
 ): IRFunctionStatement {
+  if (statement.kind === "While") {
+    return {
+      ...statement,
+      condition: optimizeExpression(statement.condition, stats),
+      body: statement.body.map((nested) =>
+        optimizeStatement(nested, stats),
+      ),
+    };
+  }
+
   return {
     ...statement,
     expression: optimizeExpression(statement.expression, stats),

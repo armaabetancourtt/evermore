@@ -2,6 +2,7 @@
   "name": "evermore-language",
   "version": "0.0.1",
   "private": true,
+  "license": "UNLICENSED",
   "description": "Human-first, AI-native programming language and software construction platform.",
   "type": "module",
   "scripts": {

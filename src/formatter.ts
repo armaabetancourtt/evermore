@@ -103,6 +103,15 @@ function formatData(
   style: FormatStyle,
 ): string {
   const bodyParts = [
+    ...declaration.typeParameters.map(
+      (parameter) =>
+        indent(1) +
+        "generic " +
+        parameter.name +
+        (parameter.constraintName
+          ? " conforms " + parameter.constraintName
+          : ""),
+    ),
     ...declaration.conformances.map(
       (conformance) => indent(1) + "conforms " + conformance.name,
     ),
@@ -140,6 +149,15 @@ function formatClass(
   style: FormatStyle,
 ): string {
   const bodyParts = [
+    ...declaration.typeParameters.map(
+      (parameter) =>
+        indent(1) +
+        "generic " +
+        parameter.name +
+        (parameter.constraintName
+          ? " conforms " + parameter.constraintName
+          : ""),
+    ),
     ...declaration.conformances.map(
       (conformance) => indent(1) + "conforms " + conformance.name,
     ),
@@ -505,6 +523,13 @@ function formatTypeAnnotation(
   switch (annotation.kind) {
     case "NamedTypeAnnotation":
       return annotation.name;
+    case "AppliedTypeAnnotation":
+      return (
+        annotation.name +
+        "<" +
+        annotation.arguments.map(formatTypeAnnotation).join(", ") +
+        ">"
+      );
     case "ListTypeAnnotation":
       return "list of " + formatTypeAnnotation(annotation.elementType);
     case "SetTypeAnnotation":

@@ -2800,6 +2800,16 @@ function sameTypeAnnotation(
         left.name === right.name
       );
 
+    case "AppliedTypeAnnotation":
+      return (
+        right.kind === "AppliedTypeAnnotation" &&
+        left.name === right.name &&
+        left.arguments.length === right.arguments.length &&
+        left.arguments.every((argument, index) =>
+          sameTypeAnnotation(argument, right.arguments[index]!),
+        )
+      );
+
     case "ListTypeAnnotation":
       return (
         right.kind === "ListTypeAnnotation" &&

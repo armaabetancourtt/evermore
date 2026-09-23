@@ -352,7 +352,17 @@ export function emitModels(
       "  " +
         JSON.stringify(choice.name) +
         ": " +
-        choice.cases.map((item) => JSON.stringify(item)).join(" | ") +
+        choice.cases
+          .map((item) =>
+            item.payloadType
+              ? "{ readonly kind: " +
+                JSON.stringify(item.name) +
+                "; readonly payload: " +
+                emitTypeRef(item.payloadType) +
+                " }"
+              : JSON.stringify(item.name),
+          )
+          .join(" | ") +
         ";",
     );
   }
@@ -1077,6 +1087,12 @@ function emitFunctionExpression(
       const hasPayloadBinding = expression.cases.some(
         (branch) => branch.bindingName !== undefined,
       );
+      const isResultPayloadMatch =
+        expression.cases.length > 0 &&
+        expression.cases.every(
+          (branch) =>
+            branch.caseName === "ok" || branch.caseName === "error",
+        );
 
       if (hasPayloadBinding) {
         const branches = expression.cases
@@ -1086,15 +1102,23 @@ function emitFunctionExpression(
 
             if (branch.bindingName) {
               const generated = "match_binding_" + index;
-              const property =
-                branch.caseName === "ok" ? "value" : "error";
               branchValues.set(branch.bindingName, generated);
-              binding =
-                " const " +
-                generated +
-                " = matchValue." +
-                property +
-                ";";
+
+              if (isResultPayloadMatch) {
+                const property =
+                  branch.caseName === "ok" ? "value" : "error";
+                binding =
+                  " const " +
+                  generated +
+                  " = matchValue." +
+                  property +
+                  ";";
+              } else {
+                binding =
+                  " const " +
+                  generated +
+                  ': any = (matchValue as any).payload;';
+              }
             }
 
             return (
@@ -1113,12 +1137,23 @@ function emitFunctionExpression(
           })
           .join(" ");
 
+        if (isResultPayloadMatch) {
+          return (
+            "(() => { const matchValue = " +
+            source +
+            "; switch (matchValue.kind) { " +
+            branches +
+            ' default: throw new Error("Unreachable Evermore result match"); } })()'
+          );
+        }
+
         return (
           "(() => { const matchValue = " +
           source +
-          "; switch (matchValue.kind) { " +
+          '; const matchCase = typeof matchValue === "object" && matchValue !== null ? (matchValue as unknown as { readonly kind: string }).kind : matchValue;' +
+          " switch (matchCase) { " +
           branches +
-          ' default: throw new Error("Unreachable Evermore result match"); } })()'
+          ' default: throw new Error("Unreachable Evermore payload match"); } })()'
         );
       }
 
@@ -1234,7 +1269,17 @@ function emitFunctionExpression(
     }
 
     case "ChoiceCase":
-      return JSON.stringify(expression.caseName);
+      return expression.payload
+        ? "({ kind: " +
+            JSON.stringify(expression.caseName) +
+            ", payload: " +
+            emitFunctionExpression(
+              expression.payload,
+              values,
+              functions,
+            ) +
+            " } as const)"
+        : JSON.stringify(expression.caseName);
 
     case "Identifier": {
       const generated = values.get(expression.name);

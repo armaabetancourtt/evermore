@@ -288,6 +288,37 @@ export function analyze(program: Program): {
     choicesByName.set(choice.name, choice);
   }
 
+  for (const choice of program.choices) {
+    for (const item of choice.cases) {
+      if (!item.payloadType) continue;
+
+      const unknownType = findUnknownType(
+        item.payloadType,
+        dataByName,
+        classesByName,
+        choicesByName,
+      );
+
+      if (unknownType) {
+        diagnostics.push({
+          code: "E2307",
+          severity: "error",
+          message:
+            'Choice case "' +
+            choice.name +
+            "." +
+            item.name +
+            '" references unknown payload type "' +
+            unknownType +
+            '".',
+          span: item.payloadType.span,
+          help:
+            "Use a primitive, data, class, choice, collection, result, or optional type.",
+        });
+      }
+    }
+  }
+
   for (const protocol of program.protocols) {
     const fieldNames = new Set<string>();
 

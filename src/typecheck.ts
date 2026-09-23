@@ -601,9 +601,11 @@ function inferExpression(
         let payloadType: TypeRef | undefined;
 
         if (choice) {
-          if (
-            !choice.cases.some((item) => item.name === branch.caseName)
-          ) {
+          const choiceCase = choice.cases.find(
+            (item) => item.name === branch.caseName,
+          );
+
+          if (!choiceCase) {
             diagnostics.push({
               code: "E2311",
               severity: "error",
@@ -619,9 +621,15 @@ function inferExpression(
                 choice.cases.map((item) => item.name).join(", ") +
                 ".",
             });
+          } else if (choiceCase.payloadType) {
+            payloadType = typeRefFromAnnotation(
+              choiceCase.payloadType,
+              new Set(),
+              new Set(types.protocolsByName.keys()),
+            );
           }
 
-          if (branch.bindingName) {
+          if (branch.bindingName && !payloadType) {
             diagnostics.push({
               code: "E2344",
               severity: "error",
@@ -631,7 +639,7 @@ function inferExpression(
                 '" has no payload to bind.',
               span: branch.span,
               help:
-                "Payload bindings are currently available for result ok/error cases.",
+                "Remove the binding or bind a case declared with a payload type.",
             });
           }
         }
@@ -731,11 +739,11 @@ function inferExpression(
         );
 
         if (choice) {
-          if (
-            !choice.cases.some(
-              (item) => item.name === expression.member,
-            )
-          ) {
+          const choiceCase = choice.cases.find(
+            (item) => item.name === expression.member,
+          );
+
+          if (!choiceCase) {
             diagnostics.push({
               code: "E2305",
               severity: "error",
@@ -750,6 +758,27 @@ function inferExpression(
                 "Use one of: " +
                 choice.cases.map((item) => item.name).join(", ") +
                 ".",
+            });
+            return undefined;
+          }
+
+          if (choiceCase.payloadType) {
+            diagnostics.push({
+              code: "E2345",
+              severity: "error",
+              message:
+                'Choice case "' +
+                choice.name +
+                "." +
+                choiceCase.name +
+                '" requires a payload.',
+              span: expression.span,
+              help:
+                "Construct it with " +
+                choice.name +
+                "." +
+                choiceCase.name +
+                "(value).",
             });
             return undefined;
           }
@@ -864,6 +893,121 @@ function inferExpression(
     }
 
     case "MethodCallExpression": {
+      if (expression.object.kind === "IdentifierExpression") {
+        const choice = types.choicesByName.get(expression.object.name);
+
+        if (choice) {
+          const choiceCase = choice.cases.find(
+            (item) => item.name === expression.method,
+          );
+
+          if (!choiceCase) {
+            diagnostics.push({
+              code: "E2305",
+              severity: "error",
+              message:
+                'Choice "' +
+                choice.name +
+                '" has no case "' +
+                expression.method +
+                '".',
+              span: expression.span,
+              help:
+                "Use one of: " +
+                choice.cases.map((item) => item.name).join(", ") +
+                ".",
+            });
+            return undefined;
+          }
+
+          if (!choiceCase.payloadType) {
+            diagnostics.push({
+              code: "E2346",
+              severity: "error",
+              message:
+                'Choice case "' +
+                choice.name +
+                "." +
+                choiceCase.name +
+                '" carries no payload.',
+              span: expression.span,
+              help:
+                "Use " + choice.name + "." + choiceCase.name + " without parentheses.",
+            });
+            return undefined;
+          }
+
+          if (expression.arguments.length !== 1) {
+            diagnostics.push({
+              code: "E2347",
+              severity: "error",
+              message:
+                'Choice case "' +
+                choice.name +
+                "." +
+                choiceCase.name +
+                '" expects exactly one payload but received ' +
+                expression.arguments.length +
+                ".",
+              span: expression.span,
+              help: "Pass exactly one value matching the declared payload type.",
+            });
+          }
+
+          const payloadType = typeRefFromAnnotation(
+            choiceCase.payloadType,
+            new Set(),
+            new Set(types.protocolsByName.keys()),
+          );
+          const argument = expression.arguments[0];
+
+          if (argument) {
+            const actual = inferExpression(
+              argument,
+              env,
+              signatures,
+              types,
+              diagnostics,
+              payloadType,
+            );
+
+            if (actual && !isAssignable(actual, payloadType, types)) {
+              diagnostics.push({
+                code: "E2348",
+                severity: "error",
+                message:
+                  'Choice case "' +
+                  choice.name +
+                  "." +
+                  choiceCase.name +
+                  '" expects ' +
+                  describeType(payloadType) +
+                  " but received " +
+                  describeType(actual) +
+                  ".",
+                span: argument.span,
+                help: "Pass a value assignable to the declared payload type.",
+              });
+            }
+          }
+
+          for (const extra of expression.arguments.slice(1)) {
+            inferExpression(
+              extra,
+              env,
+              signatures,
+              types,
+              diagnostics,
+            );
+          }
+
+          return {
+            kind: "Named",
+            name: choice.name,
+          };
+        }
+      }
+
       const objectType = inferExpression(
         expression.object,
         env,
@@ -1018,7 +1162,11 @@ function inferExpression(
         return undefined;
       }
 
-      if (!choice.cases.some((item) => item.name === expression.caseName)) {
+      const choiceCase = choice.cases.find(
+        (item) => item.name === expression.caseName,
+      );
+
+      if (!choiceCase) {
         diagnostics.push({
           code: "E2305",
           severity: "error",
@@ -1033,6 +1181,23 @@ function inferExpression(
             "Use one of: " +
             choice.cases.map((item) => item.name).join(", ") +
             ".",
+        });
+        return undefined;
+      }
+
+      if (choiceCase.payloadType) {
+        diagnostics.push({
+          code: "E2345",
+          severity: "error",
+          message:
+            'Choice case "' +
+            expression.choiceName +
+            "." +
+            expression.caseName +
+            '" requires a payload.',
+          span: expression.span,
+          help:
+            "Construct the case with a payload value.",
         });
         return undefined;
       }

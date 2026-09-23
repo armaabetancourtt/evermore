@@ -33,7 +33,12 @@ export type IRProgram = {
 
 export type IRChoice = {
   readonly name: string;
-  readonly cases: readonly string[];
+  readonly cases: readonly IRChoiceCase[];
+};
+
+export type IRChoiceCase = {
+  readonly name: string;
+  readonly payloadType?: TypeRef;
 };
 
 export type IRProtocol = {
@@ -253,6 +258,7 @@ export type IRChoiceCaseExpression = {
   readonly kind: "ChoiceCase";
   readonly choiceName: string;
   readonly caseName: string;
+  readonly payload?: IRExpression;
 };
 
 export type IRIdentifierExpression = {
@@ -540,7 +546,18 @@ export function lowerToIR(model: SemanticModel): IRProgram {
     })),
     choices: model.program.choices.map((choice) => ({
       name: choice.name,
-      cases: choice.cases.map((item) => item.name),
+      cases: choice.cases.map((item) => ({
+        name: item.name,
+        ...(item.payloadType
+          ? {
+              payloadType: typeRefFromAnnotation(
+                item.payloadType,
+                new Set(),
+                new Set(model.protocolsByName.keys()),
+              ),
+            }
+          : {}),
+      })),
     })),
     functions: model.program.functions.map((fn) => {
       const genericNames = new Set(
@@ -958,7 +975,23 @@ function lowerExpression(
       };
     }
 
-    case "MethodCallExpression":
+    case "MethodCallExpression": {
+      if (expression.object.kind === "IdentifierExpression") {
+        const choice = model.choicesByName.get(expression.object.name);
+        const choiceCase = choice?.cases.find(
+          (item) => item.name === expression.method,
+        );
+
+        if (choice && choiceCase?.payloadType) {
+          return {
+            kind: "ChoiceCase",
+            choiceName: choice.name,
+            caseName: choiceCase.name,
+            payload: lowerExpression(expression.arguments[0]!, model),
+          };
+        }
+      }
+
       return {
         kind: "MethodCall",
         object: lowerExpression(expression.object, model),
@@ -967,6 +1000,7 @@ function lowerExpression(
           lowerExpression(argument, model),
         ),
       };
+    }
 
     case "ChoiceCaseExpression":
       return {

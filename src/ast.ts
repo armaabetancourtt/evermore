@@ -140,6 +140,7 @@ export type ChoiceDeclaration = {
 
 export type ChoiceCase = {
   readonly name: string;
+  readonly payloadType?: TypeAnnotation;
   readonly span: SourceSpan;
 };
 

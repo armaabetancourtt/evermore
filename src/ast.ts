@@ -170,6 +170,9 @@ export type FunctionStatement =
   | VarStatement
   | SetStatement
   | WhileStatement
+  | ForEachStatement
+  | BreakStatement
+  | ContinueStatement
   | ReturnStatement;
 
 export type LetStatement = {
@@ -197,6 +200,24 @@ export type WhileStatement = {
   readonly kind: "WhileStatement";
   readonly condition: Expression;
   readonly body: readonly FunctionStatement[];
+  readonly span: SourceSpan;
+};
+
+export type ForEachStatement = {
+  readonly kind: "ForEachStatement";
+  readonly bindingName: string;
+  readonly collection: Expression;
+  readonly body: readonly FunctionStatement[];
+  readonly span: SourceSpan;
+};
+
+export type BreakStatement = {
+  readonly kind: "BreakStatement";
+  readonly span: SourceSpan;
+};
+
+export type ContinueStatement = {
+  readonly kind: "ContinueStatement";
   readonly span: SourceSpan;
 };
 

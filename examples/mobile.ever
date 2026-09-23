@@ -18,7 +18,6 @@ screen Home
     increases count
   button "Details"
     opens Details
-end
 
 screen Details
   title "Native specialization stays available"

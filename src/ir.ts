@@ -18,6 +18,10 @@ export type IRProgram = {
   readonly choices: readonly IRChoice[];
   readonly functions: readonly IRFunction[];
   readonly servers: readonly IRServer[];
+  readonly tools: readonly IRTool[];
+  readonly contexts: readonly IRContext[];
+  readonly agents: readonly IRAgent[];
+  readonly evaluations: readonly IREvaluation[];
   readonly screens: readonly IRScreen[];
 };
 
@@ -292,6 +296,41 @@ export type IRRealtime = {
   readonly messageType: TypeRef;
 };
 
+export type IRTool = {
+  readonly name: string;
+  readonly inputType?: TypeRef;
+  readonly outputType: TypeRef;
+  readonly permission: string;
+  readonly handler: string;
+};
+
+export type IRContext = {
+  readonly name: string;
+  readonly includes: readonly string[];
+  readonly tokenBudget: number;
+  readonly overflow: "summarize" | "reject";
+};
+
+export type IRAgent = {
+  readonly name: string;
+  readonly inputType: TypeRef;
+  readonly outputType: TypeRef;
+  readonly modelRequirement: string;
+  readonly contextName?: string;
+  readonly tools: readonly string[];
+  readonly approvalTools: readonly string[];
+  readonly tokenBudget: number;
+  readonly costBudget?: number;
+  readonly tracing: boolean;
+};
+
+export type IREvaluation = {
+  readonly name: string;
+  readonly agentName: string;
+  readonly inputFunction: string;
+  readonly expectedFunction: string;
+};
+
 export type IRScreen = {
   readonly id: string;
   readonly title?: string;
@@ -491,6 +530,59 @@ export function lowerToIR(model: SemanticModel): IRProgram {
           new Set(model.protocolsByName.keys()),
         ),
       })),
+    })),
+    tools: model.program.tools.map((tool) => ({
+      name: tool.name,
+      ...(tool.inputType
+        ? {
+            inputType: typeRefFromAnnotation(
+              tool.inputType,
+              new Set(),
+              new Set(model.protocolsByName.keys()),
+            ),
+          }
+        : {}),
+      outputType: typeRefFromAnnotation(
+        tool.outputType,
+        new Set(),
+        new Set(model.protocolsByName.keys()),
+      ),
+      permission: tool.permission,
+      handler: tool.handler,
+    })),
+    contexts: model.program.contexts.map((context) => ({
+      name: context.name,
+      includes: context.includes,
+      tokenBudget: context.tokenBudget,
+      overflow: context.overflow,
+    })),
+    agents: model.program.agents.map((agent) => ({
+      name: agent.name,
+      inputType: typeRefFromAnnotation(
+        agent.inputType,
+        new Set(),
+        new Set(model.protocolsByName.keys()),
+      ),
+      outputType: typeRefFromAnnotation(
+        agent.outputType,
+        new Set(),
+        new Set(model.protocolsByName.keys()),
+      ),
+      modelRequirement: agent.modelRequirement,
+      ...(agent.contextName ? { contextName: agent.contextName } : {}),
+      tools: agent.tools,
+      approvalTools: agent.approvalTools,
+      tokenBudget: agent.tokenBudget,
+      ...(agent.costBudget !== undefined
+        ? { costBudget: agent.costBudget }
+        : {}),
+      tracing: agent.tracing,
+    })),
+    evaluations: model.program.evaluations.map((evaluation) => ({
+      name: evaluation.name,
+      agentName: evaluation.agentName,
+      inputFunction: evaluation.inputFunction,
+      expectedFunction: evaluation.expectedFunction,
     })),
     screens: model.program.screens.map((screen) => {
       const title = screen.body.find(

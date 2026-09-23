@@ -1,9 +1,12 @@
 import type {
+  AgentDeclaration,
   ButtonStatement,
   ChoiceDeclaration,
   ClassDeclaration,
   ComponentDeclaration,
+  ContextDeclaration,
   DataDeclaration,
+  EvaluationDeclaration,
   Expression,
   FunctionDeclaration,
   FunctionStatement,
@@ -13,6 +16,7 @@ import type {
   ScreenStatement,
   ServerDeclaration,
   StackStatement,
+  ToolDeclaration,
   TypeAnnotation,
 } from "./ast.js";
 import { parse } from "./parser.js";
@@ -48,6 +52,12 @@ export function formatProgram(
     ),
     ...program.servers.map((server) =>
       formatServer(server, style),
+    ),
+    ...program.tools.map((tool) => formatTool(tool)),
+    ...program.contexts.map((context) => formatContext(context)),
+    ...program.agents.map((agent) => formatAgent(agent)),
+    ...program.evaluations.map((evaluation) =>
+      formatEvaluation(evaluation),
     ),
     ...program.components.map((component) =>
       formatComponent(component, style),
@@ -273,6 +283,75 @@ function formatServer(
     server.name +
     "\n\n" +
     lines.join("\n\n") +
+    "\nend"
+  );
+}
+
+function formatTool(tool: ToolDeclaration): string {
+  const lines = [
+    ...(tool.inputType
+      ? [indent(1) + "takes " + formatTypeAnnotation(tool.inputType)]
+      : []),
+    indent(1) + "returns " + formatTypeAnnotation(tool.outputType),
+    indent(1) + "permission " + JSON.stringify(tool.permission),
+    indent(1) + "uses " + tool.handler,
+  ];
+
+  return "tool " + tool.name + "\n\n" + lines.join("\n") + "\nend";
+}
+
+function formatContext(context: ContextDeclaration): string {
+  const lines = [
+    ...context.includes.map(
+      (item) => indent(1) + "include " + JSON.stringify(item),
+    ),
+    indent(1) + "budget " + context.tokenBudget,
+    indent(1) + "overflow " + context.overflow,
+  ];
+
+  return "context " + context.name + "\n\n" + lines.join("\n") + "\nend";
+}
+
+function formatAgent(agent: AgentDeclaration): string {
+  const lines = [
+    indent(1) + "accepts " + formatTypeAnnotation(agent.inputType),
+    indent(1) + "returns " + formatTypeAnnotation(agent.outputType),
+    indent(1) + "model " + JSON.stringify(agent.modelRequirement),
+    ...(agent.contextName
+      ? [indent(1) + "context " + agent.contextName]
+      : []),
+    ...agent.tools.map((tool) => indent(1) + "tool " + tool),
+    ...agent.approvalTools.map(
+      (tool) => indent(1) + "approval " + tool,
+    ),
+    indent(1) + "budget tokens " + agent.tokenBudget,
+    ...(agent.costBudget !== undefined
+      ? [indent(1) + "budget cost " + agent.costBudget]
+      : []),
+    ...(agent.tracing ? [indent(1) + "trace"] : []),
+  ];
+
+  return "agent " + agent.name + "\n\n" + lines.join("\n") + "\nend";
+}
+
+function formatEvaluation(
+  evaluation: EvaluationDeclaration,
+): string {
+  return (
+    "evaluation " +
+    evaluation.name +
+    "\n\n" +
+    indent(1) +
+    "agent " +
+    evaluation.agentName +
+    "\n" +
+    indent(1) +
+    "input " +
+    evaluation.inputFunction +
+    "\n" +
+    indent(1) +
+    "expected " +
+    evaluation.expectedFunction +
     "\nend"
   );
 }

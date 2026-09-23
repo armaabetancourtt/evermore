@@ -124,28 +124,30 @@ Exit condition:
 
 ## M4 — AI-native language runtime
 
+**Status: complete ✅ — typed provider-neutral agent runtime operational**
+
 Goals:
 
-- agent declarations;
-- typed inputs/outputs;
-- provider-neutral model requirements;
-- tools;
-- tool permissions;
-- structured output validation;
-- token budgets;
-- context declarations;
-- human approval;
-- tracing;
-- evaluation harness;
-- deterministic test doubles.
+- [x] agent declarations;
+- [x] typed inputs/outputs;
+- [x] provider-neutral model requirements;
+- [x] tools;
+- [x] tool permissions;
+- [x] structured output validation;
+- [x] token budgets;
+- [x] context declarations;
+- [x] human approval;
+- [x] tracing;
+- [x] evaluation harness;
+- [x] deterministic test doubles.
 
 Research:
 
-- effect/capability typing for agents;
-- context optimization;
-- budget planning;
-- evaluation semantics;
-- prompt/code separation.
+- [x] effect/capability typing for agents;
+- [x] context optimization;
+- [x] budget planning;
+- [x] evaluation semantics;
+- [x] prompt/code separation.
 
 Exit condition:
 

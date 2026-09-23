@@ -423,6 +423,39 @@ end
 
 Higher-level collection APIs and specialized structures such as queues, trees and graphs remain standard-library/ecosystem work rather than blockers for the M2 core collection families.
 
+### AI-native runtime — implemented M4 core
+
+Agents are typed declarations rather than opaque SDK calls:
+
+~~~evermore
+tool WebSearch
+  takes ResearchQuestion
+  returns SearchResult
+  permission "network.search"
+  uses searchWeb
+end
+
+context ResearchContext
+  include "project-files"
+  budget 12000
+  overflow summarize
+end
+
+agent Researcher
+  accepts ResearchQuestion
+  returns ResearchReport
+  model "reasoning"
+  context ResearchContext
+  tool WebSearch
+  approval WebSearch
+  budget tokens 4000
+  budget cost 2
+  trace
+end
+~~~
+
+The AI target emits provider-neutral model interfaces, typed tool dispatch, capability and approval enforcement, context-budget planning, structured output validation, token/cost checks, tracing hooks and deterministic evaluation doubles.
+
 ### Full-stack server semantics — implemented M3 core
 
 Evermore can declare an operational Node.js service without duplicating request/response models outside the language:

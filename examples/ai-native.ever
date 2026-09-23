@@ -1,0 +1,65 @@
+app "AI Native Runtime"
+
+data ResearchQuestion
+  query text
+end
+
+data SearchResult
+  summary text
+end
+
+data ResearchReport
+  answer text
+end
+
+function searchWeb
+  takes input ResearchQuestion
+  returns SearchResult
+  return SearchResult(input.query)
+end
+
+function smokeInput
+  returns ResearchQuestion
+  return ResearchQuestion("What changed?")
+end
+
+function smokeExpected
+  returns ResearchReport
+  return ResearchReport("Structured, typed result")
+end
+
+tool WebSearch
+  takes ResearchQuestion
+  returns SearchResult
+  permission "network.search"
+  uses searchWeb
+end
+
+context ResearchContext
+  include "project-files"
+  include "current-conversation"
+  budget 12000
+  overflow summarize
+end
+
+agent Researcher
+  accepts ResearchQuestion
+  returns ResearchReport
+  model "reasoning"
+  context ResearchContext
+  tool WebSearch
+  approval WebSearch
+  budget tokens 4000
+  budget cost 2
+  trace
+end
+
+evaluation ResearchSmoke
+  agent Researcher
+  input smokeInput
+  expected smokeExpected
+end
+
+screen Home
+  title "Typed agents are language constructs"
+  text "Capabilities, context, budgets, approvals, tracing and evaluation are explicit."

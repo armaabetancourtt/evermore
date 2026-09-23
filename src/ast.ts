@@ -21,6 +21,10 @@ export type Program = {
   readonly choices: readonly ChoiceDeclaration[];
   readonly functions: readonly FunctionDeclaration[];
   readonly servers: readonly ServerDeclaration[];
+  readonly tools: readonly ToolDeclaration[];
+  readonly contexts: readonly ContextDeclaration[];
+  readonly agents: readonly AgentDeclaration[];
+  readonly evaluations: readonly EvaluationDeclaration[];
   readonly components: readonly ComponentDeclaration[];
   readonly screens: readonly ScreenDeclaration[];
   readonly span: SourceSpan;
@@ -382,6 +386,49 @@ export type JobDeclaration = {
 export type RealtimeDeclaration = {
   readonly name: string;
   readonly messageType: TypeAnnotation;
+  readonly span: SourceSpan;
+};
+
+export type ToolDeclaration = {
+  readonly kind: "ToolDeclaration";
+  readonly name: string;
+  readonly inputType?: TypeAnnotation;
+  readonly outputType: TypeAnnotation;
+  readonly permission: string;
+  readonly handler: string;
+  readonly span: SourceSpan;
+};
+
+export type ContextDeclaration = {
+  readonly kind: "ContextDeclaration";
+  readonly name: string;
+  readonly includes: readonly string[];
+  readonly tokenBudget: number;
+  readonly overflow: "summarize" | "reject";
+  readonly span: SourceSpan;
+};
+
+export type AgentDeclaration = {
+  readonly kind: "AgentDeclaration";
+  readonly name: string;
+  readonly inputType: TypeAnnotation;
+  readonly outputType: TypeAnnotation;
+  readonly modelRequirement: string;
+  readonly contextName?: string;
+  readonly tools: readonly string[];
+  readonly approvalTools: readonly string[];
+  readonly tokenBudget: number;
+  readonly costBudget?: number;
+  readonly tracing: boolean;
+  readonly span: SourceSpan;
+};
+
+export type EvaluationDeclaration = {
+  readonly kind: "EvaluationDeclaration";
+  readonly name: string;
+  readonly agentName: string;
+  readonly inputFunction: string;
+  readonly expectedFunction: string;
   readonly span: SourceSpan;
 };
 

@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "dev": "tsx src/cli.ts",
-    "test": "tsx --test tests/**/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 tests/**/*.test.ts",
     "research:m1": "tsx scripts/research/m1-syntax-study.ts",
     "research:m2": "tsx scripts/research/m2-type-system-study.ts",
     "evermore": "tsx src/cli.ts"

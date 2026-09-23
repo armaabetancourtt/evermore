@@ -1,13 +1,17 @@
 import type {
+  AgentDeclaration,
   ChoiceDeclaration,
   ClassDeclaration,
   ComponentDeclaration,
+  ContextDeclaration,
   DataDeclaration,
+  EvaluationDeclaration,
   Program,
   ProtocolDeclaration,
   ScreenDeclaration,
   ServerDeclaration,
   StateDeclaration,
+  ToolDeclaration,
   TypeAnnotation,
   UseStatement,
   VisualStatement,
@@ -32,6 +36,10 @@ export type SemanticModel = {
   readonly functionSignaturesByName: ReadonlyMap<string, FunctionSignature>;
   readonly screensByName: ReadonlyMap<string, ScreenDeclaration>;
   readonly serversByName: ReadonlyMap<string, ServerDeclaration>;
+  readonly toolsByName: ReadonlyMap<string, ToolDeclaration>;
+  readonly contextsByName: ReadonlyMap<string, ContextDeclaration>;
+  readonly agentsByName: ReadonlyMap<string, AgentDeclaration>;
+  readonly evaluationsByName: ReadonlyMap<string, EvaluationDeclaration>;
   readonly componentsByName: ReadonlyMap<string, ComponentDeclaration>;
 };
 
@@ -46,6 +54,10 @@ export function analyze(program: Program): {
   const choicesByName = new Map<string, ChoiceDeclaration>();
   const screens = new Map<string, ScreenDeclaration>();
   const servers = new Map<string, ServerDeclaration>();
+  const tools = new Map<string, ToolDeclaration>();
+  const contexts = new Map<string, ContextDeclaration>();
+  const agents = new Map<string, AgentDeclaration>();
+  const evaluations = new Map<string, EvaluationDeclaration>();
   const components = new Map<string, ComponentDeclaration>();
 
   for (const declaration of program.data) {
@@ -1230,6 +1242,395 @@ export function analyze(program: Program): {
     }
   }
 
+  for (const tool of program.tools) {
+    if (tools.has(tool.name)) {
+      diagnostics.push({
+        code: "E2800",
+        severity: "error",
+        message: 'Tool "' + tool.name + '" is declared more than once.',
+        span: tool.span,
+        help: "Give each tool a unique name.",
+      });
+      continue;
+    }
+
+    tools.set(tool.name, tool);
+
+    const inputUnknown = tool.inputType
+      ? findUnknownType(
+          tool.inputType,
+          dataByName,
+          classesByName,
+          choicesByName,
+        )
+      : undefined;
+    const outputUnknown = findUnknownType(
+      tool.outputType,
+      dataByName,
+      classesByName,
+      choicesByName,
+    );
+
+    if (inputUnknown || outputUnknown) {
+      diagnostics.push({
+        code: "E2801",
+        severity: "error",
+        message:
+          'Tool "' +
+          tool.name +
+          '" references unknown contract type "' +
+          (inputUnknown ?? outputUnknown) +
+          '".',
+        span: tool.span,
+        help: "Declare the tool input/output type first.",
+      });
+    }
+
+    const handler = functionTypes.functionsByName.get(tool.handler);
+    if (!handler) {
+      diagnostics.push({
+        code: "E2802",
+        severity: "error",
+        message:
+          'Tool "' +
+          tool.name +
+          '" uses unknown function "' +
+          tool.handler +
+          '".',
+        span: tool.span,
+        help: "Declare the tool handler as a top-level function.",
+      });
+      continue;
+    }
+
+    const expectedParameters = tool.inputType ? 1 : 0;
+    if (handler.parameters.length !== expectedParameters) {
+      diagnostics.push({
+        code: "E2803",
+        severity: "error",
+        message:
+          'Tool handler "' +
+          handler.name +
+          '" must take ' +
+          expectedParameters +
+          " argument(s).",
+        span: tool.span,
+        help: "Match the tool takes contract exactly.",
+      });
+    } else if (
+      tool.inputType &&
+      handler.parameters[0] &&
+      !sameTypeAnnotation(handler.parameters[0].type, tool.inputType)
+    ) {
+      diagnostics.push({
+        code: "E2804",
+        severity: "error",
+        message:
+          'Tool handler "' +
+          handler.name +
+          '" input type does not match tool "' +
+          tool.name +
+          '".',
+        span: tool.span,
+        help: "Use the same Evermore type in the tool and handler.",
+      });
+    }
+
+    if (!sameTypeAnnotation(handler.returnType, tool.outputType)) {
+      diagnostics.push({
+        code: "E2805",
+        severity: "error",
+        message:
+          'Tool handler "' +
+          handler.name +
+          '" return type does not match tool "' +
+          tool.name +
+          '".',
+        span: tool.span,
+        help: "Use the same returns type in the tool and handler.",
+      });
+    }
+  }
+
+  for (const context of program.contexts) {
+    if (contexts.has(context.name)) {
+      diagnostics.push({
+        code: "E2810",
+        severity: "error",
+        message: 'Context "' + context.name + '" is declared more than once.',
+        span: context.span,
+        help: "Give each context declaration a unique name.",
+      });
+      continue;
+    }
+
+    contexts.set(context.name, context);
+
+    if (!Number.isInteger(context.tokenBudget) || context.tokenBudget < 1) {
+      diagnostics.push({
+        code: "E2811",
+        severity: "error",
+        message:
+          'Context "' +
+          context.name +
+          '" must use a positive integer token budget.',
+        span: context.span,
+        help: "Use budget <positive integer>.",
+      });
+    }
+
+    const seenSources = new Set<string>();
+    for (const source of context.includes) {
+      if (seenSources.has(source)) {
+        diagnostics.push({
+          code: "E2812",
+          severity: "error",
+          message:
+            'Context "' +
+            context.name +
+            '" includes source "' +
+            source +
+            '" more than once.',
+          span: context.span,
+          help: "Keep each context source once.",
+        });
+      }
+      seenSources.add(source);
+    }
+  }
+
+  for (const agent of program.agents) {
+    if (agents.has(agent.name)) {
+      diagnostics.push({
+        code: "E2820",
+        severity: "error",
+        message: 'Agent "' + agent.name + '" is declared more than once.',
+        span: agent.span,
+        help: "Give each agent a unique name.",
+      });
+      continue;
+    }
+
+    agents.set(agent.name, agent);
+
+    const inputUnknown = findUnknownType(
+      agent.inputType,
+      dataByName,
+      classesByName,
+      choicesByName,
+    );
+    const outputUnknown = findUnknownType(
+      agent.outputType,
+      dataByName,
+      classesByName,
+      choicesByName,
+    );
+
+    if (inputUnknown || outputUnknown) {
+      diagnostics.push({
+        code: "E2821",
+        severity: "error",
+        message:
+          'Agent "' +
+          agent.name +
+          '" references unknown contract type "' +
+          (inputUnknown ?? outputUnknown) +
+          '".',
+        span: agent.span,
+        help: "Declare the agent input/output contract first.",
+      });
+    }
+
+    if (agent.contextName && !contexts.has(agent.contextName)) {
+      diagnostics.push({
+        code: "E2822",
+        severity: "error",
+        message:
+          'Agent "' +
+          agent.name +
+          '" references unknown context "' +
+          agent.contextName +
+          '".',
+        span: agent.span,
+        help: "Declare the context before the agent.",
+      });
+    }
+
+    const seenTools = new Set<string>();
+    for (const toolName of agent.tools) {
+      if (!tools.has(toolName)) {
+        diagnostics.push({
+          code: "E2823",
+          severity: "error",
+          message:
+            'Agent "' +
+            agent.name +
+            '" references unknown tool "' +
+            toolName +
+            '".',
+          span: agent.span,
+          help: "Declare the tool before using it from an agent.",
+        });
+      }
+
+      if (seenTools.has(toolName)) {
+        diagnostics.push({
+          code: "E2824",
+          severity: "error",
+          message:
+            'Agent "' +
+            agent.name +
+            '" includes tool "' +
+            toolName +
+            '" more than once.',
+          span: agent.span,
+          help: "Keep each tool capability once.",
+        });
+      }
+      seenTools.add(toolName);
+    }
+
+    for (const toolName of agent.approvalTools) {
+      if (!seenTools.has(toolName)) {
+        diagnostics.push({
+          code: "E2825",
+          severity: "error",
+          message:
+            'Agent "' +
+            agent.name +
+            '" requires approval for tool "' +
+            toolName +
+            '" but does not have that tool.',
+          span: agent.span,
+          help: "List the tool with tool <Name> before adding approval.",
+        });
+      }
+    }
+
+    if (!Number.isInteger(agent.tokenBudget) || agent.tokenBudget < 1) {
+      diagnostics.push({
+        code: "E2826",
+        severity: "error",
+        message:
+          'Agent "' +
+          agent.name +
+          '" must use a positive integer token budget.',
+        span: agent.span,
+        help: "Use budget tokens <positive integer>.",
+      });
+    }
+
+    if (
+      agent.costBudget !== undefined &&
+      (!Number.isFinite(agent.costBudget) || agent.costBudget < 0)
+    ) {
+      diagnostics.push({
+        code: "E2827",
+        severity: "error",
+        message:
+          'Agent "' +
+          agent.name +
+          '" uses an invalid cost budget.',
+        span: agent.span,
+        help: "Use a non-negative numeric cost budget.",
+      });
+    }
+  }
+
+  for (const evaluation of program.evaluations) {
+    if (evaluations.has(evaluation.name)) {
+      diagnostics.push({
+        code: "E2830",
+        severity: "error",
+        message:
+          'Evaluation "' +
+          evaluation.name +
+          '" is declared more than once.',
+        span: evaluation.span,
+        help: "Give each evaluation a unique name.",
+      });
+      continue;
+    }
+
+    evaluations.set(evaluation.name, evaluation);
+
+    const agent = agents.get(evaluation.agentName);
+    if (!agent) {
+      diagnostics.push({
+        code: "E2831",
+        severity: "error",
+        message:
+          'Evaluation "' +
+          evaluation.name +
+          '" references unknown agent "' +
+          evaluation.agentName +
+          '".',
+        span: evaluation.span,
+        help: "Declare the agent before its evaluation.",
+      });
+      continue;
+    }
+
+    const inputFixture = functionTypes.functionsByName.get(
+      evaluation.inputFunction,
+    );
+    const expectedFixture = functionTypes.functionsByName.get(
+      evaluation.expectedFunction,
+    );
+
+    if (!inputFixture) {
+      diagnostics.push({
+        code: "E2832",
+        severity: "error",
+        message:
+          'Evaluation input fixture "' +
+          evaluation.inputFunction +
+          '" does not exist.',
+        span: evaluation.span,
+        help: "Use a zero-argument top-level function returning the agent input type.",
+      });
+    } else if (
+      inputFixture.parameters.length !== 0 ||
+      !sameTypeAnnotation(inputFixture.returnType, agent.inputType)
+    ) {
+      diagnostics.push({
+        code: "E2833",
+        severity: "error",
+        message:
+          'Evaluation input fixture "' +
+          inputFixture.name +
+          '" must take zero arguments and return the agent input type.',
+        span: evaluation.span,
+      });
+    }
+
+    if (!expectedFixture) {
+      diagnostics.push({
+        code: "E2834",
+        severity: "error",
+        message:
+          'Evaluation expected fixture "' +
+          evaluation.expectedFunction +
+          '" does not exist.',
+        span: evaluation.span,
+        help: "Use a zero-argument top-level function returning the agent output type.",
+      });
+    } else if (
+      expectedFixture.parameters.length !== 0 ||
+      !sameTypeAnnotation(expectedFixture.returnType, agent.outputType)
+    ) {
+      diagnostics.push({
+        code: "E2835",
+        severity: "error",
+        message:
+          'Evaluation expected fixture "' +
+          expectedFixture.name +
+          '" must take zero arguments and return the agent output type.',
+        span: evaluation.span,
+      });
+    }
+  }
+
   for (const component of program.components) {
     if (components.has(component.name)) {
       diagnostics.push({
@@ -1313,6 +1714,10 @@ export function analyze(program: Program): {
             functionSignaturesByName: functionTypes.signaturesByName,
             screensByName: screens,
             serversByName: servers,
+            toolsByName: tools,
+            contextsByName: contexts,
+            agentsByName: agents,
+            evaluationsByName: evaluations,
             componentsByName: components,
           },
         }),

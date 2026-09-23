@@ -2,6 +2,7 @@ import type { Program } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
 import { EvermoreDiagnosticError } from "./diagnostics.js";
 import { emitAI } from "./codegen/ai.js";
+import { emitInfrastructure } from "./codegen/infrastructure.js";
 import {
   emitFlutter,
   emitReactNative,
@@ -24,7 +25,8 @@ export type CompileTarget =
   | "ai"
   | "react-native"
   | "flutter"
-  | "python";
+  | "python"
+  | "infra";
 
 export type CompileResult = {
   readonly appName: string;
@@ -169,6 +171,13 @@ export function compileProgram(
         target,
         diagnostics: analysis.diagnostics,
         files: emitPython(ir),
+      };
+    case "infra":
+      return {
+        appName: ir.appName,
+        target,
+        diagnostics: analysis.diagnostics,
+        files: emitInfrastructure(ir),
       };
   }
 }

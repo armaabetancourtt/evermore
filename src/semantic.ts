@@ -7,6 +7,7 @@ import type {
   ContextDeclaration,
   DataDeclaration,
   DatasetDeclaration,
+  DeploymentDeclaration,
   EvaluationDeclaration,
   MobileDeclaration,
   PipelineDeclaration,
@@ -50,6 +51,7 @@ export type SemanticModel = {
   readonly arraysByName: ReadonlyMap<string, ArrayDeclaration>;
   readonly pythonBridgesByName: ReadonlyMap<string, PythonDeclaration>;
   readonly pipelinesByName: ReadonlyMap<string, PipelineDeclaration>;
+  readonly deploymentsByName: ReadonlyMap<string, DeploymentDeclaration>;
   readonly componentsByName: ReadonlyMap<string, ComponentDeclaration>;
 };
 
@@ -73,6 +75,7 @@ export function analyze(program: Program): {
   const arrays = new Map<string, ArrayDeclaration>();
   const pythonBridges = new Map<string, PythonDeclaration>();
   const pipelines = new Map<string, PipelineDeclaration>();
+  const deployments = new Map<string, DeploymentDeclaration>();
   const components = new Map<string, ComponentDeclaration>();
 
   for (const declaration of program.data) {
@@ -1987,6 +1990,279 @@ export function analyze(program: Program): {
     }
   }
 
+  for (const deployment of program.deployments) {
+    if (deployments.has(deployment.name)) {
+      diagnostics.push({
+        code: "E3100",
+        severity: "error",
+        message:
+          'Deployment "' +
+          deployment.name +
+          '" is declared more than once.',
+        span: deployment.span,
+        help: "Give each deployment a unique name.",
+      });
+      continue;
+    }
+
+    deployments.set(deployment.name, deployment);
+
+    const server = servers.get(deployment.serverName);
+    if (!server) {
+      diagnostics.push({
+        code: "E3101",
+        severity: "error",
+        message:
+          'Deployment "' +
+          deployment.name +
+          '" references unknown server "' +
+          deployment.serverName +
+          '".',
+        span: deployment.span,
+        help: "Deploy a declared Evermore server.",
+      });
+    }
+
+    if (
+      !Number.isInteger(deployment.replicas) ||
+      deployment.replicas < 1
+    ) {
+      diagnostics.push({
+        code: "E3102",
+        severity: "error",
+        message:
+          'Deployment "' +
+          deployment.name +
+          '" must use at least one replica.',
+        span: deployment.span,
+        help: "Use replicas <positive integer>.",
+      });
+    }
+
+    if (
+      !Number.isInteger(deployment.port) ||
+      deployment.port < 1 ||
+      deployment.port > 65535
+    ) {
+      diagnostics.push({
+        code: "E3103",
+        severity: "error",
+        message:
+          'Deployment "' +
+          deployment.name +
+          '" uses an invalid container port.',
+        span: deployment.span,
+        help: "Use an integer port between 1 and 65535.",
+      });
+    }
+
+    if (server && server.port !== deployment.port) {
+      diagnostics.push({
+        code: "E3104",
+        severity: "error",
+        message:
+          'Deployment "' +
+          deployment.name +
+          '" exposes port ' +
+          deployment.port +
+          " but server " +
+          server.name +
+          " listens on " +
+          server.port +
+          ".",
+        span: deployment.span,
+        help: "Keep the deployment port aligned with the declared server port.",
+      });
+    }
+
+    const pinnedImage =
+      deployment.image.includes("@sha256:") ||
+      (deployment.image.includes(":") &&
+        !deployment.image.endsWith(":latest"));
+
+    if (!pinnedImage) {
+      diagnostics.push({
+        code: "E3105",
+        severity: "error",
+        message:
+          'Deployment "' +
+          deployment.name +
+          '" must use a pinned container image tag or digest.',
+        span: deployment.span,
+        help: 'Use an immutable digest or a non-"latest" image tag.',
+      });
+    }
+
+    if (!deployment.healthPath.startsWith("/")) {
+      diagnostics.push({
+        code: "E3106",
+        severity: "error",
+        message:
+          'Deployment "' +
+          deployment.name +
+          '" health path must start with "/".',
+        span: deployment.span,
+      });
+    }
+
+    if (!deployment.readinessPath.startsWith("/")) {
+      diagnostics.push({
+        code: "E3107",
+        severity: "error",
+        message:
+          'Deployment "' +
+          deployment.name +
+          '" readiness path must start with "/".',
+        span: deployment.span,
+      });
+    }
+
+    if (
+      !Number.isInteger(deployment.rollbackRevisions) ||
+      deployment.rollbackRevisions < 1
+    ) {
+      diagnostics.push({
+        code: "E3108",
+        severity: "error",
+        message:
+          'Deployment "' +
+          deployment.name +
+          '" must retain at least one rollback revision.',
+        span: deployment.span,
+        help: "Use rollback <positive integer>.",
+      });
+    }
+
+    const envNames = new Set<string>();
+    const secretNames = new Set<string>();
+    const validVariable = /^[A-Z_][A-Z0-9_]*$/;
+
+    for (const environment of deployment.environments) {
+      if (!validVariable.test(environment.name)) {
+        diagnostics.push({
+          code: "E3110",
+          severity: "error",
+          message:
+            'Deployment environment name "' +
+            environment.name +
+            '" is not a portable environment variable name.',
+          span: environment.span,
+          help: "Use uppercase letters, digits and underscores.",
+        });
+      }
+
+      if (envNames.has(environment.name)) {
+        diagnostics.push({
+          code: "E3111",
+          severity: "error",
+          message:
+            'Deployment "' +
+            deployment.name +
+            '" declares environment "' +
+            environment.name +
+            '" more than once.',
+          span: environment.span,
+        });
+      }
+
+      if (environment.source.trim().length === 0) {
+        diagnostics.push({
+          code: "E3112",
+          severity: "error",
+          message:
+            'Deployment environment "' +
+            environment.name +
+            '" requires an external source key.',
+          span: environment.span,
+        });
+      }
+
+      envNames.add(environment.name);
+    }
+
+    for (const secret of deployment.secrets) {
+      if (!validVariable.test(secret.name)) {
+        diagnostics.push({
+          code: "E3113",
+          severity: "error",
+          message:
+            'Deployment secret name "' +
+            secret.name +
+            '" is not a portable environment variable name.',
+          span: secret.span,
+          help: "Use uppercase letters, digits and underscores.",
+        });
+      }
+
+      if (secretNames.has(secret.name)) {
+        diagnostics.push({
+          code: "E3114",
+          severity: "error",
+          message:
+            'Deployment "' +
+            deployment.name +
+            '" declares secret "' +
+            secret.name +
+            '" more than once.',
+          span: secret.span,
+        });
+      }
+
+      if (envNames.has(secret.name)) {
+        diagnostics.push({
+          code: "E3115",
+          severity: "error",
+          message:
+            'Deployment value "' +
+            secret.name +
+            '" cannot be both ordinary environment and secret.',
+          span: secret.span,
+          help: "Keep sensitive values only in secret declarations.",
+        });
+      }
+
+      if (
+        secret.source.trim().length === 0 ||
+        secret.source.includes("=")
+      ) {
+        diagnostics.push({
+          code: "E3116",
+          severity: "error",
+          message:
+            'Deployment secret "' +
+            secret.name +
+            '" must reference an external secret key, not a literal value.',
+          span: secret.span,
+          help: 'Use secret NAME "external-key" and provision the value outside Evermore.',
+        });
+      }
+
+      secretNames.add(secret.name);
+    }
+
+    if (server) {
+      for (const database of server.databases) {
+        if (!secretNames.has(database.connectionEnv)) {
+          diagnostics.push({
+            code: "E3117",
+            severity: "error",
+            message:
+              'Deployment "' +
+              deployment.name +
+              '" must declare database credential "' +
+              database.connectionEnv +
+              '" as a secret.',
+            span: deployment.span,
+            help:
+              'Add secret ' +
+              database.connectionEnv +
+              ' "external-secret-key".',
+          });
+        }
+      }
+    }
+  }
+
   for (const component of program.components) {
     if (components.has(component.name)) {
       diagnostics.push({
@@ -2079,6 +2355,7 @@ export function analyze(program: Program): {
             arraysByName: arrays,
             pythonBridgesByName: pythonBridges,
             pipelinesByName: pipelines,
+            deploymentsByName: deployments,
             componentsByName: components,
           },
         }),

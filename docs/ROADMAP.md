@@ -205,23 +205,25 @@ Exit condition:
 
 ## M7 — Infrastructure
 
+**Status: complete ✅ — inspectable deployment planning operational**
+
 Goals:
 
-- Docker packaging;
-- health/readiness semantics;
-- environment/secrets model;
-- deployment IR;
-- Kubernetes generation;
-- policy checks;
-- plan/apply separation;
-- observability defaults;
-- rollback metadata.
+- [x] Docker packaging;
+- [x] health/readiness semantics;
+- [x] environment/secrets model;
+- [x] deployment IR;
+- [x] Kubernetes generation;
+- [x] policy checks;
+- [x] plan/apply separation;
+- [x] observability defaults;
+- [x] rollback metadata.
 
 Research:
 
-- portable infrastructure intent;
-- safe defaults vs cloud specialization;
-- static permission analysis.
+- [x] portable infrastructure intent;
+- [x] safe defaults vs cloud specialization;
+- [x] static secret/reference policy analysis.
 
 Exit condition:
 

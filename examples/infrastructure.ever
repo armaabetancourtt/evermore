@@ -1,0 +1,26 @@
+app "Evermore Infrastructure"
+
+server Api
+  port 4100
+
+  database Primary postgres
+    connection "DATABASE_URL"
+  end
+end
+
+deploy Production
+  server Api
+  image "ghcr.io/evermore/api:0.7.0"
+  replicas 3
+  port 4100
+  health "/health"
+  readiness "/ready"
+  env NODE_ENV "NODE_ENV"
+  secret DATABASE_URL "prod/database-url"
+  observability "open-telemetry"
+  rollback 5
+end
+
+screen Home
+  title "Infrastructure as inspectable intent"
+  text "Plan first. Apply only after explicit review."

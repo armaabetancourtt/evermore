@@ -184,6 +184,7 @@ export async function loadProject(
     arrays: ordered.flatMap((unit) => unit.program.arrays),
     pythonBridges: ordered.flatMap((unit) => unit.program.pythonBridges),
     pipelines: ordered.flatMap((unit) => unit.program.pipelines),
+    deployments: ordered.flatMap((unit) => unit.program.deployments),
     components: ordered.flatMap((unit) => unit.program.components),
     screens: ordered.flatMap((unit) => unit.program.screens),
     span: root.span,

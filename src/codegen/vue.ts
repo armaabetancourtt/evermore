@@ -5,6 +5,7 @@ import type {
   IRElement,
   IRExpression,
   IRFunction,
+  IRFunctionStatement,
   IRProgram,
   IRProtocol,
   IRScreen,
@@ -643,6 +644,30 @@ export function emitFunctions(
         continue;
       }
 
+      if (statement.kind === "While") {
+        const loopValues = new Map(values);
+        lines.push(
+          "  while (" +
+            emitFunctionExpression(
+              statement.condition,
+              values,
+              functionNames,
+            ) +
+            ") {",
+        );
+        lines.push(
+          ...emitNestedFunctionStatements(
+            statement.body,
+            loopValues,
+            functionNames,
+            2,
+            "loop_local_",
+          ),
+        );
+        lines.push("  }");
+        continue;
+      }
+
       lines.push(
         "  return " +
           emitFunctionExpression(
@@ -671,6 +696,82 @@ export function emitFunctions(
   lines.push("} as const;", "");
 
   return lines.join("\n");
+}
+
+function emitNestedFunctionStatements(
+  statements: readonly IRFunctionStatement[],
+  values: Map<string, string>,
+  functions: ReadonlyMap<string, string>,
+  indentLevel: number,
+  localPrefix: string,
+): string[] {
+  const lines: string[] = [];
+  let localIndex = 0;
+  const padding = "  ".repeat(indentLevel);
+
+  for (const statement of statements) {
+    if (statement.kind === "Let" || statement.kind === "Var") {
+      const generated = localPrefix + localIndex++;
+      lines.push(
+        padding +
+          (statement.kind === "Let" ? "const " : "let ") +
+          generated +
+          " = " +
+          emitFunctionExpression(statement.expression, values, functions) +
+          ";",
+      );
+      values.set(statement.name, generated);
+      continue;
+    }
+
+    if (statement.kind === "Assign") {
+      const generated = values.get(statement.name);
+      if (!generated) {
+        throw new Error(
+          'IR assigns unknown local "' + statement.name + '" inside while.',
+        );
+      }
+
+      lines.push(
+        padding +
+          generated +
+          " = " +
+          emitFunctionExpression(statement.expression, values, functions) +
+          ";",
+      );
+      continue;
+    }
+
+    if (statement.kind === "While") {
+      const nestedValues = new Map(values);
+      lines.push(
+        padding +
+          "while (" +
+          emitFunctionExpression(statement.condition, values, functions) +
+          ") {",
+      );
+      lines.push(
+        ...emitNestedFunctionStatements(
+          statement.body,
+          nestedValues,
+          functions,
+          indentLevel + 1,
+          localPrefix + "nested_",
+        ),
+      );
+      lines.push(padding + "}");
+      continue;
+    }
+
+    lines.push(
+      padding +
+        "return " +
+        emitFunctionExpression(statement.expression, values, functions) +
+        ";",
+    );
+  }
+
+  return lines;
 }
 
 function emitMethodProperty(
@@ -723,6 +824,28 @@ function emitMethodProperty(
             functions,
           ) +
           ";",
+      );
+      continue;
+    }
+
+    if (statement.kind === "While") {
+      const loopValues = new Map(values);
+      body.push(
+        "while (" +
+          emitFunctionExpression(
+            statement.condition,
+            values,
+            functions,
+          ) +
+          ") { " +
+          emitNestedFunctionStatements(
+            statement.body,
+            loopValues,
+            functions,
+            0,
+            "method_loop_local_",
+          ).join(" ") +
+          " }",
       );
       continue;
     }

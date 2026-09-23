@@ -245,3 +245,39 @@ screen Home
     },
   );
 });
+
+
+test("rejects constrained nominal applications even without construction", () => {
+  const invalid = String.raw`
+app "Broken Applied Constraint"
+
+protocol Named
+  name text
+end
+
+data Envelope
+  generic T conforms Named
+  item T
+end
+
+function consume
+  takes value Envelope<number>
+  returns number
+  return 0
+end
+
+screen Home
+  title "Broken"
+`;
+
+  assert.throws(
+    () => compile(invalid),
+    (error: unknown) => {
+      assert.ok(error instanceof EvermoreDiagnosticError);
+      assert.ok(
+        error.diagnostics.some((diagnostic) => diagnostic.code === "E2236"),
+      );
+      return true;
+    },
+  );
+});

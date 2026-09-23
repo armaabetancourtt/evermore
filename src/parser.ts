@@ -65,6 +65,7 @@ import type {
   TitleStatement,
   ToolDeclaration,
   TypeAnnotation,
+  UnaryExpression,
   TypeParameter,
   UseStatement,
   VarStatement,
@@ -895,7 +896,7 @@ class Parser {
   private parseExpression(): Expression {
     if (this.match("match")) {
       const start = this.previous();
-      const value = this.parseComparison();
+      const value = this.parseLogicalOr();
       const cases: MatchCase[] = [];
 
       while (this.match("case")) {
@@ -955,7 +956,7 @@ class Parser {
 
     if (this.match("if")) {
       const start = this.previous();
-      const condition = this.parseComparison();
+      const condition = this.parseLogicalOr();
       this.consume("then", 'Expected "then" after the condition.');
       const thenExpression = this.parseExpression();
       this.consume("else", 'Expected "else" after the then expression.');
@@ -973,7 +974,31 @@ class Parser {
       };
     }
 
-    return this.parseComparison();
+    return this.parseLogicalOr();
+  }
+
+  private parseLogicalOr(): Expression {
+    let expression = this.parseLogicalAnd();
+
+    while (this.check("or")) {
+      const operator = this.advance();
+      const right = this.parseLogicalAnd();
+      expression = binaryExpression(expression, operator, right);
+    }
+
+    return expression;
+  }
+
+  private parseLogicalAnd(): Expression {
+    let expression = this.parseComparison();
+
+    while (this.check("and")) {
+      const operator = this.advance();
+      const right = this.parseComparison();
+      expression = binaryExpression(expression, operator, right);
+    }
+
+    return expression;
   }
 
   private parseComparison(): Expression {
@@ -1008,15 +1033,34 @@ class Parser {
   }
 
   private parseMultiplicative(): Expression {
-    let expression = this.parsePrimary();
+    let expression = this.parseUnary();
 
     while (this.check("star") || this.check("slash")) {
       const operator = this.advance();
-      const right = this.parsePrimary();
+      const right = this.parseUnary();
       expression = binaryExpression(expression, operator, right);
     }
 
     return expression;
+  }
+
+  private parseUnary(): Expression {
+    if (this.match("not")) {
+      const operator = this.previous();
+      const expression = this.parseUnary();
+      const unary: UnaryExpression = {
+        kind: "UnaryExpression",
+        operator: "not",
+        expression,
+        span: {
+          start: operator.span.start,
+          end: expression.span.end,
+        },
+      };
+      return unary;
+    }
+
+    return this.parsePrimary();
   }
 
   private parsePrimary(): Expression {
@@ -2907,6 +2951,8 @@ function binaryExpression(
     gte: ">=",
     lt: "<",
     lte: "<=",
+    and: "and",
+    or: "or",
   };
 
   const mapped = operatorMap[operator.kind];

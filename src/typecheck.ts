@@ -1402,6 +1402,33 @@ function inferExpression(
       return merged;
     }
 
+    case "UnaryExpression": {
+      const value = inferExpression(
+        expression.expression,
+        env,
+        signatures,
+        types,
+        diagnostics,
+      );
+      const booleanType = typeRef("boolean");
+
+      if (value && !sameType(value, booleanType)) {
+        diagnostics.push({
+          code: "E2244",
+          severity: "error",
+          message:
+            'Operator "not" requires a boolean operand, but found ' +
+            describeType(value) +
+            ".",
+          span: expression.span,
+          help: "Use not with a boolean expression.",
+        });
+        return undefined;
+      }
+
+      return value ? booleanType : undefined;
+    }
+
     case "BinaryExpression": {
       const left = inferExpression(
         expression.left,
@@ -1422,6 +1449,30 @@ function inferExpression(
 
       const numberType = typeRef("number");
       const booleanType = typeRef("boolean");
+
+      if (
+        expression.operator === "and" ||
+        expression.operator === "or"
+      ) {
+        if (
+          !sameType(left, booleanType) ||
+          !sameType(right, booleanType)
+        ) {
+          diagnostics.push({
+            code: "E2245",
+            severity: "error",
+            message:
+              'Operator "' +
+              expression.operator +
+              '" requires boolean operands.',
+            span: expression.span,
+            help: "Use boolean expressions on both sides of the operator.",
+          });
+          return undefined;
+        }
+
+        return booleanType;
+      }
 
       if (
         expression.operator === "+" ||

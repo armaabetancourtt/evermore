@@ -213,9 +213,33 @@ function optimizeExpression(
       };
     }
 
+    case "Unary": {
+      const value = optimizeExpression(expression.expression, stats);
+      if (value.kind === "Boolean" && expression.operator === "not") {
+        stats.foldedConstants += 1;
+        return { kind: "Boolean", value: !value.value };
+      }
+      return { ...expression, expression: value };
+    }
+
     case "Binary": {
       const left = optimizeExpression(expression.left, stats);
       const right = optimizeExpression(expression.right, stats);
+
+      if (
+        left.kind === "Boolean" &&
+        right.kind === "Boolean" &&
+        (expression.operator === "and" || expression.operator === "or")
+      ) {
+        stats.foldedConstants += 1;
+        return {
+          kind: "Boolean",
+          value:
+            expression.operator === "and"
+              ? left.value && right.value
+              : left.value || right.value,
+        };
+      }
 
       if (left.kind === "Number" && right.kind === "Number") {
         const folded = foldNumericBinary(

@@ -1,4 +1,5 @@
 import type {
+  AgentDeclaration,
   BinaryExpression,
   BinaryOperator,
   ButtonAction,
@@ -9,10 +10,12 @@ import type {
   ChoiceDeclaration,
   ChoiceCase,
   ComponentDeclaration,
+  ContextDeclaration,
   DataDeclaration,
   DataField,
   DatabaseDeclaration,
   EndpointDeclaration,
+  EvaluationDeclaration,
   Expression,
   FunctionDeclaration,
   FunctionParameter,
@@ -51,6 +54,7 @@ import type {
   StringExpression,
   TextStatement,
   TitleStatement,
+  ToolDeclaration,
   TypeAnnotation,
   TypeParameter,
   UseStatement,
@@ -126,6 +130,10 @@ class Parser {
     const choices: ChoiceDeclaration[] = [];
     const functions: FunctionDeclaration[] = [];
     const servers: ServerDeclaration[] = [];
+    const tools: ToolDeclaration[] = [];
+    const contexts: ContextDeclaration[] = [];
+    const agents: AgentDeclaration[] = [];
+    const evaluations: EvaluationDeclaration[] = [];
     const components: ComponentDeclaration[] = [];
     const screens: ScreenDeclaration[] = [];
 
@@ -161,6 +169,26 @@ class Parser {
           continue;
         }
 
+        if (this.check("tool")) {
+          tools.push(this.parseTool());
+          continue;
+        }
+
+        if (this.check("context")) {
+          contexts.push(this.parseContext());
+          continue;
+        }
+
+        if (this.check("agent")) {
+          agents.push(this.parseAgent());
+          continue;
+        }
+
+        if (this.check("evaluation")) {
+          evaluations.push(this.parseEvaluation());
+          continue;
+        }
+
         if (this.check("component")) {
           components.push(this.parseComponent());
           continue;
@@ -175,7 +203,7 @@ class Parser {
           this.peek(),
           "E1007",
           "Expected a top-level declaration.",
-          "Imports must appear immediately after the app/module header; otherwise declare data, a class, a protocol, a choice, a function, a server, a component, or a screen.",
+          "Imports must appear immediately after the app/module header; otherwise declare data, a class, a protocol, a choice, a function, a server, AI declarations, a component, or a screen.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -202,6 +230,10 @@ class Parser {
       choices,
       functions,
       servers,
+      tools,
+      contexts,
+      agents,
+      evaluations,
       components,
       screens,
       span: {
@@ -1417,6 +1449,282 @@ class Parser {
     };
   }
 
+  private parseTool(): ToolDeclaration {
+    const start = this.consume("tool", "Expected a tool declaration.");
+    const name = this.consume("identifier", "Expected a tool name.");
+    let inputType: TypeAnnotation | undefined;
+    let outputType: TypeAnnotation | undefined;
+    let permission: string | undefined;
+    let handler: string | undefined;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("takes")) {
+        inputType = this.parseTypeAnnotation();
+        continue;
+      }
+
+      if (this.match("returns")) {
+        outputType = this.parseTypeAnnotation();
+        continue;
+      }
+
+      if (this.match("permission")) {
+        const value = this.consume("string", "Expected a capability permission string.");
+        permission = value.value ?? "";
+        continue;
+      }
+
+      if (this.match("uses")) {
+        const value = this.consume("identifier", "Expected a tool handler function.");
+        handler = value.value ?? value.lexeme;
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1200",
+        "Expected a tool option.",
+        'Use takes, returns, permission "capability", or uses <function>.',
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the tool.');
+
+    if (!outputType || !permission || !handler) {
+      return this.fail(
+        end,
+        "E1201",
+        "Tools require returns <Type>, permission <string>, and uses <function>.",
+      );
+    }
+
+    return {
+      kind: "ToolDeclaration",
+      name: name.value ?? name.lexeme,
+      ...(inputType ? { inputType } : {}),
+      outputType,
+      permission,
+      handler,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseContext(): ContextDeclaration {
+    const start = this.consume("context", "Expected a context declaration.");
+    const name = this.consume("identifier", "Expected a context name.");
+    const includes: string[] = [];
+    let tokenBudget = 12000;
+    let overflow: "summarize" | "reject" = "summarize";
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("include")) {
+        const value = this.consume("string", "Expected a context source label.");
+        includes.push(value.value ?? "");
+        continue;
+      }
+
+      if (this.match("budget")) {
+        const value = this.consume("number", "Expected a context token budget.");
+        tokenBudget = Number(value.value ?? value.lexeme);
+        continue;
+      }
+
+      if (this.match("overflow")) {
+        const value = this.consume("identifier", "Expected summarize or reject.");
+        const mode = value.value ?? value.lexeme;
+        if (mode !== "summarize" && mode !== "reject") {
+          return this.fail(
+            value,
+            "E1202",
+            'Unknown context overflow policy "' + mode + '".',
+            "Use summarize or reject.",
+          );
+        }
+        overflow = mode;
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1203",
+        "Expected a context option.",
+        'Use include "...", budget <tokens>, or overflow summarize|reject.',
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the context.');
+
+    return {
+      kind: "ContextDeclaration",
+      name: name.value ?? name.lexeme,
+      includes,
+      tokenBudget,
+      overflow,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseAgent(): AgentDeclaration {
+    const start = this.consume("agent", "Expected an agent declaration.");
+    const name = this.consume("identifier", "Expected an agent name.");
+    let inputType: TypeAnnotation | undefined;
+    let outputType: TypeAnnotation | undefined;
+    let modelRequirement: string | undefined;
+    let contextName: string | undefined;
+    const tools: string[] = [];
+    const approvalTools: string[] = [];
+    let tokenBudget = 4000;
+    let costBudget: number | undefined;
+    let tracing = false;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("accepts")) {
+        inputType = this.parseTypeAnnotation();
+        continue;
+      }
+
+      if (this.match("returns")) {
+        outputType = this.parseTypeAnnotation();
+        continue;
+      }
+
+      if (this.match("model")) {
+        const value = this.consume("string", "Expected a provider-neutral model requirement.");
+        modelRequirement = value.value ?? "";
+        continue;
+      }
+
+      if (this.match("context")) {
+        const value = this.consume("identifier", "Expected a context name.");
+        contextName = value.value ?? value.lexeme;
+        continue;
+      }
+
+      if (this.match("tool")) {
+        const value = this.consume("identifier", "Expected a tool name.");
+        tools.push(value.value ?? value.lexeme);
+        continue;
+      }
+
+      if (this.match("approval")) {
+        const value = this.consume("identifier", "Expected a tool name requiring approval.");
+        approvalTools.push(value.value ?? value.lexeme);
+        continue;
+      }
+
+      if (this.match("budget")) {
+        if (this.match("tokens")) {
+          const value = this.consume("number", "Expected a token budget.");
+          tokenBudget = Number(value.value ?? value.lexeme);
+          continue;
+        }
+
+        if (this.match("cost")) {
+          const value = this.consume("number", "Expected a numeric cost budget.");
+          costBudget = Number(value.value ?? value.lexeme);
+          continue;
+        }
+
+        return this.fail(
+          this.peek(),
+          "E1204",
+          "Expected tokens or cost after budget.",
+        );
+      }
+
+      if (this.match("trace")) {
+        tracing = true;
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1205",
+        "Expected an agent option.",
+        "Use accepts, returns, model, context, tool, approval, budget, or trace.",
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the agent.');
+
+    if (!inputType || !outputType || !modelRequirement) {
+      return this.fail(
+        end,
+        "E1206",
+        "Agents require accepts <Type>, returns <Type>, and model <requirement>.",
+      );
+    }
+
+    return {
+      kind: "AgentDeclaration",
+      name: name.value ?? name.lexeme,
+      inputType,
+      outputType,
+      modelRequirement,
+      ...(contextName ? { contextName } : {}),
+      tools,
+      approvalTools,
+      tokenBudget,
+      ...(costBudget !== undefined ? { costBudget } : {}),
+      tracing,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseEvaluation(): EvaluationDeclaration {
+    const start = this.consume("evaluation", "Expected an evaluation declaration.");
+    const name = this.consume("identifier", "Expected an evaluation name.");
+    let agentName: string | undefined;
+    let inputFunction: string | undefined;
+    let expectedFunction: string | undefined;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("agent")) {
+        const value = this.consume("identifier", "Expected an agent name.");
+        agentName = value.value ?? value.lexeme;
+        continue;
+      }
+
+      if (this.match("input")) {
+        const value = this.consume("identifier", "Expected an input fixture function.");
+        inputFunction = value.value ?? value.lexeme;
+        continue;
+      }
+
+      if (this.match("expected")) {
+        const value = this.consume("identifier", "Expected an expected-output fixture function.");
+        expectedFunction = value.value ?? value.lexeme;
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1207",
+        "Expected an evaluation option.",
+        "Use agent, input, or expected.",
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the evaluation.');
+
+    if (!agentName || !inputFunction || !expectedFunction) {
+      return this.fail(
+        end,
+        "E1208",
+        "Evaluations require agent, input, and expected fixture functions.",
+      );
+    }
+
+    return {
+      kind: "EvaluationDeclaration",
+      name: name.value ?? name.lexeme,
+      agentName,
+      inputFunction,
+      expectedFunction,
+      span: spanFrom(start, end),
+    };
+  }
+
   private parseComponent(): ComponentDeclaration {
     const start = this.consume("component", "Expected a component declaration.");
     const name = this.consume("identifier", "Expected a component name.");
@@ -1776,6 +2084,10 @@ class Parser {
       this.check("choice") ||
       this.check("function") ||
       this.check("server") ||
+      this.check("tool") ||
+      this.check("context") ||
+      this.check("agent") ||
+      this.check("evaluation") ||
       this.check("component") ||
       this.check("screen")
     );

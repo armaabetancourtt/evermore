@@ -59,6 +59,11 @@ Research:
 - [x] source readability study (reproducible source-ergonomics proxies; no unsupported human-subject claim);
 - [x] AST/IR equivalence between natural and explicit modes.
 
+Evidence:
+
+- [M1 natural syntax study](./M1_SYNTAX_STUDY.md);
+- executable research corpus in `tests/m1-research.test.ts`.
+
 Exit condition:
 
 > A non-trivial two-to-five-screen web application can be written primarily in Evermore and run through Vite.

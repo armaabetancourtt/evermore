@@ -241,6 +241,7 @@ export type Expression =
   | MethodCallExpression
   | ChoiceCaseExpression
   | IdentifierExpression
+  | UnaryExpression
   | BinaryExpression
   | CallExpression;
 
@@ -333,7 +334,18 @@ export type IdentifierExpression = {
   readonly span: SourceSpan;
 };
 
+export type UnaryOperator = "not";
+
+export type UnaryExpression = {
+  readonly kind: "UnaryExpression";
+  readonly operator: UnaryOperator;
+  readonly expression: Expression;
+  readonly span: SourceSpan;
+};
+
 export type BinaryOperator =
+  | "and"
+  | "or"
   | "+"
   | "-"
   | "*"

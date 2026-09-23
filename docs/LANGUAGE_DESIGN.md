@@ -423,6 +423,23 @@ end
 
 Higher-level collection APIs and specialized structures such as queues, trees and graphs remain standard-library/ecosystem work rather than blockers for the M2 core collection families.
 
+### Mobile — implemented M5 core
+
+A mobile declaration adds platform policy while reusing the same `screen` semantics used by web:
+
+~~~evermore
+mobile ProductMobile
+  storage "secure"
+  permission "camera"
+  permission "notifications"
+  network "offline-first"
+  native "swift"
+  native "kotlin"
+end
+~~~
+
+The React Native target emits navigation, screen state/actions, a shared mobile runtime for storage, declared permissions and offline-first networking, plus Swift/Kotlin native bridge contracts. The Flutter target consumes the same mobile/screen IR as an experimental backend so platform exploration does not fork application semantics.
+
 ### AI-native runtime — implemented M4 core
 
 Agents are typed declarations rather than opaque SDK calls:

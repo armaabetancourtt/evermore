@@ -276,6 +276,7 @@ function validateFunctionStatement(
   signatures: ReadonlyMap<string, FunctionSignature>,
   types: NamedTypeContext,
   diagnostics: Diagnostic[],
+  loopDepth = 0,
 ): void {
   if (
     statement.kind === "LetStatement" ||
@@ -383,6 +384,78 @@ function validateFunctionStatement(
     return;
   }
 
+  if (
+    statement.kind === "BreakStatement" ||
+    statement.kind === "ContinueStatement"
+  ) {
+    if (loopDepth === 0) {
+      diagnostics.push({
+        code:
+          statement.kind === "BreakStatement"
+            ? "E2242"
+            : "E2243",
+        severity: "error",
+        message:
+          (statement.kind === "BreakStatement" ? "Break" : "Continue") +
+          " can only be used inside a loop.",
+        span: statement.span,
+        help:
+          "Move this statement inside a while or for loop.",
+      });
+    }
+    return;
+  }
+
+  if (statement.kind === "ForEachStatement") {
+    const collectionType = inferExpression(
+      statement.collection,
+      env,
+      signatures,
+      types,
+      diagnostics,
+    );
+    const elementType =
+      collectionType?.kind === "List" ||
+      collectionType?.kind === "Set"
+        ? collectionType.elementType
+        : undefined;
+
+    if (collectionType && !elementType) {
+      diagnostics.push({
+        code: "E2241",
+        severity: "error",
+        message:
+          "For iteration requires a list or set, but found " +
+          describeType(collectionType) +
+          ".",
+        span: statement.collection.span,
+        help: "Iterate over a list or set value.",
+      });
+    }
+
+    const loopEnv = new Map(env);
+    const loopMutableNames = new Set(mutableNames);
+
+    if (elementType) {
+      loopEnv.set(statement.bindingName, elementType);
+    }
+
+    for (const nested of statement.body) {
+      validateFunctionStatement(
+        nested,
+        signature,
+        loopEnv,
+        loopMutableNames,
+        signatures,
+        types,
+        diagnostics,
+        loopDepth + 1,
+      );
+    }
+
+    return;
+  }
+
   if (statement.kind === "WhileStatement") {
     const condition = inferExpression(
       statement.condition,
@@ -418,6 +491,7 @@ function validateFunctionStatement(
         signatures,
         types,
         diagnostics,
+        loopDepth + 1,
       );
     }
 

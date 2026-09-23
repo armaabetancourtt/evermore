@@ -92,7 +92,12 @@ export type IRFunctionParameter = {
   readonly type: TypeRef;
 };
 
-export type IRFunctionStatement = IRLet | IRVar | IRAssign | IRReturn;
+export type IRFunctionStatement =
+  | IRLet
+  | IRVar
+  | IRAssign
+  | IRWhile
+  | IRReturn;
 
 export type IRLet = {
   readonly kind: "Let";
@@ -110,6 +115,12 @@ export type IRAssign = {
   readonly kind: "Assign";
   readonly name: string;
   readonly expression: IRExpression;
+};
+
+export type IRWhile = {
+  readonly kind: "While";
+  readonly condition: IRExpression;
+  readonly body: readonly IRFunctionStatement[];
 };
 
 export type IRReturn = {
@@ -800,6 +811,16 @@ function lowerFunctionStatement(
       kind: "Assign",
       name: statement.name,
       expression: lowerExpression(statement.expression, model),
+    };
+  }
+
+  if (statement.kind === "WhileStatement") {
+    return {
+      kind: "While",
+      condition: lowerExpression(statement.condition, model),
+      body: statement.body.map((nested) =>
+        lowerFunctionStatement(nested, model),
+      ),
     };
   }
 

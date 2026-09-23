@@ -169,6 +169,7 @@ export type FunctionStatement =
   | LetStatement
   | VarStatement
   | SetStatement
+  | WhileStatement
   | ReturnStatement;
 
 export type LetStatement = {
@@ -189,6 +190,13 @@ export type SetStatement = {
   readonly kind: "SetStatement";
   readonly name: string;
   readonly expression: Expression;
+  readonly span: SourceSpan;
+};
+
+export type WhileStatement = {
+  readonly kind: "WhileStatement";
+  readonly condition: Expression;
+  readonly body: readonly FunctionStatement[];
   readonly span: SourceSpan;
 };
 

@@ -629,7 +629,7 @@ function formatFunction(
     lines.push("");
     lines.push(
       ...fn.body.map((statement) =>
-        formatFunctionStatement(statement, depth + 1),
+        formatFunctionStatement(statement, depth + 1, style),
       ),
     );
   }
@@ -660,6 +660,7 @@ function formatFunction(
 function formatFunctionStatement(
   statement: FunctionStatement,
   depth: number,
+  style: FormatStyle,
 ): string {
   if (statement.kind === "LetStatement" || statement.kind === "VarStatement") {
     return (
@@ -678,6 +679,36 @@ function formatFunctionStatement(
       statement.name +
       " = " +
       formatExpression(statement.expression, 0, false, depth)
+    );
+  }
+
+  if (statement.kind === "WhileStatement") {
+    const head =
+      indent(depth) +
+      "while " +
+      formatExpression(statement.condition, 0, false, depth);
+    const body = statement.body
+      .map((nested) =>
+        formatFunctionStatement(nested, depth + 1, style),
+      )
+      .join("\n");
+
+    if (style === "explicit") {
+      return (
+        head +
+        " {\n" +
+        (body ? body + "\n" : "") +
+        indent(depth) +
+        "}"
+      );
+    }
+
+    return (
+      head +
+      (body ? "\n" + body : "") +
+      "\n" +
+      indent(depth) +
+      "end"
     );
   }
 

@@ -66,6 +66,7 @@ import type {
   UseStatement,
   VarStatement,
   VisualStatement,
+  WhileStatement,
 } from "./ast.js";
 import {
   EvermoreDiagnosticError,
@@ -600,6 +601,11 @@ class Parser {
           continue;
         }
 
+        if (this.match("while")) {
+          body.push(this.parseWhile(this.previous()));
+          continue;
+        }
+
         if (this.match("return")) {
           body.push(this.parseReturn(this.previous()));
           continue;
@@ -609,7 +615,7 @@ class Parser {
           this.peek(),
           "E1010",
           "Expected a function declaration item or statement.",
-          "Use generic, takes, returns, let, var, set, or return.",
+          "Use generic, takes, returns, let, var, set, while, or return.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -686,6 +692,64 @@ class Parser {
       span: {
         start: start.span.start,
         end: expression.span.end,
+      },
+    };
+  }
+
+  private parseWhile(start: Token): WhileStatement {
+    const condition = this.parseExpression();
+    const explicitBlock = this.match("lbrace");
+    const body: FunctionStatement[] = [];
+
+    while (
+      !this.check("eof") &&
+      !(explicitBlock && this.check("rbrace")) &&
+      !(!explicitBlock && this.check("end"))
+    ) {
+      if (this.match("let")) {
+        body.push(this.parseLet(this.previous()));
+        continue;
+      }
+
+      if (this.match("var")) {
+        body.push(this.parseVar(this.previous()));
+        continue;
+      }
+
+      if (this.match("set")) {
+        body.push(this.parseSet(this.previous()));
+        continue;
+      }
+
+      if (this.match("while")) {
+        body.push(this.parseWhile(this.previous()));
+        continue;
+      }
+
+      if (this.match("return")) {
+        body.push(this.parseReturn(this.previous()));
+        continue;
+      }
+
+      this.fail(
+        this.peek(),
+        "E1012",
+        "Expected a statement inside while.",
+        "Use let, var, set, while, or return.",
+      );
+    }
+
+    const end = explicitBlock
+      ? this.consume("rbrace", 'Expected "}" to close the while statement.')
+      : this.consume("end", 'Expected "end" to close the while statement.');
+
+    return {
+      kind: "WhileStatement",
+      condition,
+      body,
+      span: {
+        start: start.span.start,
+        end: end.span.end,
       },
     };
   }

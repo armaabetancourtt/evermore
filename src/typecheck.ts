@@ -2191,12 +2191,109 @@ function resolveType(
     return undefined;
   }
 
-  return typeRefFromAnnotation(
+  const resolved = typeRefFromAnnotation(
     annotation,
     genericNames,
     new Set(types.protocolsByName.keys()),
     genericConstraints,
   );
+  const constraintViolation = findNominalConstraintViolation(
+    resolved,
+    types,
+  );
+
+  if (constraintViolation) {
+    diagnostics.push({
+      code: "E2236",
+      severity: "error",
+      message:
+        'Type argument ' +
+        describeType(constraintViolation.actual) +
+        ' for "' +
+        constraintViolation.nominal +
+        "." +
+        constraintViolation.parameter +
+        '" does not conform to protocol "' +
+        constraintViolation.constraint +
+        '".',
+      span: annotation.span,
+      help:
+        "Use a type that conforms to the declared nominal generic constraint.",
+    });
+    return undefined;
+  }
+
+  return resolved;
+}
+
+function findNominalConstraintViolation(
+  type: TypeRef,
+  types: NamedTypeContext,
+): {
+  readonly nominal: string;
+  readonly parameter: string;
+  readonly constraint: string;
+  readonly actual: TypeRef;
+} | undefined {
+  if (type.kind === "Applied") {
+    const nominal =
+      types.dataByName.get(type.name) ??
+      types.classesByName.get(type.name);
+
+    if (nominal) {
+      for (let index = 0; index < nominal.typeParameters.length; index++) {
+        const parameter = nominal.typeParameters[index];
+        const argument = type.arguments[index];
+
+        if (
+          parameter?.constraintName &&
+          argument &&
+          !isAssignable(
+            argument,
+            { kind: "Protocol", name: parameter.constraintName },
+            types,
+          )
+        ) {
+          return {
+            nominal: type.name,
+            parameter: parameter.name,
+            constraint: parameter.constraintName,
+            actual: argument,
+          };
+        }
+      }
+    }
+
+    for (const argument of type.arguments) {
+      const nested = findNominalConstraintViolation(argument, types);
+      if (nested) return nested;
+    }
+    return undefined;
+  }
+
+  if (type.kind === "List" || type.kind === "Set") {
+    return findNominalConstraintViolation(type.elementType, types);
+  }
+
+  if (type.kind === "Map") {
+    return (
+      findNominalConstraintViolation(type.keyType, types) ??
+      findNominalConstraintViolation(type.valueType, types)
+    );
+  }
+
+  if (type.kind === "Result") {
+    return (
+      findNominalConstraintViolation(type.okType, types) ??
+      findNominalConstraintViolation(type.errorType, types)
+    );
+  }
+
+  if (type.kind === "Optional") {
+    return findNominalConstraintViolation(type.valueType, types);
+  }
+
+  return undefined;
 }
 
 function findUnknownType(

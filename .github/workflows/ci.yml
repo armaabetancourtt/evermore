@@ -110,6 +110,9 @@ jobs:
       - name: Check full-stack example
         run: npm run evermore -- check examples/full-stack.ever
 
+      - name: Check AI-native example
+        run: npm run evermore -- check examples/ai-native.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -449,3 +452,28 @@ jobs:
           test -f /tmp/evermore-fullstack-node/src/generated/realtime.ts
           grep -q 'DATABASE_URL' /tmp/evermore-fullstack-node/src/generated/repositories.ts
           grep -q 'authorization' /tmp/evermore-fullstack-node/src/generated/server.ts
+
+
+      - name: Generate AI-native runtime
+        run: npm run evermore -- build examples/ai-native.ever --target ai --out /tmp/evermore-ai
+
+      - name: Install generated AI runtime
+        working-directory: /tmp/evermore-ai
+        run: npm install
+
+      - name: Build generated AI runtime
+        working-directory: /tmp/evermore-ai
+        run: npm run build
+
+      - name: Run deterministic AI evaluations
+        working-directory: /tmp/evermore-ai
+        run: npm test
+
+      - name: Verify M4 capability artifacts
+        run: |
+          test -f /tmp/evermore-ai/src/generated/runtime.ts
+          test -f /tmp/evermore-ai/src/generated/schemas.ts
+          test -f /tmp/evermore-ai/src/generated/evermore.ai.json
+          grep -q 'Human approval denied or missing' /tmp/evermore-ai/src/generated/runtime.ts
+          grep -q 'exceeded token budget' /tmp/evermore-ai/src/generated/runtime.ts
+          grep -q 'EvermoreModelProvider' /tmp/evermore-ai/src/generated/runtime.ts

@@ -772,7 +772,7 @@ accessibility
 
 # Lo que ya funciona
 
-La roadmap de investigación actual de Evermore, **M0 a M9**, está implementada con evidencia ejecutable. El proyecto sigue en pre-alpha: completar los milestones significa que existen y se prueban las semánticas, targets y prototipos planeados; no significa estabilidad de producción.
+La roadmap de investigación actual de Evermore, **M0 a M9**, está implementada con evidencia ejecutable. También está completo el **bloque de cierre del core del lenguaje de M10**: el trabajo restante para una alpha usable se concentra en standard library, distribución remota de paquetes, CLI/DX y hardening. El proyecto sigue en pre-alpha: completar los milestones significa que existen y se prueban las semánticas, targets y prototipos planeados; no significa estabilidad de producción.
 
 Implementado hoy:
 
@@ -790,10 +790,12 @@ Implementado hoy:
 - generación completa de aplicaciones Vue 3 + Vite;
 - defaults de accesibilidad: focus visible, reduced motion, tamaño táctil y anuncios live para estado;
 - builds reales del target generado dentro de CI, incluyendo un showcase M1 de tres pantallas;
-- declaraciones nominales `data` con tipos primitivos y definidos por el usuario;
-- funciones puras tipadas con parámetros, returns declarados, `let` local inferido, precedencia aritmética y llamadas tipadas;
+- declaraciones nominales `data` y `class` con construcción/acceso a miembros, parámetros genéricos, tipos aplicados como `Box<text>` y constraints por protocolo;
+- funciones tipadas con parámetros, returns declarados, `let` local inferido, precedencia aritmética y llamadas tipadas;
+- casos algebraicos `choice` con payload tipado, construcción validada y bindings exhaustivos de payload en `match`;
 - control de flujo tipado con `while`, `for ... in`, `break` y `continue`, incluyendo validación de scope local del loop;
 - lógica booleana con `and`, `or` y `not` unario tipados y precedencia explícita;
+- boundaries explícitos de función para `async`, effects declarados y capabilities requeridas, con validación transitiva del call graph y sin inferencia ambiental de efectos;
 - generación TypeScript estricta de modelos y funciones, validada con `vue-tsc`;
 - semántica full-stack tipada con runtime de servidor Node.js generado;
 - agentes y tools de IA provider-neutral con contexto, budgets, aprobación y evaluaciones deterministas;

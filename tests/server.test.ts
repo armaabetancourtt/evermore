@@ -10,7 +10,7 @@ const source = String.raw`
 app "Full Stack"
 
 data User
-  id id
+  id text
   name text
 end
 

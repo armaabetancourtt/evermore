@@ -1,6 +1,12 @@
 # Contributing to Evermore
 
-Evermore is an experimental programming-language project. Contributions are welcome, but language changes require a higher standard than ordinary application changes because syntax and semantics create long-lived compatibility obligations.
+Evermore is an experimental programming-language project and proprietary technology wholly owned by **Armando Betancourt**.
+
+Discussion, issues, research feedback and proposals are welcome. **External code contributions require prior written approval and appropriate contributor/IP terms before they can be accepted.** Opening a pull request does not grant a license to Evermore and does not, by itself, transfer a contributor's copyright or other IP rights. Do not submit third-party or employer-owned code unless you have authority to do so.
+
+Language changes require a higher standard than ordinary application changes because syntax and semantics create long-lived compatibility obligations.
+
+For commercial licensing questions, contact **contacto@kaisei.com.mx**.
 
 ## Principles
 

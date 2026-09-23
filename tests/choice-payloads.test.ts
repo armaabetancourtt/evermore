@@ -22,9 +22,9 @@ function makeLoaded
 end
 
 function describe
-  takes state LoadState
+  takes current LoadState
   returns text
-  return match state
+  return match current
     case idle then "Idle"
     case loaded value then value
     case failed message then message

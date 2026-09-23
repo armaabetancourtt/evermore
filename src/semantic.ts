@@ -297,7 +297,6 @@ export function analyze(program: Program): {
         dataByName,
         classesByName,
         choicesByName,
-        genericNames,
       );
 
       if (unknownType) {
@@ -412,7 +411,6 @@ export function analyze(program: Program): {
         dataByName,
         classesByName,
         choicesByName,
-        genericNames,
       );
 
       if (unknownType) {
@@ -1155,7 +1153,6 @@ export function analyze(program: Program): {
         dataByName,
         classesByName,
         choicesByName,
-        genericNames,
       );
 
       if (requestUnknown || responseUnknown) {
@@ -1376,7 +1373,6 @@ export function analyze(program: Program): {
         dataByName,
         classesByName,
         choicesByName,
-        genericNames,
       );
       if (unknown) {
         diagnostics.push({
@@ -2892,12 +2888,14 @@ function findUnknownType(
           dataByName,
           classesByName,
           choicesByName,
+          genericNames,
         ) ??
         findUnknownType(
           annotation.valueType,
           dataByName,
           classesByName,
           choicesByName,
+          genericNames,
         )
       );
 
@@ -2908,12 +2906,14 @@ function findUnknownType(
           dataByName,
           classesByName,
           choicesByName,
+          genericNames,
         ) ??
         findUnknownType(
           annotation.errorType,
           dataByName,
           classesByName,
           choicesByName,
+          genericNames,
         )
       );
 

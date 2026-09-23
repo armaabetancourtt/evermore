@@ -1,5 +1,6 @@
 import type {
   AgentDeclaration,
+  ArrayDeclaration,
   BinaryExpression,
   BinaryOperator,
   ButtonAction,
@@ -12,6 +13,7 @@ import type {
   ComponentDeclaration,
   ContextDeclaration,
   DataDeclaration,
+  DatasetDeclaration,
   DataField,
   DatabaseDeclaration,
   EndpointDeclaration,
@@ -35,6 +37,8 @@ import type {
   MobileDeclaration,
   NavigationAction,
   NumberExpression,
+  PipelineDeclaration,
+  PythonDeclaration,
   JobDeclaration,
   Program,
   ProtocolConformance,
@@ -136,6 +140,10 @@ class Parser {
     const agents: AgentDeclaration[] = [];
     const evaluations: EvaluationDeclaration[] = [];
     const mobiles: MobileDeclaration[] = [];
+    const datasets: DatasetDeclaration[] = [];
+    const arrays: ArrayDeclaration[] = [];
+    const pythonBridges: PythonDeclaration[] = [];
+    const pipelines: PipelineDeclaration[] = [];
     const components: ComponentDeclaration[] = [];
     const screens: ScreenDeclaration[] = [];
 
@@ -196,6 +204,26 @@ class Parser {
           continue;
         }
 
+        if (this.check("dataset")) {
+          datasets.push(this.parseDataset());
+          continue;
+        }
+
+        if (this.check("array")) {
+          arrays.push(this.parseArray());
+          continue;
+        }
+
+        if (this.check("python")) {
+          pythonBridges.push(this.parsePython());
+          continue;
+        }
+
+        if (this.check("pipeline")) {
+          pipelines.push(this.parsePipeline());
+          continue;
+        }
+
         if (this.check("component")) {
           components.push(this.parseComponent());
           continue;
@@ -242,6 +270,10 @@ class Parser {
       agents,
       evaluations,
       mobiles,
+      datasets,
+      arrays,
+      pythonBridges,
+      pipelines,
       components,
       screens,
       span: {
@@ -1822,6 +1854,241 @@ class Parser {
     };
   }
 
+  private parseDataset(): DatasetDeclaration {
+    const start = this.consume("dataset", "Expected a dataset declaration.");
+    const name = this.consume("identifier", "Expected a dataset name.");
+    let rowType: string | undefined;
+    let source: string | undefined;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.matchWord("row")) {
+        const value = this.consume("identifier", "Expected a dataset row type.");
+        rowType = value.value ?? value.lexeme;
+        continue;
+      }
+
+      if (this.matchWord("source")) {
+        const value = this.consume("string", "Expected a dataset source path.");
+        source = value.value ?? "";
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1400",
+        "Expected a dataset option.",
+        'Use row <Type> or source "path".',
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the dataset.');
+
+    if (!rowType || !source) {
+      return this.fail(
+        end,
+        "E1401",
+        "Datasets require row <Type> and source <path>.",
+      );
+    }
+
+    return {
+      kind: "DatasetDeclaration",
+      name: name.value ?? name.lexeme,
+      rowType,
+      source,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parseArray(): ArrayDeclaration {
+    const start = this.consume("array", "Expected an array declaration.");
+    const name = this.consume("identifier", "Expected an array name.");
+    let dtype: "float32" | "float64" | "int64" | undefined;
+    let shape: string | undefined;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.matchWord("dtype")) {
+        const value = this.consume("string", "Expected a NumPy dtype.");
+        const raw = value.value ?? "";
+        if (
+          raw !== "float32" &&
+          raw !== "float64" &&
+          raw !== "int64"
+        ) {
+          return this.fail(
+            value,
+            "E1402",
+            'Unsupported numerical dtype "' + raw + '".',
+            "Use float32, float64, or int64.",
+          );
+        }
+        dtype = raw;
+        continue;
+      }
+
+      if (this.matchWord("shape")) {
+        const value = this.consume("string", "Expected an array shape.");
+        shape = value.value ?? "";
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1403",
+        "Expected an array option.",
+        'Use dtype "float64" or shape "*,3".',
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the array.');
+
+    if (!dtype || !shape) {
+      return this.fail(
+        end,
+        "E1404",
+        "Arrays require dtype and shape.",
+      );
+    }
+
+    return {
+      kind: "ArrayDeclaration",
+      name: name.value ?? name.lexeme,
+      dtype,
+      shape,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parsePython(): PythonDeclaration {
+    const start = this.consume("python", "Expected a Python bridge declaration.");
+    const name = this.consume("identifier", "Expected a Python bridge name.");
+    let inputType: TypeAnnotation | undefined;
+    let outputType: TypeAnnotation | undefined;
+    let moduleName: string | undefined;
+    let callableName: string | undefined;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("takes")) {
+        inputType = this.parseTypeAnnotation();
+        continue;
+      }
+
+      if (this.match("returns")) {
+        outputType = this.parseTypeAnnotation();
+        continue;
+      }
+
+      if (this.match("module")) {
+        const value = this.consume("string", "Expected a Python module name.");
+        moduleName = value.value ?? "";
+        continue;
+      }
+
+      if (this.matchWord("callable")) {
+        const value = this.consume("string", "Expected a Python callable name.");
+        callableName = value.value ?? "";
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1405",
+        "Expected a Python bridge option.",
+        'Use takes, returns, module "...", or callable "...".',
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the Python bridge.');
+
+    if (!outputType || !moduleName || !callableName) {
+      return this.fail(
+        end,
+        "E1406",
+        "Python bridges require returns, module, and callable.",
+      );
+    }
+
+    return {
+      kind: "PythonDeclaration",
+      name: name.value ?? name.lexeme,
+      ...(inputType ? { inputType } : {}),
+      outputType,
+      moduleName,
+      callableName,
+      span: spanFrom(start, end),
+    };
+  }
+
+  private parsePipeline(): PipelineDeclaration {
+    const start = this.consume("pipeline", "Expected a pipeline declaration.");
+    const name = this.consume("identifier", "Expected a pipeline name.");
+    let datasetName: string | undefined;
+    let trainBridge: string | undefined;
+    let evaluateBridge: string | undefined;
+    let seed = 0;
+    let tracking: string | undefined;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("dataset")) {
+        const value = this.consume("identifier", "Expected a dataset name.");
+        datasetName = value.value ?? value.lexeme;
+        continue;
+      }
+
+      if (this.matchWord("train")) {
+        const value = this.consume("identifier", "Expected a Python training bridge.");
+        trainBridge = value.value ?? value.lexeme;
+        continue;
+      }
+
+      if (this.matchWord("evaluate")) {
+        const value = this.consume("identifier", "Expected a Python evaluation bridge.");
+        evaluateBridge = value.value ?? value.lexeme;
+        continue;
+      }
+
+      if (this.matchWord("seed")) {
+        const value = this.consume("number", "Expected an integer seed.");
+        seed = Number(value.value ?? value.lexeme);
+        continue;
+      }
+
+      if (this.matchWord("tracking")) {
+        const value = this.consume("string", "Expected a tracking file path.");
+        tracking = value.value ?? "";
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1407",
+        "Expected a pipeline option.",
+        "Use dataset, train, evaluate, seed, or tracking.",
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the pipeline.');
+
+    if (!datasetName || !trainBridge || !evaluateBridge || !tracking) {
+      return this.fail(
+        end,
+        "E1408",
+        "Pipelines require dataset, train, evaluate, and tracking.",
+      );
+    }
+
+    return {
+      kind: "PipelineDeclaration",
+      name: name.value ?? name.lexeme,
+      datasetName,
+      trainBridge,
+      evaluateBridge,
+      seed,
+      tracking,
+      span: spanFrom(start, end),
+    };
+  }
+
   private parseComponent(): ComponentDeclaration {
     const start = this.consume("component", "Expected a component declaration.");
     const name = this.consume("identifier", "Expected a component name.");
@@ -2186,6 +2453,10 @@ class Parser {
       this.check("agent") ||
       this.check("evaluation") ||
       this.check("mobile") ||
+      this.check("dataset") ||
+      this.check("array") ||
+      this.check("python") ||
+      this.check("pipeline") ||
       this.check("component") ||
       this.check("screen")
     );

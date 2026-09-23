@@ -113,6 +113,9 @@ jobs:
       - name: Check AI-native example
         run: npm run evermore -- check examples/ai-native.ever
 
+      - name: Check mobile example
+        run: npm run evermore -- check examples/mobile.ever
+
       - name: Verify canonical formatter
         run: |
           npm run --silent evermore -- format examples/natural.ever > /tmp/natural.formatted.ever
@@ -477,3 +480,32 @@ jobs:
           grep -q 'Human approval denied or missing' /tmp/evermore-ai/src/generated/runtime.ts
           grep -q 'exceeded token budget' /tmp/evermore-ai/src/generated/runtime.ts
           grep -q 'EvermoreModelProvider' /tmp/evermore-ai/src/generated/runtime.ts
+
+
+      - name: Generate React Native application
+        run: npm run evermore -- build examples/mobile.ever --target react-native --out /tmp/evermore-mobile-rn
+
+      - name: Install React Native application
+        working-directory: /tmp/evermore-mobile-rn
+        run: npm install
+
+      - name: Type-check React Native application
+        working-directory: /tmp/evermore-mobile-rn
+        run: npm run build
+
+      - name: Verify native mobile boundaries
+        run: |
+          test -f /tmp/evermore-mobile-rn/ios/EvermoreNativeBridge.swift
+          test -f /tmp/evermore-mobile-rn/android/EvermoreNativeBridge.kt
+          grep -q 'EvermoreNativeStorage' /tmp/evermore-mobile-rn/src/generated/mobile-runtime.ts
+          grep -q 'offline-first' /tmp/evermore-mobile-rn/src/generated/evermore.mobile.json
+
+      - name: Generate Flutter experiment
+        run: npm run evermore -- build examples/mobile.ever --target flutter --out /tmp/evermore-mobile-flutter
+
+      - name: Verify Flutter experiment
+        run: |
+          test -f /tmp/evermore-mobile-flutter/pubspec.yaml
+          test -f /tmp/evermore-mobile-flutter/lib/main.dart
+          grep -q 'MaterialApp' /tmp/evermore-mobile-flutter/lib/main.dart
+          grep -q 'flutter-experiment' /tmp/evermore-mobile-flutter/evermore.mobile.json

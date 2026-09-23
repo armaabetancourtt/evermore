@@ -41,6 +41,7 @@ export type TokenKind =
   | "agent"
   | "context"
   | "evaluation"
+  | "mobile"
   | "screen"
   | "component"
   | "use"
@@ -128,6 +129,7 @@ const keywords = new Map<string, TokenKind>([
   ["agent", "agent"],
   ["context", "context"],
   ["evaluation", "evaluation"],
+  ["mobile", "mobile"],
   ["screen", "screen"],
   ["component", "component"],
   ["use", "use"],

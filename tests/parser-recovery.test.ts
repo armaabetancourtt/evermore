@@ -58,3 +58,24 @@ screen Valid {
     },
   );
 });
+
+
+test("stray screen end is rejected without stalling recovery", () => {
+  const source = String.raw`
+app "Broken"
+
+screen Home
+  title "Home"
+end
+`;
+
+  assert.throws(
+    () => parse(source),
+    (error: unknown) => {
+      assert.ok(error instanceof EvermoreDiagnosticError);
+      assert.equal(error.diagnostics.length, 1);
+      assert.equal(error.diagnostics[0]?.code, "E1004");
+      return true;
+    },
+  );
+});

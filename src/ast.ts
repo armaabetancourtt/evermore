@@ -26,6 +26,10 @@ export type Program = {
   readonly agents: readonly AgentDeclaration[];
   readonly evaluations: readonly EvaluationDeclaration[];
   readonly mobiles: readonly MobileDeclaration[];
+  readonly datasets: readonly DatasetDeclaration[];
+  readonly arrays: readonly ArrayDeclaration[];
+  readonly pythonBridges: readonly PythonDeclaration[];
+  readonly pipelines: readonly PipelineDeclaration[];
   readonly components: readonly ComponentDeclaration[];
   readonly screens: readonly ScreenDeclaration[];
   readonly span: SourceSpan;
@@ -440,6 +444,43 @@ export type MobileDeclaration = {
   readonly permissions: readonly string[];
   readonly network: "online" | "offline-first";
   readonly nativeExtensions: readonly ("swift" | "kotlin")[];
+  readonly span: SourceSpan;
+};
+
+export type DatasetDeclaration = {
+  readonly kind: "DatasetDeclaration";
+  readonly name: string;
+  readonly rowType: string;
+  readonly source: string;
+  readonly span: SourceSpan;
+};
+
+export type ArrayDeclaration = {
+  readonly kind: "ArrayDeclaration";
+  readonly name: string;
+  readonly dtype: "float32" | "float64" | "int64";
+  readonly shape: string;
+  readonly span: SourceSpan;
+};
+
+export type PythonDeclaration = {
+  readonly kind: "PythonDeclaration";
+  readonly name: string;
+  readonly inputType?: TypeAnnotation;
+  readonly outputType: TypeAnnotation;
+  readonly moduleName: string;
+  readonly callableName: string;
+  readonly span: SourceSpan;
+};
+
+export type PipelineDeclaration = {
+  readonly kind: "PipelineDeclaration";
+  readonly name: string;
+  readonly datasetName: string;
+  readonly trainBridge: string;
+  readonly evaluateBridge: string;
+  readonly seed: number;
+  readonly tracking: string;
   readonly span: SourceSpan;
 };
 

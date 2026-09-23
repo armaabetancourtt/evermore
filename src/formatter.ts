@@ -1,17 +1,21 @@
 import type {
   AgentDeclaration,
+  ArrayDeclaration,
   ButtonStatement,
   ChoiceDeclaration,
   ClassDeclaration,
   ComponentDeclaration,
   ContextDeclaration,
   DataDeclaration,
+  DatasetDeclaration,
   EvaluationDeclaration,
   Expression,
   FunctionDeclaration,
   FunctionStatement,
   MobileDeclaration,
+  PipelineDeclaration,
   Program,
+  PythonDeclaration,
   ProtocolDeclaration,
   ScreenDeclaration,
   ScreenStatement,
@@ -61,6 +65,10 @@ export function formatProgram(
       formatEvaluation(evaluation),
     ),
     ...program.mobiles.map((mobile) => formatMobile(mobile)),
+    ...program.datasets.map((dataset) => formatDataset(dataset)),
+    ...program.arrays.map((array) => formatArray(array)),
+    ...program.pythonBridges.map((bridge) => formatPython(bridge)),
+    ...program.pipelines.map((pipeline) => formatPipeline(pipeline)),
     ...program.components.map((component) =>
       formatComponent(component, style),
     ),
@@ -373,6 +381,79 @@ function formatMobile(mobile: MobileDeclaration): string {
   ];
 
   return "mobile " + mobile.name + "\n\n" + lines.join("\n") + "\nend";
+}
+
+function formatDataset(dataset: DatasetDeclaration): string {
+  return (
+    "dataset " +
+    dataset.name +
+    "\n\n" +
+    indent(1) +
+    "row " +
+    dataset.rowType +
+    "\n" +
+    indent(1) +
+    "source " +
+    JSON.stringify(dataset.source) +
+    "\nend"
+  );
+}
+
+function formatArray(array: ArrayDeclaration): string {
+  return (
+    "array " +
+    array.name +
+    "\n\n" +
+    indent(1) +
+    "dtype " +
+    JSON.stringify(array.dtype) +
+    "\n" +
+    indent(1) +
+    "shape " +
+    JSON.stringify(array.shape) +
+    "\nend"
+  );
+}
+
+function formatPython(bridge: PythonDeclaration): string {
+  const lines = [
+    ...(bridge.inputType
+      ? [indent(1) + "takes " + formatTypeAnnotation(bridge.inputType)]
+      : []),
+    indent(1) + "returns " + formatTypeAnnotation(bridge.outputType),
+    indent(1) + "module " + JSON.stringify(bridge.moduleName),
+    indent(1) + "callable " + JSON.stringify(bridge.callableName),
+  ];
+
+  return "python " + bridge.name + "\n\n" + lines.join("\n") + "\nend";
+}
+
+function formatPipeline(pipeline: PipelineDeclaration): string {
+  return (
+    "pipeline " +
+    pipeline.name +
+    "\n\n" +
+    indent(1) +
+    "dataset " +
+    pipeline.datasetName +
+    "\n" +
+    indent(1) +
+    "train " +
+    pipeline.trainBridge +
+    "\n" +
+    indent(1) +
+    "evaluate " +
+    pipeline.evaluateBridge +
+    "\n" +
+    indent(1) +
+    "seed " +
+    pipeline.seed +
+    "\n" +
+    indent(1) +
+    "tracking " +
+    JSON.stringify(pipeline.tracking) +
+    "\nend"
+  );
 }
 
 function formatTypeAnnotation(

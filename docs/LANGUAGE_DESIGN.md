@@ -423,6 +423,39 @@ end
 
 Higher-level collection APIs and specialized structures such as queues, trees and graphs remain standard-library/ecosystem work rather than blockers for the M2 core collection families.
 
+### Data + scientific computing — implemented M6 core
+
+Data workflows remain typed at the Evermore/Python boundary:
+
+~~~evermore
+dataset Housing
+  row HousingRow
+  source "housing.csv"
+end
+
+array FeatureMatrix
+  dtype "float64"
+  shape "*,3"
+end
+
+python TrainHousing
+  takes list of HousingRow
+  returns ModelArtifact
+  module "housing_model"
+  callable "train"
+end
+
+pipeline HousingPipeline
+  dataset Housing
+  train TrainHousing
+  evaluate EvaluateHousing
+  seed 42
+  tracking "experiments/housing.jsonl"
+end
+~~~
+
+The Python target emits TypedDict contracts, pandas dataset loaders with SHA-256 provenance, NumPy array contracts, typed importlib bridges, deterministic seeds, a JSONL experiment-tracking implementation, and source-first reproducible pipeline runners.
+
 ### Mobile — implemented M5 core
 
 A mobile declaration adds platform policy while reusing the same `screen` semantics used by web:

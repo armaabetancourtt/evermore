@@ -1,0 +1,51 @@
+app "Housing Science"
+
+data HousingRow
+  area number
+  bedrooms number
+  price number
+end
+
+data ModelArtifact
+  path text
+end
+
+data Metrics
+  mae number
+end
+
+dataset Housing
+  row HousingRow
+  source "housing.csv"
+end
+
+array FeatureMatrix
+  dtype "float64"
+  shape "*,3"
+end
+
+python TrainHousing
+  takes list of HousingRow
+  returns ModelArtifact
+  module "housing_model"
+  callable "train"
+end
+
+python EvaluateHousing
+  takes ModelArtifact
+  returns Metrics
+  module "housing_model"
+  callable "evaluate"
+end
+
+pipeline HousingPipeline
+  dataset Housing
+  train TrainHousing
+  evaluate EvaluateHousing
+  seed 42
+  tracking "experiments/housing.jsonl"
+end
+
+screen Home
+  title "Typed data science"
+  text "Datasets, numerical arrays, Python bridges, seeds, provenance and evaluation are explicit."

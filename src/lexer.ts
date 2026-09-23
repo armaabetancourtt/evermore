@@ -42,6 +42,10 @@ export type TokenKind =
   | "context"
   | "evaluation"
   | "mobile"
+  | "dataset"
+  | "array"
+  | "python"
+  | "pipeline"
   | "screen"
   | "component"
   | "use"
@@ -130,6 +134,10 @@ const keywords = new Map<string, TokenKind>([
   ["context", "context"],
   ["evaluation", "evaluation"],
   ["mobile", "mobile"],
+  ["dataset", "dataset"],
+  ["array", "array"],
+  ["python", "python"],
+  ["pipeline", "pipeline"],
   ["screen", "screen"],
   ["component", "component"],
   ["use", "use"],

@@ -158,6 +158,9 @@ export type FunctionDeclaration = {
   readonly kind: "FunctionDeclaration";
   readonly name: string;
   readonly typeParameters: readonly TypeParameter[];
+  readonly isAsync: boolean;
+  readonly effects: readonly string[];
+  readonly capabilities: readonly string[];
   readonly parameters: readonly FunctionParameter[];
   readonly returnType: TypeAnnotation;
   readonly body: readonly FunctionStatement[];

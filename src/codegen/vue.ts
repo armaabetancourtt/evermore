@@ -1087,6 +1087,12 @@ function emitFunctionExpression(
       const hasPayloadBinding = expression.cases.some(
         (branch) => branch.bindingName !== undefined,
       );
+      const isResultPayloadMatch =
+        expression.cases.length > 0 &&
+        expression.cases.every(
+          (branch) =>
+            branch.caseName === "ok" || branch.caseName === "error",
+        );
 
       if (hasPayloadBinding) {
         const branches = expression.cases
@@ -1097,14 +1103,22 @@ function emitFunctionExpression(
             if (branch.bindingName) {
               const generated = "match_binding_" + index;
               branchValues.set(branch.bindingName, generated);
-              const fallbackProperty =
-                branch.caseName === "ok" ? "value" : "error";
-              binding =
-                " const " +
-                generated +
-                ': any = typeof matchValue === "object" && matchValue !== null && "payload" in matchValue ? (matchValue as any).payload : (matchValue as any).' +
-                fallbackProperty +
-                ";";
+
+              if (isResultPayloadMatch) {
+                const property =
+                  branch.caseName === "ok" ? "value" : "error";
+                binding =
+                  " const " +
+                  generated +
+                  " = matchValue." +
+                  property +
+                  ";";
+              } else {
+                binding =
+                  " const " +
+                  generated +
+                  ': any = (matchValue as any).payload;';
+              }
             }
 
             return (
@@ -1122,6 +1136,16 @@ function emitFunctionExpression(
             );
           })
           .join(" ");
+
+        if (isResultPayloadMatch) {
+          return (
+            "(() => { const matchValue = " +
+            source +
+            "; switch (matchValue.kind) { " +
+            branches +
+            ' default: throw new Error("Unreachable Evermore result match"); } })()'
+          );
+        }
 
         return (
           "(() => { const matchValue = " +

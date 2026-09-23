@@ -37,6 +37,10 @@ export type TokenKind =
   | "true"
   | "false"
   | "server"
+  | "tool"
+  | "agent"
+  | "context"
+  | "evaluation"
   | "screen"
   | "component"
   | "use"
@@ -120,6 +124,10 @@ const keywords = new Map<string, TokenKind>([
   ["true", "true"],
   ["false", "false"],
   ["server", "server"],
+  ["tool", "tool"],
+  ["agent", "agent"],
+  ["context", "context"],
+  ["evaluation", "evaluation"],
   ["screen", "screen"],
   ["component", "component"],
   ["use", "use"],

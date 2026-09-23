@@ -238,7 +238,8 @@ screen Home
         error.diagnostics.some(
           (diagnostic) =>
             diagnostic.code === "E2231" ||
-            diagnostic.code === "E2206",
+            diagnostic.code === "E2206" ||
+            diagnostic.code === "E2236",
         ),
       );
       return true;

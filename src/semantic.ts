@@ -1,13 +1,17 @@
 import type {
   AgentDeclaration,
+  ArrayDeclaration,
   ChoiceDeclaration,
   ClassDeclaration,
   ComponentDeclaration,
   ContextDeclaration,
   DataDeclaration,
+  DatasetDeclaration,
   EvaluationDeclaration,
   MobileDeclaration,
+  PipelineDeclaration,
   Program,
+  PythonDeclaration,
   ProtocolDeclaration,
   ScreenDeclaration,
   ServerDeclaration,
@@ -42,6 +46,10 @@ export type SemanticModel = {
   readonly agentsByName: ReadonlyMap<string, AgentDeclaration>;
   readonly evaluationsByName: ReadonlyMap<string, EvaluationDeclaration>;
   readonly mobilesByName: ReadonlyMap<string, MobileDeclaration>;
+  readonly datasetsByName: ReadonlyMap<string, DatasetDeclaration>;
+  readonly arraysByName: ReadonlyMap<string, ArrayDeclaration>;
+  readonly pythonBridgesByName: ReadonlyMap<string, PythonDeclaration>;
+  readonly pipelinesByName: ReadonlyMap<string, PipelineDeclaration>;
   readonly componentsByName: ReadonlyMap<string, ComponentDeclaration>;
 };
 
@@ -61,6 +69,10 @@ export function analyze(program: Program): {
   const agents = new Map<string, AgentDeclaration>();
   const evaluations = new Map<string, EvaluationDeclaration>();
   const mobiles = new Map<string, MobileDeclaration>();
+  const datasets = new Map<string, DatasetDeclaration>();
+  const arrays = new Map<string, ArrayDeclaration>();
+  const pythonBridges = new Map<string, PythonDeclaration>();
+  const pipelines = new Map<string, PipelineDeclaration>();
   const components = new Map<string, ComponentDeclaration>();
 
   for (const declaration of program.data) {
@@ -1700,6 +1712,281 @@ export function analyze(program: Program): {
     }
   }
 
+  for (const dataset of program.datasets) {
+    if (datasets.has(dataset.name)) {
+      diagnostics.push({
+        code: "E3000",
+        severity: "error",
+        message: 'Dataset "' + dataset.name + '" is declared more than once.',
+        span: dataset.span,
+        help: "Give each dataset a unique name.",
+      });
+      continue;
+    }
+
+    datasets.set(dataset.name, dataset);
+
+    if (
+      !dataByName.has(dataset.rowType) &&
+      !classesByName.has(dataset.rowType)
+    ) {
+      diagnostics.push({
+        code: "E3001",
+        severity: "error",
+        message:
+          'Dataset "' +
+          dataset.name +
+          '" references unknown row type "' +
+          dataset.rowType +
+          '".',
+        span: dataset.span,
+        help: "Dataset rows must use a declared data or class type.",
+      });
+    }
+
+    if (dataset.source.trim().length === 0) {
+      diagnostics.push({
+        code: "E3002",
+        severity: "error",
+        message: 'Dataset "' + dataset.name + '" has an empty source.',
+        span: dataset.span,
+        help: "Declare a reproducible source path or URI.",
+      });
+    }
+  }
+
+  for (const array of program.arrays) {
+    if (arrays.has(array.name)) {
+      diagnostics.push({
+        code: "E3010",
+        severity: "error",
+        message: 'Array "' + array.name + '" is declared more than once.',
+        span: array.span,
+        help: "Give each numerical array declaration a unique name.",
+      });
+      continue;
+    }
+
+    arrays.set(array.name, array);
+
+    if (!/^(?:\*|[1-9][0-9]*)(?:,(?:\*|[1-9][0-9]*))*$/.test(array.shape)) {
+      diagnostics.push({
+        code: "E3011",
+        severity: "error",
+        message:
+          'Array "' +
+          array.name +
+          '" uses invalid shape "' +
+          array.shape +
+          '".',
+        span: array.span,
+        help: 'Use comma-separated positive dimensions and at most symbolic "*" dimensions, for example "*,3".',
+      });
+    }
+  }
+
+  for (const bridge of program.pythonBridges) {
+    if (pythonBridges.has(bridge.name)) {
+      diagnostics.push({
+        code: "E3020",
+        severity: "error",
+        message:
+          'Python bridge "' +
+          bridge.name +
+          '" is declared more than once.',
+        span: bridge.span,
+        help: "Give each Python bridge a unique name.",
+      });
+      continue;
+    }
+
+    pythonBridges.set(bridge.name, bridge);
+
+    const inputUnknown = bridge.inputType
+      ? findUnknownType(
+          bridge.inputType,
+          dataByName,
+          classesByName,
+          choicesByName,
+        )
+      : undefined;
+    const outputUnknown = findUnknownType(
+      bridge.outputType,
+      dataByName,
+      classesByName,
+      choicesByName,
+    );
+
+    if (inputUnknown || outputUnknown) {
+      diagnostics.push({
+        code: "E3021",
+        severity: "error",
+        message:
+          'Python bridge "' +
+          bridge.name +
+          '" references unknown contract type "' +
+          (inputUnknown ?? outputUnknown) +
+          '".',
+        span: bridge.span,
+        help: "Use ordinary declared Evermore types at the Python boundary.",
+      });
+    }
+
+    if (
+      bridge.moduleName.trim().length === 0 ||
+      bridge.callableName.trim().length === 0
+    ) {
+      diagnostics.push({
+        code: "E3022",
+        severity: "error",
+        message:
+          'Python bridge "' +
+          bridge.name +
+          '" requires non-empty module and callable names.',
+        span: bridge.span,
+      });
+    }
+  }
+
+  for (const pipeline of program.pipelines) {
+    if (pipelines.has(pipeline.name)) {
+      diagnostics.push({
+        code: "E3030",
+        severity: "error",
+        message:
+          'Pipeline "' +
+          pipeline.name +
+          '" is declared more than once.',
+        span: pipeline.span,
+        help: "Give each pipeline a unique name.",
+      });
+      continue;
+    }
+
+    pipelines.set(pipeline.name, pipeline);
+
+    const dataset = datasets.get(pipeline.datasetName);
+    if (!dataset) {
+      diagnostics.push({
+        code: "E3031",
+        severity: "error",
+        message:
+          'Pipeline "' +
+          pipeline.name +
+          '" references unknown dataset "' +
+          pipeline.datasetName +
+          '".',
+        span: pipeline.span,
+        help: "Declare the dataset before the pipeline.",
+      });
+    }
+
+    const train = pythonBridges.get(pipeline.trainBridge);
+    if (!train) {
+      diagnostics.push({
+        code: "E3032",
+        severity: "error",
+        message:
+          'Pipeline "' +
+          pipeline.name +
+          '" references unknown training bridge "' +
+          pipeline.trainBridge +
+          '".',
+        span: pipeline.span,
+      });
+    }
+
+    const evaluate = pythonBridges.get(pipeline.evaluateBridge);
+    if (!evaluate) {
+      diagnostics.push({
+        code: "E3033",
+        severity: "error",
+        message:
+          'Pipeline "' +
+          pipeline.name +
+          '" references unknown evaluation bridge "' +
+          pipeline.evaluateBridge +
+          '".',
+        span: pipeline.span,
+      });
+    }
+
+    if (dataset && train) {
+      const input = train.inputType;
+      const validInput =
+        input?.kind === "ListTypeAnnotation" &&
+        input.elementType.kind === "NamedTypeAnnotation" &&
+        input.elementType.name === dataset.rowType;
+
+      if (!validInput) {
+        diagnostics.push({
+          code: "E3034",
+          severity: "error",
+          message:
+            'Training bridge "' +
+            train.name +
+            '" must take list of ' +
+            dataset.rowType +
+            ' for pipeline "' +
+            pipeline.name +
+            '".',
+          span: pipeline.span,
+          help: "Make the training bridge input match the dataset row contract.",
+        });
+      }
+    }
+
+    if (train && evaluate) {
+      if (
+        !evaluate.inputType ||
+        !sameTypeAnnotation(
+          evaluate.inputType,
+          train.outputType,
+        )
+      ) {
+        diagnostics.push({
+          code: "E3035",
+          severity: "error",
+          message:
+            'Evaluation bridge "' +
+            evaluate.name +
+            '" must take the training output type produced by "' +
+            train.name +
+            '".',
+          span: pipeline.span,
+          help: "Connect train/evaluate through one exact Evermore type.",
+        });
+      }
+    }
+
+    if (
+      !Number.isInteger(pipeline.seed) ||
+      pipeline.seed < 0
+    ) {
+      diagnostics.push({
+        code: "E3036",
+        severity: "error",
+        message:
+          'Pipeline "' +
+          pipeline.name +
+          '" must use a non-negative integer seed.',
+        span: pipeline.span,
+      });
+    }
+
+    if (pipeline.tracking.trim().length === 0) {
+      diagnostics.push({
+        code: "E3037",
+        severity: "error",
+        message:
+          'Pipeline "' +
+          pipeline.name +
+          '" requires a non-empty tracking path.',
+        span: pipeline.span,
+      });
+    }
+  }
+
   for (const component of program.components) {
     if (components.has(component.name)) {
       diagnostics.push({
@@ -1788,6 +2075,10 @@ export function analyze(program: Program): {
             agentsByName: agents,
             evaluationsByName: evaluations,
             mobilesByName: mobiles,
+            datasetsByName: datasets,
+            arraysByName: arrays,
+            pythonBridgesByName: pythonBridges,
+            pipelinesByName: pipelines,
             componentsByName: components,
           },
         }),

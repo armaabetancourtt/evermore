@@ -7,6 +7,7 @@ import {
   emitReactNative,
 } from "./codegen/mobile.js";
 import { emitNode } from "./codegen/node.js";
+import { emitPython } from "./codegen/python.js";
 import { emitVue, type GeneratedFile } from "./codegen/vue.js";
 import { lowerToIR } from "./ir.js";
 import { parse } from "./parser.js";
@@ -22,7 +23,8 @@ export type CompileTarget =
   | "node"
   | "ai"
   | "react-native"
-  | "flutter";
+  | "flutter"
+  | "python";
 
 export type CompileResult = {
   readonly appName: string;
@@ -160,6 +162,13 @@ export function compileProgram(
         target,
         diagnostics: analysis.diagnostics,
         files: emitFlutter(ir),
+      };
+    case "python":
+      return {
+        appName: ir.appName,
+        target,
+        diagnostics: analysis.diagnostics,
+        files: emitPython(ir),
       };
   }
 }

@@ -179,21 +179,23 @@ Exit condition:
 
 ## M6 — Data + scientific computing
 
+**Status: complete ✅ — typed reproducible Python data boundary operational**
+
 Goals:
 
-- typed Python boundary;
-- dataframe/dataset primitives;
-- reproducible pipeline metadata;
-- numerical arrays;
-- model train/evaluate contracts;
-- experiment tracking interface;
-- deterministic seeds and provenance.
+- [x] typed Python boundary;
+- [x] dataframe/dataset primitives;
+- [x] reproducible pipeline metadata;
+- [x] numerical arrays;
+- [x] model train/evaluate contracts;
+- [x] experiment tracking interface;
+- [x] deterministic seeds and provenance.
 
 Research:
 
-- zero-copy/interprocess boundaries;
-- numerical type representation;
-- notebook interoperability vs source-first workflows.
+- [x] zero-copy/interprocess boundaries;
+- [x] numerical type representation;
+- [x] notebook interoperability vs source-first workflows.
 
 Exit condition:
 

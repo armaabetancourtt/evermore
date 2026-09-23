@@ -23,6 +23,10 @@ export type IRProgram = {
   readonly agents: readonly IRAgent[];
   readonly evaluations: readonly IREvaluation[];
   readonly mobiles: readonly IRMobile[];
+  readonly datasets: readonly IRDataset[];
+  readonly arrays: readonly IRArray[];
+  readonly pythonBridges: readonly IRPythonBridge[];
+  readonly pipelines: readonly IRPipeline[];
   readonly screens: readonly IRScreen[];
 };
 
@@ -340,6 +344,35 @@ export type IRMobile = {
   readonly nativeExtensions: readonly ("swift" | "kotlin")[];
 };
 
+export type IRDataset = {
+  readonly name: string;
+  readonly rowType: string;
+  readonly source: string;
+};
+
+export type IRArray = {
+  readonly name: string;
+  readonly dtype: "float32" | "float64" | "int64";
+  readonly shape: string;
+};
+
+export type IRPythonBridge = {
+  readonly name: string;
+  readonly inputType?: TypeRef;
+  readonly outputType: TypeRef;
+  readonly moduleName: string;
+  readonly callableName: string;
+};
+
+export type IRPipeline = {
+  readonly name: string;
+  readonly datasetName: string;
+  readonly trainBridge: string;
+  readonly evaluateBridge: string;
+  readonly seed: number;
+  readonly tracking: string;
+};
+
 export type IRScreen = {
   readonly id: string;
   readonly title?: string;
@@ -599,6 +632,43 @@ export function lowerToIR(model: SemanticModel): IRProgram {
       permissions: mobile.permissions,
       network: mobile.network,
       nativeExtensions: mobile.nativeExtensions,
+    })),
+    datasets: model.program.datasets.map((dataset) => ({
+      name: dataset.name,
+      rowType: dataset.rowType,
+      source: dataset.source,
+    })),
+    arrays: model.program.arrays.map((array) => ({
+      name: array.name,
+      dtype: array.dtype,
+      shape: array.shape,
+    })),
+    pythonBridges: model.program.pythonBridges.map((bridge) => ({
+      name: bridge.name,
+      ...(bridge.inputType
+        ? {
+            inputType: typeRefFromAnnotation(
+              bridge.inputType,
+              new Set(),
+              new Set(model.protocolsByName.keys()),
+            ),
+          }
+        : {}),
+      outputType: typeRefFromAnnotation(
+        bridge.outputType,
+        new Set(),
+        new Set(model.protocolsByName.keys()),
+      ),
+      moduleName: bridge.moduleName,
+      callableName: bridge.callableName,
+    })),
+    pipelines: model.program.pipelines.map((pipeline) => ({
+      name: pipeline.name,
+      datasetName: pipeline.datasetName,
+      trainBridge: pipeline.trainBridge,
+      evaluateBridge: pipeline.evaluateBridge,
+      seed: pipeline.seed,
+      tracking: pipeline.tracking,
     })),
     screens: model.program.screens.map((screen) => {
       const title = screen.body.find(

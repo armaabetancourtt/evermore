@@ -36,6 +36,21 @@ export type TokenKind =
   | "return"
   | "true"
   | "false"
+  | "server"
+  | "port"
+  | "endpoint"
+  | "uses"
+  | "auth"
+  | "database"
+  | "postgres"
+  | "connection"
+  | "repository"
+  | "model"
+  | "using"
+  | "job"
+  | "every"
+  | "realtime"
+  | "message"
   | "screen"
   | "component"
   | "use"
@@ -118,6 +133,21 @@ const keywords = new Map<string, TokenKind>([
   ["return", "return"],
   ["true", "true"],
   ["false", "false"],
+  ["server", "server"],
+  ["port", "port"],
+  ["endpoint", "endpoint"],
+  ["uses", "uses"],
+  ["auth", "auth"],
+  ["database", "database"],
+  ["postgres", "postgres"],
+  ["connection", "connection"],
+  ["repository", "repository"],
+  ["model", "model"],
+  ["using", "using"],
+  ["job", "job"],
+  ["every", "every"],
+  ["realtime", "realtime"],
+  ["message", "message"],
   ["screen", "screen"],
   ["component", "component"],
   ["use", "use"],

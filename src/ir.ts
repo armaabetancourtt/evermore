@@ -97,6 +97,9 @@ export type IRFunctionStatement =
   | IRVar
   | IRAssign
   | IRWhile
+  | IRForEach
+  | IRBreak
+  | IRContinue
   | IRReturn;
 
 export type IRLet = {
@@ -121,6 +124,21 @@ export type IRWhile = {
   readonly kind: "While";
   readonly condition: IRExpression;
   readonly body: readonly IRFunctionStatement[];
+};
+
+export type IRForEach = {
+  readonly kind: "ForEach";
+  readonly bindingName: string;
+  readonly collection: IRExpression;
+  readonly body: readonly IRFunctionStatement[];
+};
+
+export type IRBreak = {
+  readonly kind: "Break";
+};
+
+export type IRContinue = {
+  readonly kind: "Continue";
 };
 
 export type IRReturn = {
@@ -822,6 +840,25 @@ function lowerFunctionStatement(
         lowerFunctionStatement(nested, model),
       ),
     };
+  }
+
+  if (statement.kind === "ForEachStatement") {
+    return {
+      kind: "ForEach",
+      bindingName: statement.bindingName,
+      collection: lowerExpression(statement.collection, model),
+      body: statement.body.map((nested) =>
+        lowerFunctionStatement(nested, model),
+      ),
+    };
+  }
+
+  if (statement.kind === "BreakStatement") {
+    return { kind: "Break" };
+  }
+
+  if (statement.kind === "ContinueStatement") {
+    return { kind: "Continue" };
   }
 
   return {

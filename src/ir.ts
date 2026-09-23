@@ -49,6 +49,7 @@ export type IRProtocol = {
 
 export type IRDataModel = {
   readonly name: string;
+  readonly typeParameters: readonly IRTypeParameter[];
   readonly conformances: readonly string[];
   readonly fields: readonly IRDataField[];
   readonly methods: readonly IRMethod[];
@@ -61,6 +62,7 @@ export type IRDataField = {
 
 export type IRClassModel = {
   readonly name: string;
+  readonly typeParameters: readonly IRTypeParameter[];
   readonly conformances: readonly string[];
   readonly fields: readonly IRClassField[];
   readonly methods: readonly IRMethod[];
@@ -495,41 +497,83 @@ export function lowerToIR(model: SemanticModel): IRProgram {
   return {
     kind: "IRProgram",
     appName: model.program.appName,
-    data: model.program.data.map((declaration) => ({
-      name: declaration.name,
-      conformances: declaration.conformances.map(
-        (conformance) => conformance.name,
-      ),
-      fields: declaration.fields.map((field) => ({
-        name: field.name,
-        type: typeRefFromAnnotation(
-          field.type,
-          new Set(),
-          new Set(model.protocolsByName.keys()),
+    data: model.program.data.map((declaration) => {
+      const genericNames = new Set(
+        declaration.typeParameters.map((parameter) => parameter.name),
+      );
+      const genericConstraints = new Map(
+        declaration.typeParameters
+          .filter((parameter) => parameter.constraintName)
+          .map(
+            (parameter) =>
+              [parameter.name, parameter.constraintName!] as const,
+          ),
+      );
+
+      return {
+        name: declaration.name,
+        typeParameters: declaration.typeParameters.map((parameter) => ({
+          name: parameter.name,
+          ...(parameter.constraintName
+            ? { constraint: parameter.constraintName }
+            : {}),
+        })),
+        conformances: declaration.conformances.map(
+          (conformance) => conformance.name,
         ),
-      })),
-      methods: declaration.methods.map((method) =>
-        lowerMethod(method, model),
-      ),
-    })),
-    classes: model.program.classes.map((declaration) => ({
-      name: declaration.name,
-      conformances: declaration.conformances.map(
-        (conformance) => conformance.name,
-      ),
-      fields: declaration.fields.map((field) => ({
-        name: field.name,
-        type: typeRefFromAnnotation(
-          field.type,
-          new Set(),
-          new Set(model.protocolsByName.keys()),
+        fields: declaration.fields.map((field) => ({
+          name: field.name,
+          type: typeRefFromAnnotation(
+            field.type,
+            genericNames,
+            new Set(model.protocolsByName.keys()),
+            genericConstraints,
+          ),
+        })),
+        methods: declaration.methods.map((method) =>
+          lowerMethod(method, model, declaration.typeParameters),
         ),
-        visibility: field.visibility,
-      })),
-      methods: declaration.methods.map((method) =>
-        lowerMethod(method, model),
-      ),
-    })),
+      };
+    }),
+    classes: model.program.classes.map((declaration) => {
+      const genericNames = new Set(
+        declaration.typeParameters.map((parameter) => parameter.name),
+      );
+      const genericConstraints = new Map(
+        declaration.typeParameters
+          .filter((parameter) => parameter.constraintName)
+          .map(
+            (parameter) =>
+              [parameter.name, parameter.constraintName!] as const,
+          ),
+      );
+
+      return {
+        name: declaration.name,
+        typeParameters: declaration.typeParameters.map((parameter) => ({
+          name: parameter.name,
+          ...(parameter.constraintName
+            ? { constraint: parameter.constraintName }
+            : {}),
+        })),
+        conformances: declaration.conformances.map(
+          (conformance) => conformance.name,
+        ),
+        fields: declaration.fields.map((field) => ({
+          name: field.name,
+          type: typeRefFromAnnotation(
+            field.type,
+            genericNames,
+            new Set(model.protocolsByName.keys()),
+            genericConstraints,
+          ),
+          visibility: field.visibility,
+        })),
+        methods: declaration.methods.map((method) =>
+          lowerMethod(method, model, declaration.typeParameters),
+        ),
+      };
+    }),
     protocols: model.program.protocols.map((protocol) => ({
       name: protocol.name,
       fields: protocol.fields.map((field) => ({
@@ -806,8 +850,23 @@ export function lowerToIR(model: SemanticModel): IRProgram {
 function lowerMethod(
   method: SemanticModel["program"]["functions"][number],
   model: SemanticModel,
+  ownerTypeParameters: readonly {
+    readonly name: string;
+    readonly constraintName?: string;
+  }[] = [],
 ): IRMethod {
   const protocolNames = new Set(model.protocolsByName.keys());
+  const genericNames = new Set(
+    ownerTypeParameters.map((parameter) => parameter.name),
+  );
+  const genericConstraints = new Map(
+    ownerTypeParameters
+      .filter((parameter) => parameter.constraintName)
+      .map(
+        (parameter) =>
+          [parameter.name, parameter.constraintName!] as const,
+      ),
+  );
 
   return {
     name: method.name,
@@ -815,14 +874,16 @@ function lowerMethod(
       name: parameter.name,
       type: typeRefFromAnnotation(
         parameter.type,
-        new Set(),
+        genericNames,
         protocolNames,
+        genericConstraints,
       ),
     })),
     returnType: typeRefFromAnnotation(
       method.returnType,
-      new Set(),
+      genericNames,
       protocolNames,
+      genericConstraints,
     ),
     body: method.body.map((statement) =>
       lowerFunctionStatement(statement, model),
@@ -1056,7 +1117,7 @@ function lowerExpression(
               "visibility" in field ? field.visibility : "public",
           })),
           methods: constructor.methods.map((method) =>
-            lowerMethod(method, model),
+            lowerMethod(method, model, constructor.typeParameters),
           ),
         };
       }

@@ -22,6 +22,7 @@ export type IRProgram = {
   readonly contexts: readonly IRContext[];
   readonly agents: readonly IRAgent[];
   readonly evaluations: readonly IREvaluation[];
+  readonly mobiles: readonly IRMobile[];
   readonly screens: readonly IRScreen[];
 };
 
@@ -331,6 +332,14 @@ export type IREvaluation = {
   readonly expectedFunction: string;
 };
 
+export type IRMobile = {
+  readonly name: string;
+  readonly storage: "memory" | "secure";
+  readonly permissions: readonly string[];
+  readonly network: "online" | "offline-first";
+  readonly nativeExtensions: readonly ("swift" | "kotlin")[];
+};
+
 export type IRScreen = {
   readonly id: string;
   readonly title?: string;
@@ -583,6 +592,13 @@ export function lowerToIR(model: SemanticModel): IRProgram {
       agentName: evaluation.agentName,
       inputFunction: evaluation.inputFunction,
       expectedFunction: evaluation.expectedFunction,
+    })),
+    mobiles: model.program.mobiles.map((mobile) => ({
+      name: mobile.name,
+      storage: mobile.storage,
+      permissions: mobile.permissions,
+      network: mobile.network,
+      nativeExtensions: mobile.nativeExtensions,
     })),
     screens: model.program.screens.map((screen) => {
       const title = screen.body.find(

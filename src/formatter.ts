@@ -868,7 +868,7 @@ function formatExpression(
 
     case "MethodCallExpression":
       return (
-        formatExpression(expression.object, 4, false, depth) +
+        formatExpression(expression.object, 7, false, depth) +
         "." +
         expression.method +
         "(" +
@@ -888,13 +888,37 @@ function formatExpression(
         ")"
       );
 
+    case "UnaryExpression": {
+      const precedence = 6;
+      const source =
+        "not " +
+        formatExpression(
+          expression.expression,
+          precedence,
+          false,
+          depth,
+        );
+      return precedence < parentPrecedence
+        ? "(" + source + ")"
+        : source;
+    }
+
     case "BinaryExpression": {
       const precedence =
-        expression.operator === "*" || expression.operator === "/"
-          ? 3
-          : expression.operator === "+" || expression.operator === "-"
+        expression.operator === "or"
+          ? 1
+          : expression.operator === "and"
             ? 2
-            : 1;
+            : expression.operator === "==" ||
+                expression.operator === "!=" ||
+                expression.operator === ">" ||
+                expression.operator === ">=" ||
+                expression.operator === "<" ||
+                expression.operator === "<="
+              ? 3
+              : expression.operator === "+" || expression.operator === "-"
+                ? 4
+                : 5;
 
       const left = formatExpression(
         expression.left,

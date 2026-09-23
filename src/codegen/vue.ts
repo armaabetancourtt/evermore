@@ -228,7 +228,7 @@ export function emitVue(program: IRProgram): readonly GeneratedFile[] {
   return files;
 }
 
-function emitModels(
+export function emitModels(
   models: readonly IRDataModel[],
   classes: readonly IRClassModel[],
   protocols: readonly IRProtocol[],
@@ -378,7 +378,7 @@ function emitMethodType(
   );
 }
 
-function emitTypeRef(
+export function emitTypeRef(
   type: TypeRef,
   genericNames: ReadonlyMap<string, string> = new Map(),
 ): string {
@@ -484,7 +484,7 @@ function containsNamedType(type: TypeRef): boolean {
   }
 }
 
-function emitFunctions(
+export function emitFunctions(
   functions: readonly IRFunction[],
   models: readonly IRDataModel[],
   classes: readonly IRClassModel[],

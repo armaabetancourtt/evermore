@@ -297,6 +297,7 @@ export function analyze(program: Program): {
         dataByName,
         classesByName,
         choicesByName,
+        genericNames,
       );
 
       if (unknownType) {
@@ -411,6 +412,7 @@ export function analyze(program: Program): {
         dataByName,
         classesByName,
         choicesByName,
+        genericNames,
       );
 
       if (unknownType) {
@@ -1153,6 +1155,7 @@ export function analyze(program: Program): {
         dataByName,
         classesByName,
         choicesByName,
+        genericNames,
       );
 
       if (requestUnknown || responseUnknown) {
@@ -1373,6 +1376,7 @@ export function analyze(program: Program): {
         dataByName,
         classesByName,
         choicesByName,
+        genericNames,
       );
       if (unknown) {
         diagnostics.push({
@@ -2839,15 +2843,37 @@ function findUnknownType(
   dataByName: ReadonlyMap<string, DataDeclaration>,
   classesByName: ReadonlyMap<string, ClassDeclaration>,
   choicesByName: ReadonlyMap<string, ChoiceDeclaration>,
+  genericNames: ReadonlySet<string> = new Set(),
 ): string | undefined {
   switch (annotation.kind) {
     case "NamedTypeAnnotation":
-      return !isPrimitiveTypeName(annotation.name) &&
+      return !genericNames.has(annotation.name) &&
+        !isPrimitiveTypeName(annotation.name) &&
         !dataByName.has(annotation.name) &&
         !classesByName.has(annotation.name) &&
         !choicesByName.has(annotation.name)
         ? annotation.name
         : undefined;
+
+    case "AppliedTypeAnnotation":
+      if (
+        !dataByName.has(annotation.name) &&
+        !classesByName.has(annotation.name)
+      ) {
+        return annotation.name;
+      }
+
+      for (const argument of annotation.arguments) {
+        const unknown = findUnknownType(
+          argument,
+          dataByName,
+          classesByName,
+          choicesByName,
+          genericNames,
+        );
+        if (unknown) return unknown;
+      }
+      return undefined;
 
     case "ListTypeAnnotation":
     case "SetTypeAnnotation":
@@ -2856,6 +2882,7 @@ function findUnknownType(
         dataByName,
         classesByName,
         choicesByName,
+        genericNames,
       );
 
     case "MapTypeAnnotation":
@@ -2896,6 +2923,7 @@ function findUnknownType(
         dataByName,
         classesByName,
         choicesByName,
+        genericNames,
       );
   }
 }

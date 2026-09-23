@@ -641,6 +641,24 @@ function formatFunction(
     );
   }
 
+  if (fn.isAsync) {
+    lines.push(indent(depth + 1) + "async");
+  }
+
+  if (fn.effects.length > 0) {
+    lines.push(
+      indent(depth + 1) + "effects " + fn.effects.join(", "),
+    );
+  }
+
+  if (fn.capabilities.length > 0) {
+    lines.push(
+      indent(depth + 1) +
+        "using " +
+        fn.capabilities.join(", "),
+    );
+  }
+
   for (const parameter of fn.parameters) {
     lines.push(
       indent(depth + 1) +

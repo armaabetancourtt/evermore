@@ -19,6 +19,8 @@ The language is inspired by the clarity of **Swift**, the cross-platform product
 
 Evermore is currently **pre-alpha**. The repository is being built in public-facing, research-grade increments: language design first, executable compiler foundations second, then increasingly capable targets. Features described as **design targets** are intentionally distinguished from features already implemented.
 
+> **Ownership and licensing notice:** Evermore is proprietary technology wholly owned by **Armando Betancourt**. Public access to source code does **not** make Evermore open source and does not grant a commercial, redistribution, training or certification license. See [Ownership & licensing](#ownership--licensing).
+
 ---
 
 ## The thesis
@@ -550,9 +552,12 @@ Implemented today:
 - accessibility defaults including visible focus, reduced-motion behavior, touch sizing and polite live state output;
 - generated-target builds in CI, including a three-screen M1 showcase;
 - nominal `data` declarations with primitive and user-defined types;
-- pure typed functions with parameters, declared returns, inferred local `let`, arithmetic precedence and typed calls;
+- typed functions with parameters, declared returns, inferred local `let`, arithmetic precedence and typed calls;
 - typed control flow with `while`, `for ... in`, `break` and `continue`, including loop-local scope validation;
 - boolean logic with typed `and`, `or` and unary `not` using explicit precedence;
+- payload-carrying general `choice` cases with typed match bindings and exhaustive matching;
+- generic nominal `data` and `class` types with type application, inference and protocol constraints;
+- explicit `async`, effect sets and capability requirements with transitive call-boundary validation and compiler-managed awaits;
 - strict TypeScript generation for models and functions, validated by `vue-tsc`;
 - typed full-stack semantics with a generated Node.js server runtime;
 - provider-neutral AI agents, tools, context/budget controls, approval boundaries and deterministic evaluations;
@@ -630,6 +635,26 @@ npm install + production target build
 CI now exercises the implemented web, server, AI, mobile, data, infrastructure, tooling and WebAssembly-research surfaces. These remain pre-alpha capabilities and are not a production-readiness claim.
 
 See [examples/showcase.ever](examples/showcase.ever) and [docs/ROADMAP.md](docs/ROADMAP.md).
+
+---
+
+# Ownership & licensing
+
+**Evermore is proprietary technology wholly owned by Armando Betancourt. © 2026 Armando Betancourt. All rights reserved.**
+
+The Evermore project and its implementation—including the compiler, runtime architecture, IR, source code, documentation, tooling, specifications, brand assets and associated materials—are controlled exclusively by Armando Betancourt. Source visibility or repository access does **not** grant an open-source license, place Evermore in the public domain, or authorize commercial exploitation.
+
+### Licensing model
+
+- **Community / individual use.** Evermore is intended to remain accessible for personal learning, evaluation and non-commercial experimentation. This does not include redistribution of the Evermore implementation, sublicensing, resale, production use for a business, paid training, certification services or offering Evermore itself as a hosted/commercial service.
+- **Commercial & enterprise use.** Companies and organizations that want to use Evermore for internal business systems, client work, commercial products, production workloads or enterprise deployment require a commercial license. Licensing and enterprise terms are quoted according to scope. Contact **contacto@kaisei.com.mx**.
+- **Education.** Individual self-study falls under the community model. Universities, schools, bootcamps, companies and other institutions that want to use Evermore as part of an organized course, curriculum, training program or certification offering require institutional authorization and applicable licensing.
+- **Official training & certification.** **ZEUS Lab** is currently the **only authorized provider** of official Evermore courses, certifications and professional training. For programs, partnerships or certification inquiries contact **zeuslab@kaisei.com.mx** or visit [zeuslab.kaisei.com.mx](https://zeuslab.kaisei.com.mx).
+- **Your applications remain yours.** Using Evermore does not transfer ownership of a developer's or organization's original application code, product content or business IP to Armando Betancourt, except where a separate written agreement expressly says otherwise.
+
+No right to redistribute, sublicense, white-label, resell, commercially host, or represent third-party training/certification as officially authorized Evermore training is granted without written authorization.
+
+This section summarizes the project's licensing policy and does not replace a definitive Evermore license/EULA or a signed commercial agreement. Commercial or institutional terms may be updated as Evermore moves toward public release.
 
 ---
 
@@ -753,7 +778,7 @@ The source should describe enduring product and system intent. Targets can evolv
 
 ## Status
 
-**Experimental · Pre-alpha · roadmap M0–M9 complete with executable evidence**
+**Experimental · Pre-alpha · M0–M9 research roadmap complete · M10 core language complete with executable evidence**
 
 Do not use Evermore for production systems yet.
 

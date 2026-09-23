@@ -792,6 +792,8 @@ Implementado hoy:
 - builds reales del target generado dentro de CI, incluyendo un showcase M1 de tres pantallas;
 - declaraciones nominales `data` con tipos primitivos y definidos por el usuario;
 - funciones puras tipadas con parámetros, returns declarados, `let` local inferido, precedencia aritmética y llamadas tipadas;
+- control de flujo tipado con `while`, `for ... in`, `break` y `continue`, incluyendo validación de scope local del loop;
+- lógica booleana con `and`, `or` y `not` unario tipados y precedencia explícita;
 - generación TypeScript estricta de modelos y funciones, validada con `vue-tsc`;
 - semántica full-stack tipada con runtime de servidor Node.js generado;
 - agentes y tools de IA provider-neutral con contexto, budgets, aprobación y evaluaciones deterministas;

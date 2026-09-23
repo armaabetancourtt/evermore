@@ -51,6 +51,21 @@ export type TokenKind =
   | "every"
   | "realtime"
   | "message"
+  | "tool"
+  | "permission"
+  | "agent"
+  | "accepts"
+  | "context"
+  | "include"
+  | "budget"
+  | "tokens"
+  | "cost"
+  | "approval"
+  | "trace"
+  | "evaluation"
+  | "input"
+  | "expected"
+  | "overflow"
   | "screen"
   | "component"
   | "use"
@@ -148,6 +163,21 @@ const keywords = new Map<string, TokenKind>([
   ["every", "every"],
   ["realtime", "realtime"],
   ["message", "message"],
+  ["tool", "tool"],
+  ["permission", "permission"],
+  ["agent", "agent"],
+  ["accepts", "accepts"],
+  ["context", "context"],
+  ["include", "include"],
+  ["budget", "budget"],
+  ["tokens", "tokens"],
+  ["cost", "cost"],
+  ["approval", "approval"],
+  ["trace", "trace"],
+  ["evaluation", "evaluation"],
+  ["input", "input"],
+  ["expected", "expected"],
+  ["overflow", "overflow"],
   ["screen", "screen"],
   ["component", "component"],
   ["use", "use"],

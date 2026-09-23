@@ -1888,14 +1888,54 @@ function inferExpression(
           });
         }
 
+        const genericNames = new Set(
+          constructor.typeParameters.map((parameter) => parameter.name),
+        );
+        const genericConstraints = new Map(
+          constructor.typeParameters
+            .filter((parameter) => parameter.constraintName)
+            .map(
+              (parameter) =>
+                [parameter.name, parameter.constraintName!] as const,
+            ),
+        );
+        const bindings = new Map<string, TypeRef>();
+        const constructorPattern: TypeRef =
+          constructor.typeParameters.length > 0
+            ? {
+                kind: "Applied",
+                name: constructor.name,
+                arguments: constructor.typeParameters.map((parameter) => ({
+                  kind: "Generic",
+                  name: parameter.name,
+                  ...(parameter.constraintName
+                    ? { constraint: parameter.constraintName }
+                    : {}),
+                })),
+              }
+            : { kind: "Named", name: constructor.name };
+
+        if (expected) {
+          bindGenericTypes(
+            constructorPattern,
+            expected,
+            bindings,
+            types,
+          );
+        }
+
         expression.arguments.forEach((argument, index) => {
           const field = constructor.fields[index];
-          const fieldType = field
+          const fieldPattern = field
             ? typeRefFromAnnotation(
                 field.type,
-                new Set(),
+                genericNames,
                 new Set(types.protocolsByName.keys()),
+                genericConstraints,
               )
+            : undefined;
+          const contextualExpected = fieldPattern
+            ? substituteGenerics(fieldPattern, bindings)
             : undefined;
 
           const actual = inferExpression(
@@ -1904,12 +1944,19 @@ function inferExpression(
             signatures,
             types,
             diagnostics,
-            fieldType,
+            contextualExpected,
           );
 
-          if (!actual || !field || !fieldType) return;
+          if (!actual || !field || !fieldPattern) return;
 
-          if (!isAssignable(actual, fieldType, types)) {
+          const compatible = bindGenericTypes(
+            fieldPattern,
+            actual,
+            bindings,
+            types,
+          );
+
+          if (!compatible) {
             diagnostics.push({
               code: "E2231",
               severity: "error",
@@ -1921,7 +1968,9 @@ function inferExpression(
                 '" receives ' +
                 describeType(actual) +
                 " but expects " +
-                describeType(fieldType) +
+                describeType(
+                  substituteGenerics(fieldPattern, bindings),
+                ) +
                 ".",
               span: argument.span,
               help:
@@ -1929,6 +1978,39 @@ function inferExpression(
             });
           }
         });
+
+        const unresolved = constructor.typeParameters.filter(
+          (parameter) => !bindings.has(parameter.name),
+        );
+
+        if (unresolved.length > 0) {
+          diagnostics.push({
+            code: "E2235",
+            severity: "error",
+            message:
+              'Cannot infer generic type ' +
+              unresolved
+                .map((parameter) => '"' + parameter.name + '"')
+                .join(", ") +
+              ' for constructor "' +
+              constructor.name +
+              '".',
+            span: expression.span,
+            help:
+              "Pass field values that determine every generic type, or construct the value where an applied nominal type is expected.",
+          });
+          return undefined;
+        }
+
+        if (constructor.typeParameters.length > 0) {
+          return {
+            kind: "Applied",
+            name: constructor.name,
+            arguments: constructor.typeParameters.map(
+              (parameter) => bindings.get(parameter.name)!,
+            ),
+          };
+        }
 
         return {
           kind: "Named",

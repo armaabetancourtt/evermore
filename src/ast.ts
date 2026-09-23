@@ -25,6 +25,7 @@ export type Program = {
   readonly contexts: readonly ContextDeclaration[];
   readonly agents: readonly AgentDeclaration[];
   readonly evaluations: readonly EvaluationDeclaration[];
+  readonly mobiles: readonly MobileDeclaration[];
   readonly components: readonly ComponentDeclaration[];
   readonly screens: readonly ScreenDeclaration[];
   readonly span: SourceSpan;
@@ -429,6 +430,16 @@ export type EvaluationDeclaration = {
   readonly agentName: string;
   readonly inputFunction: string;
   readonly expectedFunction: string;
+  readonly span: SourceSpan;
+};
+
+export type MobileDeclaration = {
+  readonly kind: "MobileDeclaration";
+  readonly name: string;
+  readonly storage: "memory" | "secure";
+  readonly permissions: readonly string[];
+  readonly network: "online" | "offline-first";
+  readonly nativeExtensions: readonly ("swift" | "kotlin")[];
   readonly span: SourceSpan;
 };
 

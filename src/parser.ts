@@ -32,6 +32,7 @@ import type {
   MatchExpression,
   MemberExpression,
   MethodCallExpression,
+  MobileDeclaration,
   NavigationAction,
   NumberExpression,
   JobDeclaration,
@@ -134,6 +135,7 @@ class Parser {
     const contexts: ContextDeclaration[] = [];
     const agents: AgentDeclaration[] = [];
     const evaluations: EvaluationDeclaration[] = [];
+    const mobiles: MobileDeclaration[] = [];
     const components: ComponentDeclaration[] = [];
     const screens: ScreenDeclaration[] = [];
 
@@ -189,6 +191,11 @@ class Parser {
           continue;
         }
 
+        if (this.check("mobile")) {
+          mobiles.push(this.parseMobile());
+          continue;
+        }
+
         if (this.check("component")) {
           components.push(this.parseComponent());
           continue;
@@ -234,6 +241,7 @@ class Parser {
       contexts,
       agents,
       evaluations,
+      mobiles,
       components,
       screens,
       span: {
@@ -1733,6 +1741,87 @@ class Parser {
     };
   }
 
+  private parseMobile(): MobileDeclaration {
+    const start = this.consume("mobile", "Expected a mobile declaration.");
+    const name = this.consume("identifier", "Expected a mobile target name.");
+    let storage: "memory" | "secure" = "memory";
+    let network: "online" | "offline-first" = "online";
+    const permissions: string[] = [];
+    const nativeExtensions: ("swift" | "kotlin")[] = [];
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.matchWord("storage")) {
+        const value = this.consume("string", "Expected memory or secure storage mode.");
+        const mode = value.value ?? "";
+        if (mode !== "memory" && mode !== "secure") {
+          return this.fail(
+            value,
+            "E1300",
+            'Unknown mobile storage mode "' + mode + '".',
+            "Use memory or secure.",
+          );
+        }
+        storage = mode;
+        continue;
+      }
+
+      if (this.matchWord("permission")) {
+        const value = this.consume("string", "Expected a mobile permission name.");
+        permissions.push(value.value ?? "");
+        continue;
+      }
+
+      if (this.matchWord("network")) {
+        const value = this.consume("string", "Expected online or offline-first network mode.");
+        const mode = value.value ?? "";
+        if (mode !== "online" && mode !== "offline-first") {
+          return this.fail(
+            value,
+            "E1301",
+            'Unknown mobile network mode "' + mode + '".',
+            "Use online or offline-first.",
+          );
+        }
+        network = mode;
+        continue;
+      }
+
+      if (this.matchWord("native")) {
+        const value = this.consume("string", "Expected swift or kotlin native boundary.");
+        const platform = value.value ?? "";
+        if (platform !== "swift" && platform !== "kotlin") {
+          return this.fail(
+            value,
+            "E1302",
+            'Unknown native mobile boundary "' + platform + '".',
+            "Use swift or kotlin.",
+          );
+        }
+        nativeExtensions.push(platform);
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1303",
+        "Expected a mobile option.",
+        'Use storage, permission, network, or native.',
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the mobile declaration.');
+
+    return {
+      kind: "MobileDeclaration",
+      name: name.value ?? name.lexeme,
+      storage,
+      permissions,
+      network,
+      nativeExtensions,
+      span: spanFrom(start, end),
+    };
+  }
+
   private parseComponent(): ComponentDeclaration {
     const start = this.consume("component", "Expected a component declaration.");
     const name = this.consume("identifier", "Expected a component name.");
@@ -2056,7 +2145,13 @@ class Parser {
     return (
       this.check("state") ||
       this.check("title") ||
-      this.isVisualBoundary() ||
+      this.check("text") ||
+      this.check("show") ||
+      this.check("button") ||
+      this.check("stack") ||
+      this.check("use") ||
+      this.check("rbrace") ||
+      this.check("eof") ||
       this.isTopLevelStart()
     );
   }
@@ -2096,6 +2191,7 @@ class Parser {
       this.check("context") ||
       this.check("agent") ||
       this.check("evaluation") ||
+      this.check("mobile") ||
       this.check("component") ||
       this.check("screen")
     );

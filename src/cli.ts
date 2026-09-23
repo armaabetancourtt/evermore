@@ -170,10 +170,20 @@ async function main(): Promise<void> {
 
 function readTarget(args: readonly string[]): CompileTarget {
   const value = readOption(args, "--target") ?? "vue";
-  if (value === "vue" || value === "node" || value === "ai") return value;
+  if (
+    value === "vue" ||
+    value === "node" ||
+    value === "ai" ||
+    value === "react-native" ||
+    value === "flutter"
+  ) {
+    return value;
+  }
 
   throw new Error(
-    'Unknown target "' + value + '". Use vue, node, or ai.',
+    'Unknown target "' +
+      value +
+      '". Use vue, node, ai, react-native, or flutter.',
   );
 }
 
@@ -204,7 +214,7 @@ function printHelp(): void {
       "  evermore check <entry.ever|evermore.json>",
       "  evermore ast <file.ever>",
       "  evermore format <file.ever> [--style natural|explicit] [--write]",
-      "  evermore build <entry.ever|evermore.json> [--target vue|node|ai] [--out directory]",
+      "  evermore build <entry.ever|evermore.json> [--target vue|node|ai|react-native|flutter] [--out directory]",
       "",
       "",
       "Modules:",
@@ -219,7 +229,9 @@ function printHelp(): void {
       "Current backends:",
       "  vue     Vue 3 + Vite application generation",
       "  node    Typed Node.js HTTP server generation",
-      "  ai      Provider-neutral agent runtime + deterministic evaluation harness",
+      "  ai           Provider-neutral agent runtime + deterministic evaluation harness",
+      "  react-native React Native mobile application generation",
+      "  flutter      Flutter backend experiment",
     ].join("\n"),
   );
 }

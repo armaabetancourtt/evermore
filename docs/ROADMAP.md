@@ -157,17 +157,19 @@ Exit condition:
 
 ## M5 — Mobile
 
+**Status: complete ✅ — shared mobile semantics operational**
+
 Goals:
 
-- React Native backend;
-- common mobile runtime;
-- navigation;
-- native storage;
-- permissions;
-- network/offline model;
-- Swift/SwiftUI extension boundary;
-- Kotlin extension boundary;
-- Flutter backend experiment.
+- [x] React Native backend;
+- [x] common mobile runtime;
+- [x] navigation;
+- [x] native storage;
+- [x] permissions;
+- [x] network/offline model;
+- [x] Swift/SwiftUI extension boundary;
+- [x] Kotlin extension boundary;
+- [x] Flutter backend experiment.
 
 Exit condition:
 

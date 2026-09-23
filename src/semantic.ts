@@ -6,6 +6,7 @@ import type {
   ContextDeclaration,
   DataDeclaration,
   EvaluationDeclaration,
+  MobileDeclaration,
   Program,
   ProtocolDeclaration,
   ScreenDeclaration,
@@ -40,6 +41,7 @@ export type SemanticModel = {
   readonly contextsByName: ReadonlyMap<string, ContextDeclaration>;
   readonly agentsByName: ReadonlyMap<string, AgentDeclaration>;
   readonly evaluationsByName: ReadonlyMap<string, EvaluationDeclaration>;
+  readonly mobilesByName: ReadonlyMap<string, MobileDeclaration>;
   readonly componentsByName: ReadonlyMap<string, ComponentDeclaration>;
 };
 
@@ -58,6 +60,7 @@ export function analyze(program: Program): {
   const contexts = new Map<string, ContextDeclaration>();
   const agents = new Map<string, AgentDeclaration>();
   const evaluations = new Map<string, EvaluationDeclaration>();
+  const mobiles = new Map<string, MobileDeclaration>();
   const components = new Map<string, ComponentDeclaration>();
 
   for (const declaration of program.data) {
@@ -1631,6 +1634,72 @@ export function analyze(program: Program): {
     }
   }
 
+  for (const mobile of program.mobiles) {
+    if (mobiles.has(mobile.name)) {
+      diagnostics.push({
+        code: "E2900",
+        severity: "error",
+        message: 'Mobile target "' + mobile.name + '" is declared more than once.',
+        span: mobile.span,
+        help: "Give each mobile declaration a unique name.",
+      });
+      continue;
+    }
+
+    mobiles.set(mobile.name, mobile);
+
+    const permissions = new Set<string>();
+    for (const permission of mobile.permissions) {
+      if (permissions.has(permission)) {
+        diagnostics.push({
+          code: "E2901",
+          severity: "error",
+          message:
+            'Mobile target "' +
+            mobile.name +
+            '" declares permission "' +
+            permission +
+            '" more than once.',
+          span: mobile.span,
+          help: "Keep each mobile permission once.",
+        });
+      }
+      permissions.add(permission);
+    }
+
+    const boundaries = new Set<string>();
+    for (const platform of mobile.nativeExtensions) {
+      if (boundaries.has(platform)) {
+        diagnostics.push({
+          code: "E2902",
+          severity: "error",
+          message:
+            'Mobile target "' +
+            mobile.name +
+            '" declares native boundary "' +
+            platform +
+            '" more than once.',
+          span: mobile.span,
+          help: "Keep each native specialization boundary once.",
+        });
+      }
+      boundaries.add(platform);
+    }
+
+    if (program.screens.length === 0) {
+      diagnostics.push({
+        code: "E2903",
+        severity: "error",
+        message:
+          'Mobile target "' +
+          mobile.name +
+          '" requires at least one screen.',
+        span: mobile.span,
+        help: "Declare a screen shared by the web/mobile semantic model.",
+      });
+    }
+  }
+
   for (const component of program.components) {
     if (components.has(component.name)) {
       diagnostics.push({
@@ -1718,6 +1787,7 @@ export function analyze(program: Program): {
             contextsByName: contexts,
             agentsByName: agents,
             evaluationsByName: evaluations,
+            mobilesByName: mobiles,
             componentsByName: components,
           },
         }),

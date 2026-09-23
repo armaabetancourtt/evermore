@@ -10,6 +10,7 @@ import type {
   Expression,
   FunctionDeclaration,
   FunctionStatement,
+  MobileDeclaration,
   Program,
   ProtocolDeclaration,
   ScreenDeclaration,
@@ -59,6 +60,7 @@ export function formatProgram(
     ...program.evaluations.map((evaluation) =>
       formatEvaluation(evaluation),
     ),
+    ...program.mobiles.map((mobile) => formatMobile(mobile)),
     ...program.components.map((component) =>
       formatComponent(component, style),
     ),
@@ -354,6 +356,23 @@ function formatEvaluation(
     evaluation.expectedFunction +
     "\nend"
   );
+}
+
+function formatMobile(mobile: MobileDeclaration): string {
+  const lines = [
+    indent(1) + "storage " + JSON.stringify(mobile.storage),
+    ...mobile.permissions.map(
+      (permission) =>
+        indent(1) + "permission " + JSON.stringify(permission),
+    ),
+    indent(1) + "network " + JSON.stringify(mobile.network),
+    ...mobile.nativeExtensions.map(
+      (platform) =>
+        indent(1) + "native " + JSON.stringify(platform),
+    ),
+  ];
+
+  return "mobile " + mobile.name + "\n\n" + lines.join("\n") + "\nend";
 }
 
 function formatTypeAnnotation(

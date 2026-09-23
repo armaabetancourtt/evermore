@@ -6,6 +6,7 @@ import process from "node:process";
 import {
   compilePackage,
   compileProject,
+  type CompileTarget,
 } from "./compiler.js";
 import {
   EvermoreDiagnosticError,
@@ -122,18 +123,19 @@ async function main(): Promise<void> {
 
     case "build": {
       const out = readOption(rest, "--out") ?? "evermore-build";
+      const target = readTarget(rest);
       const readSource = (filePath: string) =>
         readFile(filePath, "utf8");
       const result = packageInput
         ? await compilePackage(
             absoluteSource,
             readSource,
-            { target: "vue" },
+            { target },
           )
         : await compileProject(
             absoluteSource,
             readSource,
-            { target: "vue" },
+            { target },
           );
 
       for (const diagnostic of result.diagnostics) {
@@ -166,6 +168,15 @@ async function main(): Promise<void> {
   }
 }
 
+function readTarget(args: readonly string[]): CompileTarget {
+  const value = readOption(args, "--target") ?? "vue";
+  if (value === "vue" || value === "node") return value;
+
+  throw new Error(
+    'Unknown target "' + value + '". Use vue or node.',
+  );
+}
+
 function readFormatStyle(args: readonly string[]): FormatStyle {
   const value = readOption(args, "--style") ?? "natural";
 
@@ -193,7 +204,7 @@ function printHelp(): void {
       "  evermore check <entry.ever|evermore.json>",
       "  evermore ast <file.ever>",
       "  evermore format <file.ever> [--style natural|explicit] [--write]",
-      "  evermore build <entry.ever|evermore.json> [--out directory]",
+      "  evermore build <entry.ever|evermore.json> [--target vue|node] [--out directory]",
       "",
       "",
       "Modules:",
@@ -205,8 +216,9 @@ function printHelp(): void {
       "  evermore.json declares name, exact version, entry, and local dependencies",
       '  package import example: import "shared/models"',
       "",
-      "Current backend:",
-      "  vue    Vue 3 + Vite application generation",
+      "Current backends:",
+      "  vue     Vue 3 + Vite application generation",
+      "  node    Typed Node.js HTTP server generation",
     ].join("\n"),
   );
 }

@@ -1,0 +1,65 @@
+app "Atlas Full Stack"
+
+data User
+  id text
+  name text
+end
+
+data CreateUser
+  name text
+end
+
+function listUsers
+  returns list of User
+  return []
+end
+
+function createUser
+  takes input CreateUser
+  returns User
+  return User("generated-user", input.name)
+end
+
+function nightlyMaintenance
+  returns text
+  return "ok"
+end
+
+server Api
+  port 4100
+
+  endpoint GET "/users"
+    returns list of User
+    uses listUsers
+    auth public
+  end
+
+  endpoint POST "/users"
+    takes CreateUser
+    returns User
+    uses createUser
+    auth bearer
+  end
+
+  database Primary postgres
+    connection "DATABASE_URL"
+  end
+
+  repository Users
+    model User
+    using Primary
+  end
+
+  job NightlyMaintenance
+    every "0 2 * * *"
+    uses nightlyMaintenance
+  end
+
+  realtime UserEvents
+    message User
+  end
+end
+
+screen Home
+  title "One source, web + Node"
+  text "Shared Evermore contracts generate both product UI and server artifacts."

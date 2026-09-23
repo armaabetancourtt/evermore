@@ -11,6 +11,7 @@ import type {
   ProtocolDeclaration,
   ScreenDeclaration,
   ScreenStatement,
+  ServerDeclaration,
   StackStatement,
   TypeAnnotation,
 } from "./ast.js";
@@ -44,6 +45,9 @@ export function formatProgram(
     ),
     ...program.functions.map((fn) =>
       formatFunction(fn, style),
+    ),
+    ...program.servers.map((server) =>
+      formatServer(server, style),
     ),
     ...program.components.map((component) =>
       formatComponent(component, style),
@@ -147,6 +151,129 @@ function formatClass(
     "\n" +
     (body ? "\n" + body + "\n" : "") +
     "end"
+  );
+}
+
+function formatServer(
+  server: ServerDeclaration,
+  style: FormatStyle,
+): string {
+  const lines: string[] = [indent(1) + "port " + server.port];
+
+  for (const endpoint of server.endpoints) {
+    const body = [
+      ...(endpoint.requestType
+        ? [
+            indent(2) +
+              "takes " +
+              formatTypeAnnotation(endpoint.requestType),
+          ]
+        : []),
+      indent(2) +
+        "returns " +
+        formatTypeAnnotation(endpoint.responseType),
+      indent(2) + "uses " + endpoint.handler,
+      indent(2) + "auth " + endpoint.auth,
+    ];
+
+    lines.push(
+      indent(1) +
+        "endpoint " +
+        endpoint.method +
+        " " +
+        JSON.stringify(endpoint.path) +
+        "\n" +
+        body.join("\n") +
+        "\n" +
+        indent(1) +
+        "end",
+    );
+  }
+
+  for (const database of server.databases) {
+    lines.push(
+      indent(1) +
+        "database " +
+        database.name +
+        " postgres\n" +
+        indent(2) +
+        "connection " +
+        JSON.stringify(database.connectionEnv) +
+        "\n" +
+        indent(1) +
+        "end",
+    );
+  }
+
+  for (const repository of server.repositories) {
+    lines.push(
+      indent(1) +
+        "repository " +
+        repository.name +
+        "\n" +
+        indent(2) +
+        "model " +
+        repository.modelName +
+        "\n" +
+        indent(2) +
+        "using " +
+        repository.databaseName +
+        "\n" +
+        indent(1) +
+        "end",
+    );
+  }
+
+  for (const job of server.jobs) {
+    lines.push(
+      indent(1) +
+        "job " +
+        job.name +
+        "\n" +
+        indent(2) +
+        "every " +
+        JSON.stringify(job.schedule) +
+        "\n" +
+        indent(2) +
+        "uses " +
+        job.handler +
+        "\n" +
+        indent(1) +
+        "end",
+    );
+  }
+
+  for (const channel of server.realtime) {
+    lines.push(
+      indent(1) +
+        "realtime " +
+        channel.name +
+        "\n" +
+        indent(2) +
+        "message " +
+        formatTypeAnnotation(channel.messageType) +
+        "\n" +
+        indent(1) +
+        "end",
+    );
+  }
+
+  if (style === "explicit") {
+    return (
+      "server " +
+      server.name +
+      " {\n" +
+      lines.join("\n") +
+      "\n}"
+    );
+  }
+
+  return (
+    "server " +
+    server.name +
+    "\n\n" +
+    lines.join("\n\n") +
+    "\nend"
   );
 }
 

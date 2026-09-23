@@ -174,6 +174,7 @@ export async function loadProject(
     protocols: ordered.flatMap((unit) => unit.program.protocols),
     choices: ordered.flatMap((unit) => unit.program.choices),
     functions: ordered.flatMap((unit) => unit.program.functions),
+    servers: ordered.flatMap((unit) => unit.program.servers),
     components: ordered.flatMap((unit) => unit.program.components),
     screens: ordered.flatMap((unit) => unit.program.screens),
     span: root.span,

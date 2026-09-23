@@ -20,6 +20,7 @@ export type Program = {
   readonly protocols: readonly ProtocolDeclaration[];
   readonly choices: readonly ChoiceDeclaration[];
   readonly functions: readonly FunctionDeclaration[];
+  readonly servers: readonly ServerDeclaration[];
   readonly components: readonly ComponentDeclaration[];
   readonly screens: readonly ScreenDeclaration[];
   readonly span: SourceSpan;
@@ -325,6 +326,62 @@ export type CallExpression = {
   readonly kind: "CallExpression";
   readonly callee: string;
   readonly arguments: readonly Expression[];
+  readonly span: SourceSpan;
+};
+
+export type ServerDeclaration = {
+  readonly kind: "ServerDeclaration";
+  readonly name: string;
+  readonly port: number;
+  readonly endpoints: readonly EndpointDeclaration[];
+  readonly databases: readonly DatabaseDeclaration[];
+  readonly repositories: readonly RepositoryDeclaration[];
+  readonly jobs: readonly JobDeclaration[];
+  readonly realtime: readonly RealtimeDeclaration[];
+  readonly span: SourceSpan;
+};
+
+export type HttpMethod =
+  | "GET"
+  | "POST"
+  | "PUT"
+  | "PATCH"
+  | "DELETE";
+
+export type EndpointDeclaration = {
+  readonly method: HttpMethod;
+  readonly path: string;
+  readonly requestType?: TypeAnnotation;
+  readonly responseType: TypeAnnotation;
+  readonly handler: string;
+  readonly auth: "public" | "bearer";
+  readonly span: SourceSpan;
+};
+
+export type DatabaseDeclaration = {
+  readonly name: string;
+  readonly engine: "postgres";
+  readonly connectionEnv: string;
+  readonly span: SourceSpan;
+};
+
+export type RepositoryDeclaration = {
+  readonly name: string;
+  readonly modelName: string;
+  readonly databaseName: string;
+  readonly span: SourceSpan;
+};
+
+export type JobDeclaration = {
+  readonly name: string;
+  readonly schedule: string;
+  readonly handler: string;
+  readonly span: SourceSpan;
+};
+
+export type RealtimeDeclaration = {
+  readonly name: string;
+  readonly messageType: TypeAnnotation;
   readonly span: SourceSpan;
 };
 

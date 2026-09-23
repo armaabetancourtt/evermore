@@ -17,6 +17,7 @@ export type IRProgram = {
   readonly protocols: readonly IRProtocol[];
   readonly choices: readonly IRChoice[];
   readonly functions: readonly IRFunction[];
+  readonly servers: readonly IRServer[];
   readonly screens: readonly IRScreen[];
 };
 
@@ -249,6 +250,48 @@ export type IRCallExpression = {
   readonly arguments: readonly IRExpression[];
 };
 
+export type IRServer = {
+  readonly name: string;
+  readonly port: number;
+  readonly endpoints: readonly IREndpoint[];
+  readonly databases: readonly IRDatabase[];
+  readonly repositories: readonly IRRepository[];
+  readonly jobs: readonly IRJob[];
+  readonly realtime: readonly IRRealtime[];
+};
+
+export type IREndpoint = {
+  readonly method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  readonly path: string;
+  readonly requestType?: TypeRef;
+  readonly responseType: TypeRef;
+  readonly handler: string;
+  readonly auth: "public" | "bearer";
+};
+
+export type IRDatabase = {
+  readonly name: string;
+  readonly engine: "postgres";
+  readonly connectionEnv: string;
+};
+
+export type IRRepository = {
+  readonly name: string;
+  readonly modelName: string;
+  readonly databaseName: string;
+};
+
+export type IRJob = {
+  readonly name: string;
+  readonly schedule: string;
+  readonly handler: string;
+};
+
+export type IRRealtime = {
+  readonly name: string;
+  readonly messageType: TypeRef;
+};
+
 export type IRScreen = {
   readonly id: string;
   readonly title?: string;
@@ -402,6 +445,53 @@ export function lowerToIR(model: SemanticModel): IRProgram {
         ),
       };
     }),
+    servers: model.program.servers.map((server) => ({
+      name: server.name,
+      port: server.port,
+      endpoints: server.endpoints.map((endpoint) => ({
+        method: endpoint.method,
+        path: endpoint.path,
+        ...(endpoint.requestType
+          ? {
+              requestType: typeRefFromAnnotation(
+                endpoint.requestType,
+                new Set(),
+                new Set(model.protocolsByName.keys()),
+              ),
+            }
+          : {}),
+        responseType: typeRefFromAnnotation(
+          endpoint.responseType,
+          new Set(),
+          new Set(model.protocolsByName.keys()),
+        ),
+        handler: endpoint.handler,
+        auth: endpoint.auth,
+      })),
+      databases: server.databases.map((database) => ({
+        name: database.name,
+        engine: database.engine,
+        connectionEnv: database.connectionEnv,
+      })),
+      repositories: server.repositories.map((repository) => ({
+        name: repository.name,
+        modelName: repository.modelName,
+        databaseName: repository.databaseName,
+      })),
+      jobs: server.jobs.map((job) => ({
+        name: job.name,
+        schedule: job.schedule,
+        handler: job.handler,
+      })),
+      realtime: server.realtime.map((channel) => ({
+        name: channel.name,
+        messageType: typeRefFromAnnotation(
+          channel.messageType,
+          new Set(),
+          new Set(model.protocolsByName.keys()),
+        ),
+      })),
+    })),
     screens: model.program.screens.map((screen) => {
       const title = screen.body.find(
         (statement) => statement.kind === "TitleStatement",

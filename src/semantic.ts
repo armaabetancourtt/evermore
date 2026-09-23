@@ -6,6 +6,7 @@ import type {
   Program,
   ProtocolDeclaration,
   ScreenDeclaration,
+  ServerDeclaration,
   StateDeclaration,
   TypeAnnotation,
   UseStatement,
@@ -30,6 +31,7 @@ export type SemanticModel = {
   readonly functionsByName: ReadonlyMap<string, Program["functions"][number]>;
   readonly functionSignaturesByName: ReadonlyMap<string, FunctionSignature>;
   readonly screensByName: ReadonlyMap<string, ScreenDeclaration>;
+  readonly serversByName: ReadonlyMap<string, ServerDeclaration>;
   readonly componentsByName: ReadonlyMap<string, ComponentDeclaration>;
 };
 
@@ -43,6 +45,7 @@ export function analyze(program: Program): {
   const protocolsByName = new Map<string, ProtocolDeclaration>();
   const choicesByName = new Map<string, ChoiceDeclaration>();
   const screens = new Map<string, ScreenDeclaration>();
+  const servers = new Map<string, ServerDeclaration>();
   const components = new Map<string, ComponentDeclaration>();
 
   for (const declaration of program.data) {
@@ -926,6 +929,307 @@ export function analyze(program: Program): {
     );
   }
 
+  for (const server of program.servers) {
+    if (servers.has(server.name)) {
+      diagnostics.push({
+        code: "E2700",
+        severity: "error",
+        message: 'Server "' + server.name + '" is declared more than once.',
+        span: server.span,
+        help: "Give each server a unique name.",
+      });
+      continue;
+    }
+
+    servers.set(server.name, server);
+
+    if (
+      !Number.isInteger(server.port) ||
+      server.port < 1 ||
+      server.port > 65535
+    ) {
+      diagnostics.push({
+        code: "E2701",
+        severity: "error",
+        message:
+          'Server "' +
+          server.name +
+          '" uses invalid port ' +
+          server.port +
+          ".",
+        span: server.span,
+        help: "Use an integer port between 1 and 65535.",
+      });
+    }
+
+    const endpointKeys = new Set<string>();
+
+    for (const endpoint of server.endpoints) {
+      const key = endpoint.method + " " + endpoint.path;
+
+      if (endpointKeys.has(key)) {
+        diagnostics.push({
+          code: "E2702",
+          severity: "error",
+          message: 'Endpoint "' + key + '" is declared more than once.',
+          span: endpoint.span,
+          help: "Keep each HTTP method/path pair unique per server.",
+        });
+      } else {
+        endpointKeys.add(key);
+      }
+
+      const requestUnknown = endpoint.requestType
+        ? findUnknownType(
+            endpoint.requestType,
+            dataByName,
+            classesByName,
+            choicesByName,
+          )
+        : undefined;
+      const responseUnknown = findUnknownType(
+        endpoint.responseType,
+        dataByName,
+        classesByName,
+        choicesByName,
+      );
+
+      if (requestUnknown || responseUnknown) {
+        diagnostics.push({
+          code: "E2703",
+          severity: "error",
+          message:
+            'Endpoint "' +
+            key +
+            '" references unknown contract type "' +
+            (requestUnknown ?? responseUnknown) +
+            '".',
+          span: endpoint.span,
+          help: "Declare the request/response type in Evermore first.",
+        });
+      }
+
+      const handler = functionTypes.functionsByName.get(endpoint.handler);
+
+      if (!handler) {
+        diagnostics.push({
+          code: "E2704",
+          severity: "error",
+          message:
+            'Endpoint "' +
+            key +
+            '" uses unknown function "' +
+            endpoint.handler +
+            '".',
+          span: endpoint.span,
+          help: "Declare the handler as a top-level function.",
+        });
+        continue;
+      }
+
+      const expectedParameters = endpoint.requestType ? 1 : 0;
+
+      if (handler.parameters.length !== expectedParameters) {
+        diagnostics.push({
+          code: "E2705",
+          severity: "error",
+          message:
+            'Endpoint handler "' +
+            handler.name +
+            '" must take ' +
+            expectedParameters +
+            " request argument(s).",
+          span: endpoint.span,
+          help:
+            "No-body endpoints use a zero-argument function; endpoints with takes <Type> use exactly one argument.",
+        });
+      } else if (
+        endpoint.requestType &&
+        handler.parameters[0] &&
+        !sameTypeAnnotation(
+          handler.parameters[0].type,
+          endpoint.requestType,
+        )
+      ) {
+        diagnostics.push({
+          code: "E2706",
+          severity: "error",
+          message:
+            'Endpoint handler "' +
+            handler.name +
+            '" request type does not match its takes contract.',
+          span: endpoint.span,
+          help: "Use the same Evermore type in the endpoint and handler.",
+        });
+      }
+
+      if (!sameTypeAnnotation(handler.returnType, endpoint.responseType)) {
+        diagnostics.push({
+          code: "E2707",
+          severity: "error",
+          message:
+            'Endpoint handler "' +
+            handler.name +
+            '" return type does not match the endpoint response contract.',
+          span: endpoint.span,
+          help: "Use the same returns type in the endpoint and handler.",
+        });
+      }
+    }
+
+    const databaseNames = new Set<string>();
+
+    for (const database of server.databases) {
+      if (databaseNames.has(database.name)) {
+        diagnostics.push({
+          code: "E2710",
+          severity: "error",
+          message:
+            'Database "' +
+            database.name +
+            '" is declared more than once in server "' +
+            server.name +
+            '".',
+          span: database.span,
+          help: "Give each database a unique name.",
+        });
+      }
+      databaseNames.add(database.name);
+    }
+
+    const repositoryNames = new Set<string>();
+
+    for (const repository of server.repositories) {
+      if (repositoryNames.has(repository.name)) {
+        diagnostics.push({
+          code: "E2711",
+          severity: "error",
+          message:
+            'Repository "' +
+            repository.name +
+            '" is declared more than once.',
+          span: repository.span,
+          help: "Give each repository a unique name.",
+        });
+      }
+      repositoryNames.add(repository.name);
+
+      if (
+        !dataByName.has(repository.modelName) &&
+        !classesByName.has(repository.modelName)
+      ) {
+        diagnostics.push({
+          code: "E2712",
+          severity: "error",
+          message:
+            'Repository "' +
+            repository.name +
+            '" references unknown model "' +
+            repository.modelName +
+            '".',
+          span: repository.span,
+          help: "Repositories must target a declared data or class type.",
+        });
+      }
+
+      if (!databaseNames.has(repository.databaseName)) {
+        diagnostics.push({
+          code: "E2713",
+          severity: "error",
+          message:
+            'Repository "' +
+            repository.name +
+            '" references unknown database "' +
+            repository.databaseName +
+            '".',
+          span: repository.span,
+          help: "Declare the database before the repository.",
+        });
+      }
+    }
+
+    const jobNames = new Set<string>();
+
+    for (const job of server.jobs) {
+      if (jobNames.has(job.name)) {
+        diagnostics.push({
+          code: "E2720",
+          severity: "error",
+          message: 'Job "' + job.name + '" is declared more than once.',
+          span: job.span,
+          help: "Give each background job a unique name.",
+        });
+      }
+      jobNames.add(job.name);
+
+      const handler = functionTypes.functionsByName.get(job.handler);
+      if (!handler) {
+        diagnostics.push({
+          code: "E2721",
+          severity: "error",
+          message:
+            'Job "' +
+            job.name +
+            '" uses unknown function "' +
+            job.handler +
+            '".',
+          span: job.span,
+          help: "Declare the job handler as a top-level function.",
+        });
+      } else if (handler.parameters.length !== 0) {
+        diagnostics.push({
+          code: "E2722",
+          severity: "error",
+          message:
+            'Job handler "' +
+            job.handler +
+            '" must take zero arguments.',
+          span: job.span,
+          help: "Background jobs are scheduled without request parameters.",
+        });
+      }
+    }
+
+    const realtimeNames = new Set<string>();
+
+    for (const channel of server.realtime) {
+      if (realtimeNames.has(channel.name)) {
+        diagnostics.push({
+          code: "E2730",
+          severity: "error",
+          message:
+            'Realtime channel "' +
+            channel.name +
+            '" is declared more than once.',
+          span: channel.span,
+          help: "Give each realtime channel a unique name.",
+        });
+      }
+      realtimeNames.add(channel.name);
+
+      const unknown = findUnknownType(
+        channel.messageType,
+        dataByName,
+        classesByName,
+        choicesByName,
+      );
+      if (unknown) {
+        diagnostics.push({
+          code: "E2731",
+          severity: "error",
+          message:
+            'Realtime channel "' +
+            channel.name +
+            '" references unknown message type "' +
+            unknown +
+            '".',
+          span: channel.span,
+          help: "Declare the realtime message contract first.",
+        });
+      }
+    }
+  }
+
   for (const component of program.components) {
     if (components.has(component.name)) {
       diagnostics.push({
@@ -1008,6 +1312,7 @@ export function analyze(program: Program): {
             functionsByName: functionTypes.functionsByName,
             functionSignaturesByName: functionTypes.signaturesByName,
             screensByName: screens,
+            serversByName: servers,
             componentsByName: components,
           },
         }),

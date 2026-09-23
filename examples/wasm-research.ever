@@ -1,0 +1,18 @@
+app "Evermore WASM Research"
+
+function add
+  takes left number
+  takes right number
+  returns number
+  return left + right
+end
+
+function scaled
+  takes value number
+  returns number
+  return value * 2
+end
+
+screen Home
+  title "Native compilation research"
+  text "Pure numeric functions can be lowered to executable WebAssembly."

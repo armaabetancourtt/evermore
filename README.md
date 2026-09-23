@@ -531,7 +531,7 @@ Advanced styling remains possible, but beautiful and usable should be the defaul
 
 # Current implementation
 
-Evermore has completed **M0: compiler foundation** and the executable **M1: human syntax + web vertical slice**.
+Evermore's current research roadmap, **M0 through M9**, is implemented with executable evidence. The project remains pre-alpha: milestone completion means the planned semantics, targets and research prototypes exist and are tested; it does not mean production stability.
 
 Implemented today:
 
@@ -551,7 +551,14 @@ Implemented today:
 - generated-target builds in CI, including a three-screen M1 showcase;
 - nominal `data` declarations with primitive and user-defined types;
 - pure typed functions with parameters, declared returns, inferred local `let`, arithmetic precedence and typed calls;
-- strict TypeScript generation for models and functions, validated by `vue-tsc`.
+- strict TypeScript generation for models and functions, validated by `vue-tsc`;
+- typed full-stack semantics with a generated Node.js server runtime;
+- provider-neutral AI agents, tools, context/budget controls, approval boundaries and deterministic evaluations;
+- shared mobile semantics with React Native generation, Swift/Kotlin native boundaries and a Flutter experiment;
+- typed datasets, arrays, Python bridges and reproducible scientific pipelines;
+- inspectable Docker/Kubernetes deployment planning with health/readiness, external secrets, rollback metadata and guarded apply;
+- compiler-backed LSP/editor tooling, documentation generation, registry design and Playground/Studio research prototypes;
+- conservative IR optimization, instrumented incremental compilation and executable WebAssembly research for pure numeric functions.
 
 A complete executable example now looks like:
 
@@ -618,7 +625,7 @@ Vue/Vite backend
 npm install + production target build
 ~~~
 
-The repository still does **not** claim implemented AI, mobile, Python/data or infrastructure support. Those remain later milestones until executable evidence exists.
+CI now exercises the implemented web, server, AI, mobile, data, infrastructure, tooling and WebAssembly-research surfaces. These remain pre-alpha capabilities and are not a production-readiness claim.
 
 See [examples/showcase.ever](examples/showcase.ever) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -709,8 +716,11 @@ Python bridge, datasets, reproducible pipelines, numerical semantics and model e
 ### M7 — Infrastructure
 Docker packaging, deployment planning, Kubernetes generation, health, observability and secrets.
 
-### M8 — Optimization and research
-IR optimization, performance studies, security analysis, language-server tooling and broader backend research.
+### M8 — Tooling and ecosystem
+Language Server Protocol, diagnostics, formatting, semantic tokens, rename refactoring, documentation generation, registry design and Playground/Studio research prototypes.
+
+### M9 — Performance and native compilation research
+IR optimization, incremental compilation evidence, executable WebAssembly specialization and explicit LLVM/native-runtime research decisions.
 
 ---
 
@@ -741,7 +751,7 @@ The source should describe enduring product and system intent. Targets can evolv
 
 ## Status
 
-**Experimental · Pre-alpha · M1 complete; M2 typed core underway**
+**Experimental · Pre-alpha · roadmap M0–M9 complete with executable evidence**
 
 Do not use Evermore for production systems yet.
 

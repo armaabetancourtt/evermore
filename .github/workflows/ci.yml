@@ -566,3 +566,26 @@ jobs:
           test -f studio/index.html
           test -f docs/PACKAGE_REGISTRY.md
           test -f src/tooling/lsp-server.ts
+
+
+      - name: Check M9 WebAssembly research example
+        run: npm run evermore -- check examples/wasm-research.ever
+
+      - name: Generate M9 WebAssembly research target
+        run: npm run evermore -- build examples/wasm-research.ever --target wasm --out /tmp/evermore-wasm
+
+      - name: Verify M9 WebAssembly artifacts
+        run: |
+          test -f /tmp/evermore-wasm/evermore.wasm.json
+          test -f /tmp/evermore-wasm/run.mjs
+          grep -q '"target": "wasm-research"' /tmp/evermore-wasm/evermore.wasm.json
+          node /tmp/evermore-wasm/run.mjs
+
+      - name: Reproduce M9 performance study
+        run: npm run research:m9 > /tmp/evermore-m9.json
+
+      - name: Verify M9 research evidence
+        run: |
+          grep -q '"benchmark": "m9-incremental-compilation"' /tmp/evermore-m9.json
+          grep -q '"hits": 19' /tmp/evermore-m9.json
+          test -f docs/research/M9_PERFORMANCE_NATIVE.md

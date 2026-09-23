@@ -251,18 +251,18 @@ Goals:
 
 ## M9 — Performance and native compilation research
 
-Potential directions:
+**Status: complete ✅ — executable performance/native research baseline**
 
-- WebAssembly;
-- LLVM;
-- native server runtime;
-- incremental compilation;
-- IR optimization;
-- ahead-of-time specialization.
+Research outcomes:
 
-This milestone is intentionally late.
+- [x] WebAssembly: executable pure-numeric lowering experiment;
+- [x] LLVM: evaluated and explicitly deferred until native workload evidence justifies the toolchain cost;
+- [x] native server runtime: evaluated and deferred while Node remains the operational backend;
+- [x] incremental compilation: instrumented exact-source/target compilation cache;
+- [x] IR optimization: conservative constant folding and compile-time branch elimination;
+- [x] ahead-of-time specialization: numeric functions can be specialized into WebAssembly before execution.
 
-Evermore should prove its semantics and product value before building a custom low-level runtime.
+M9 completion is a research milestone. It records executable prototypes and explicit backend decisions; it does not claim that LLVM or a custom native runtime is production-ready.
 
 ---
 

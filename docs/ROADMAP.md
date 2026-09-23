@@ -101,18 +101,20 @@ Exit condition:
 
 ## M3 — Full-stack semantics
 
+**Status: complete ✅ — shared web/server contracts operational**
+
 Goals:
 
-- server declarations;
-- typed endpoints;
-- shared request/response contracts;
-- Node.js target;
-- validation;
-- authentication abstractions;
-- persistence interfaces;
-- PostgreSQL adapter;
-- background jobs;
-- realtime primitives.
+- [x] server declarations;
+- [x] typed endpoints;
+- [x] shared request/response contracts;
+- [x] Node.js target;
+- [x] validation;
+- [x] authentication abstractions (public/bearer boundary);
+- [x] persistence interfaces;
+- [x] PostgreSQL adapter;
+- [x] background jobs;
+- [x] realtime primitives.
 
 Exit condition:
 

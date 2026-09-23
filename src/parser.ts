@@ -1111,33 +1111,33 @@ class Parser {
       !(explicitBlock && this.check("rbrace")) &&
       !(!explicitBlock && this.check("end"))
     ) {
-      if (this.match("port")) {
+      if (this.matchWord("port")) {
         const value = this.consume("number", "Expected a numeric server port.");
         port = Number(value.value ?? value.lexeme);
         continue;
       }
 
-      if (this.check("endpoint")) {
+      if (this.checkWord("endpoint")) {
         endpoints.push(this.parseEndpoint());
         continue;
       }
 
-      if (this.check("database")) {
+      if (this.checkWord("database")) {
         databases.push(this.parseDatabase());
         continue;
       }
 
-      if (this.check("repository")) {
+      if (this.checkWord("repository")) {
         repositories.push(this.parseRepository());
         continue;
       }
 
-      if (this.check("job")) {
+      if (this.checkWord("job")) {
         jobs.push(this.parseJob());
         continue;
       }
 
-      if (this.check("realtime")) {
+      if (this.checkWord("realtime")) {
         realtime.push(this.parseRealtime());
         continue;
       }
@@ -1168,7 +1168,7 @@ class Parser {
   }
 
   private parseEndpoint(): EndpointDeclaration {
-    const start = this.consume("endpoint", "Expected an endpoint declaration.");
+    const start = this.consumeWord("endpoint", "Expected an endpoint declaration.");
     const method = this.consume("identifier", "Expected an HTTP method.");
     const rawMethod = (method.value ?? method.lexeme).toUpperCase();
     const allowed = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
@@ -1199,13 +1199,13 @@ class Parser {
         continue;
       }
 
-      if (this.match("uses")) {
+      if (this.matchWord("uses")) {
         const fn = this.consume("identifier", "Expected a handler function name.");
         handler = fn.value ?? fn.lexeme;
         continue;
       }
 
-      if (this.match("auth")) {
+      if (this.matchWord("auth")) {
         if (this.match("public")) {
           auth = "public";
           continue;
@@ -1253,13 +1253,13 @@ class Parser {
   }
 
   private parseDatabase(): DatabaseDeclaration {
-    const start = this.consume("database", "Expected a database declaration.");
+    const start = this.consumeWord("database", "Expected a database declaration.");
     const name = this.consume("identifier", "Expected a database name.");
-    this.consume("postgres", 'Expected "postgres" as the M3 database engine.');
+    this.consumeWord("postgres", 'Expected "postgres" as the M3 database engine.');
     let connectionEnv: string | undefined;
 
     while (!this.check("eof") && !this.check("end")) {
-      if (this.match("connection")) {
+      if (this.matchWord("connection")) {
         const value = this.consume("string", "Expected the connection environment variable name.");
         connectionEnv = value.value ?? "";
         continue;
@@ -1292,19 +1292,19 @@ class Parser {
   }
 
   private parseRepository(): RepositoryDeclaration {
-    const start = this.consume("repository", "Expected a repository declaration.");
+    const start = this.consumeWord("repository", "Expected a repository declaration.");
     const name = this.consume("identifier", "Expected a repository name.");
     let modelName: string | undefined;
     let databaseName: string | undefined;
 
     while (!this.check("eof") && !this.check("end")) {
-      if (this.match("model")) {
+      if (this.matchWord("model")) {
         const value = this.consume("identifier", "Expected a data/class model name.");
         modelName = value.value ?? value.lexeme;
         continue;
       }
 
-      if (this.match("using")) {
+      if (this.matchWord("using")) {
         const value = this.consume("identifier", "Expected a database name.");
         databaseName = value.value ?? value.lexeme;
         continue;
@@ -1337,19 +1337,19 @@ class Parser {
   }
 
   private parseJob(): JobDeclaration {
-    const start = this.consume("job", "Expected a job declaration.");
+    const start = this.consumeWord("job", "Expected a job declaration.");
     const name = this.consume("identifier", "Expected a job name.");
     let schedule: string | undefined;
     let handler: string | undefined;
 
     while (!this.check("eof") && !this.check("end")) {
-      if (this.match("every")) {
+      if (this.matchWord("every")) {
         const value = this.consume("string", "Expected a cron schedule string.");
         schedule = value.value ?? "";
         continue;
       }
 
-      if (this.match("uses")) {
+      if (this.matchWord("uses")) {
         const value = this.consume("identifier", "Expected a job handler function.");
         handler = value.value ?? value.lexeme;
         continue;
@@ -1382,12 +1382,12 @@ class Parser {
   }
 
   private parseRealtime(): RealtimeDeclaration {
-    const start = this.consume("realtime", "Expected a realtime declaration.");
+    const start = this.consumeWord("realtime", "Expected a realtime declaration.");
     const name = this.consume("identifier", "Expected a realtime channel name.");
     let messageType: TypeAnnotation | undefined;
 
     while (!this.check("eof") && !this.check("end")) {
-      if (this.match("message")) {
+      if (this.matchWord("message")) {
         messageType = this.parseTypeAnnotation();
         continue;
       }
@@ -1778,6 +1778,26 @@ class Parser {
       this.check("server") ||
       this.check("component") ||
       this.check("screen")
+    );
+  }
+
+  private checkWord(word: string): boolean {
+    return this.check("identifier") && this.peek().lexeme === word;
+  }
+
+  private matchWord(word: string): boolean {
+    if (!this.checkWord(word)) return false;
+    this.advance();
+    return true;
+  }
+
+  private consumeWord(word: string, message: string): Token {
+    if (this.checkWord(word)) return this.advance();
+    return this.fail(
+      this.peek(),
+      "E1001",
+      message,
+      "Review the surrounding Evermore syntax.",
     );
   }
 

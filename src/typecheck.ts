@@ -383,6 +383,47 @@ function validateFunctionStatement(
     return;
   }
 
+  if (statement.kind === "WhileStatement") {
+    const condition = inferExpression(
+      statement.condition,
+      env,
+      signatures,
+      types,
+      diagnostics,
+    );
+    const booleanType = typeRef("boolean");
+
+    if (condition && !sameType(condition, booleanType)) {
+      diagnostics.push({
+        code: "E2240",
+        severity: "error",
+        message:
+          "While condition must be boolean, but found " +
+          describeType(condition) +
+          ".",
+        span: statement.condition.span,
+        help: "Use a boolean expression or comparison as the loop condition.",
+      });
+    }
+
+    const loopEnv = new Map(env);
+    const loopMutableNames = new Set(mutableNames);
+
+    for (const nested of statement.body) {
+      validateFunctionStatement(
+        nested,
+        signature,
+        loopEnv,
+        loopMutableNames,
+        signatures,
+        types,
+        diagnostics,
+      );
+    }
+
+    return;
+  }
+
   const returned = inferExpression(
     statement.expression,
     env,

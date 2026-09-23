@@ -77,6 +77,20 @@ function optimizeStatement(
     };
   }
 
+  if (statement.kind === "ForEach") {
+    return {
+      ...statement,
+      collection: optimizeExpression(statement.collection, stats),
+      body: statement.body.map((nested) =>
+        optimizeStatement(nested, stats),
+      ),
+    };
+  }
+
+  if (statement.kind === "Break" || statement.kind === "Continue") {
+    return statement;
+  }
+
   return {
     ...statement,
     expression: optimizeExpression(statement.expression, stats),

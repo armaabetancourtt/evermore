@@ -19,6 +19,8 @@ El lenguaje se inspira en la claridad de **Swift**, la mentalidad multiplataform
 
 Evermore está en **pre-alpha**. El proyecto separa deliberadamente lo que ya funciona de lo que todavía es dirección de investigación. La ambición puede ser enorme; las afirmaciones deben estar respaldadas por código, tests o experimentos reproducibles.
 
+> **Aviso de propiedad y licenciamiento:** Evermore es tecnología propietaria cuya titularidad corresponde en su totalidad a **Armando Betancourt**. Que el código fuente sea visible públicamente **no** convierte a Evermore en open source ni concede una licencia comercial, de redistribución, capacitación o certificación. Consulta [Propiedad y licenciamiento](#propiedad-y-licenciamiento).
+
 ---
 
 # La tesis
@@ -910,6 +912,26 @@ npm run evermore -- build examples/showcase.ever --out evermore-build
 
 ---
 
+# Propiedad y licenciamiento
+
+**Evermore es tecnología propietaria cuya titularidad corresponde en su totalidad a Armando Betancourt. © 2026 Armando Betancourt. Todos los derechos reservados.**
+
+El proyecto Evermore y su implementación —incluyendo compilador, arquitectura de runtime, IR, código fuente, documentación, tooling, especificaciones, activos de marca y materiales asociados— están bajo control exclusivo de Armando Betancourt. La visibilidad del código fuente o el acceso al repositorio **no** concede una licencia open source, no coloca a Evermore en el dominio público y no autoriza su explotación comercial.
+
+### Modelo de licenciamiento
+
+- **Community / uso individual.** Evermore está pensado para mantenerse accesible para aprendizaje personal, evaluación y experimentación no comercial. Esto no incluye redistribuir la implementación de Evermore, sublicenciarla, revenderla, usarla en producción para una empresa, impartir capacitación pagada, ofrecer certificaciones ni ofrecer Evermore como servicio hospedado/comercial.
+- **Uso comercial y enterprise.** Las empresas y organizaciones que quieran utilizar Evermore en sistemas internos, trabajo para clientes, productos comerciales, workloads de producción o despliegues enterprise requieren una licencia comercial. Las condiciones se cotizan de acuerdo con el alcance. Contacto: **contacto@kaisei.com.mx**.
+- **Educación.** El autoaprendizaje individual entra en el modelo Community. Universidades, escuelas, bootcamps, empresas y otras instituciones que quieran utilizar Evermore dentro de un curso organizado, plan académico, programa de capacitación o esquema de certificación requieren autorización institucional y el licenciamiento aplicable.
+- **Capacitación y certificación oficial.** **ZEUS Lab** es actualmente el **único proveedor autorizado** de cursos oficiales, certificaciones y capacitación profesional de Evermore. Para programas, alianzas o certificaciones: **zeuslab@kaisei.com.mx** · [zeuslab.kaisei.com.mx](https://zeuslab.kaisei.com.mx).
+- **Tus aplicaciones siguen siendo tuyas.** Usar Evermore no transfiere a Armando Betancourt la propiedad del código original de la aplicación, contenido del producto o propiedad intelectual de negocio creada por el desarrollador u organización, salvo que un acuerdo escrito separado establezca expresamente otra cosa.
+
+No se concede el derecho a redistribuir, sublicenciar, hacer white-label, revender, hospedar comercialmente Evermore ni presentar capacitación o certificaciones de terceros como oficialmente autorizadas sin autorización escrita.
+
+Esta sección resume la política de licenciamiento del proyecto y no sustituye una licencia/EULA definitiva de Evermore ni un contrato comercial firmado. Los términos comerciales o institucionales podrán actualizarse conforme Evermore avance hacia su lanzamiento público.
+
+---
+
 # Principios de ingeniería
 
 **Effortless es una restricción de ingeniería, no un slogan.**
@@ -1015,7 +1037,7 @@ Los targets pueden cambiar debajo.
 
 ## Estado
 
-**Experimental · Pre-alpha · roadmap M0–M9 completa con evidencia ejecutable**
+**Experimental · Pre-alpha · roadmap de investigación M0–M9 completa · core del lenguaje M10 completo con evidencia ejecutable**
 
 Todavía no uses Evermore para producción.
 

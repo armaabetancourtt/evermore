@@ -24,17 +24,14 @@ screen Home
   show count
   button "Next"
     opens Details
-end
 
 screen Details
   title "Details"
   button "Back"
     opens Home
-end
 `;
 
 test("parses mobile policy without duplicating screen semantics", () => {
-  console.error("MOBILE_DEBUG_1_START");
   const program = parse(source);
   const mobile = program.mobiles[0];
 
@@ -46,7 +43,6 @@ test("parses mobile policy without duplicating screen semantics", () => {
 });
 
 test("formatter preserves mobile platform policy", () => {
-  console.error("MOBILE_DEBUG_2_START");
   const formatted = formatSource(source);
 
   assert.match(formatted, /mobile ProductMobile/);
@@ -58,7 +54,6 @@ test("formatter preserves mobile platform policy", () => {
 });
 
 test("react-native target emits navigation runtime and native boundaries", () => {
-  console.error("MOBILE_DEBUG_3_START");
   const result = compile(source, { target: "react-native" });
   const paths = new Set(result.files.map((file) => file.path));
   const app = result.files.find((file) => file.path === "src/App.tsx")!;
@@ -83,7 +78,6 @@ test("react-native target emits navigation runtime and native boundaries", () =>
 });
 
 test("flutter target reuses the same screens and mobile policy", () => {
-  console.error("MOBILE_DEBUG_4_START");
   const result = compile(source, { target: "flutter" });
   const main = result.files.find((file) => file.path === "lib/main.dart")!;
   const manifest = result.files.find(
@@ -97,7 +91,6 @@ test("flutter target reuses the same screens and mobile policy", () => {
 });
 
 test("mobile permissions cannot be duplicated", () => {
-  console.error("MOBILE_DEBUG_5_START");
   const invalid = String.raw`
 app "Broken"
 
@@ -123,13 +116,11 @@ screen Home
 });
 
 test("mobile declarations require a shared screen surface", () => {
-  console.error("MOBILE_DEBUG_6_START");
   const invalid = String.raw`
 app "Broken"
 
 mobile App
   storage "memory"
-end
 `;
 
   assert.throws(

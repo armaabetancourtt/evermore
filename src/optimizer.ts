@@ -106,9 +106,16 @@ function optimizeExpression(
     case "String":
     case "Boolean":
     case "None":
-    case "ChoiceCase":
     case "Identifier":
       return expression;
+
+    case "ChoiceCase":
+      return expression.payload
+        ? {
+            ...expression,
+            payload: optimizeExpression(expression.payload, stats),
+          }
+        : expression;
 
     case "List":
       return {

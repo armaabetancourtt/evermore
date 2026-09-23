@@ -170,10 +170,10 @@ async function main(): Promise<void> {
 
 function readTarget(args: readonly string[]): CompileTarget {
   const value = readOption(args, "--target") ?? "vue";
-  if (value === "vue" || value === "node") return value;
+  if (value === "vue" || value === "node" || value === "ai") return value;
 
   throw new Error(
-    'Unknown target "' + value + '". Use vue or node.',
+    'Unknown target "' + value + '". Use vue, node, or ai.',
   );
 }
 
@@ -204,7 +204,7 @@ function printHelp(): void {
       "  evermore check <entry.ever|evermore.json>",
       "  evermore ast <file.ever>",
       "  evermore format <file.ever> [--style natural|explicit] [--write]",
-      "  evermore build <entry.ever|evermore.json> [--target vue|node] [--out directory]",
+      "  evermore build <entry.ever|evermore.json> [--target vue|node|ai] [--out directory]",
       "",
       "",
       "Modules:",
@@ -219,6 +219,7 @@ function printHelp(): void {
       "Current backends:",
       "  vue     Vue 3 + Vite application generation",
       "  node    Typed Node.js HTTP server generation",
+      "  ai      Provider-neutral agent runtime + deterministic evaluation harness",
     ].join("\n"),
   );
 }

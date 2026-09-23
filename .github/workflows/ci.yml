@@ -534,3 +534,23 @@ jobs:
           grep -q 'sha256' /tmp/evermore-data/evermore_generated/datasets.py
           grep -q 'random.seed(42)' /tmp/evermore-data/evermore_generated/pipelines.py
           grep -q 'deterministicSeeds' /tmp/evermore-data/evermore.data.json
+
+
+      - name: Check infrastructure example
+        run: npm run evermore -- check examples/infrastructure.ever
+
+      - name: Generate infrastructure plan
+        run: npm run evermore -- build examples/infrastructure.ever --target infra --out /tmp/evermore-infra
+
+      - name: Verify M7 infrastructure artifacts
+        run: |
+          test -f /tmp/evermore-infra/evermore.plan.json
+          test -f /tmp/evermore-infra/deploy/production/Dockerfile
+          test -f /tmp/evermore-infra/deploy/production/kubernetes.yaml
+          test -f /tmp/evermore-infra/deploy/production/plan.sh
+          test -f /tmp/evermore-infra/deploy/production/apply.sh
+          test -f /tmp/evermore-infra/deploy/production/rollback.sh
+          grep -q 'mutationRequiresExplicitApply' /tmp/evermore-infra/evermore.plan.json
+          grep -q 'secretKeyRef' /tmp/evermore-infra/deploy/production/kubernetes.yaml
+          grep -q 'revisionHistoryLimit: 5' /tmp/evermore-infra/deploy/production/kubernetes.yaml
+          grep -q 'EVERMORE_APPLY' /tmp/evermore-infra/deploy/production/apply.sh

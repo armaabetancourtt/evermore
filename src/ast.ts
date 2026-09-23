@@ -30,6 +30,7 @@ export type Program = {
   readonly arrays: readonly ArrayDeclaration[];
   readonly pythonBridges: readonly PythonDeclaration[];
   readonly pipelines: readonly PipelineDeclaration[];
+  readonly deployments: readonly DeploymentDeclaration[];
   readonly components: readonly ComponentDeclaration[];
   readonly screens: readonly ScreenDeclaration[];
   readonly span: SourceSpan;
@@ -481,6 +482,34 @@ export type PipelineDeclaration = {
   readonly evaluateBridge: string;
   readonly seed: number;
   readonly tracking: string;
+  readonly span: SourceSpan;
+};
+
+export type DeploymentEnvironment = {
+  readonly name: string;
+  readonly source: string;
+  readonly span: SourceSpan;
+};
+
+export type DeploymentSecret = {
+  readonly name: string;
+  readonly source: string;
+  readonly span: SourceSpan;
+};
+
+export type DeploymentDeclaration = {
+  readonly kind: "DeploymentDeclaration";
+  readonly name: string;
+  readonly serverName: string;
+  readonly image: string;
+  readonly replicas: number;
+  readonly port: number;
+  readonly healthPath: string;
+  readonly readinessPath: string;
+  readonly environments: readonly DeploymentEnvironment[];
+  readonly secrets: readonly DeploymentSecret[];
+  readonly observability: "basic" | "open-telemetry";
+  readonly rollbackRevisions: number;
   readonly span: SourceSpan;
 };
 

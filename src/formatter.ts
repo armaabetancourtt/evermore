@@ -8,6 +8,7 @@ import type {
   ContextDeclaration,
   DataDeclaration,
   DatasetDeclaration,
+  DeploymentDeclaration,
   EvaluationDeclaration,
   Expression,
   FunctionDeclaration,
@@ -69,6 +70,7 @@ export function formatProgram(
     ...program.arrays.map((array) => formatArray(array)),
     ...program.pythonBridges.map((bridge) => formatPython(bridge)),
     ...program.pipelines.map((pipeline) => formatPipeline(pipeline)),
+    ...program.deployments.map((deployment) => formatDeployment(deployment)),
     ...program.components.map((component) =>
       formatComponent(component, style),
     ),
@@ -452,6 +454,47 @@ function formatPipeline(pipeline: PipelineDeclaration): string {
     indent(1) +
     "tracking " +
     JSON.stringify(pipeline.tracking) +
+    "\nend"
+  );
+}
+
+function formatDeployment(
+  deployment: DeploymentDeclaration,
+): string {
+  const lines = [
+    indent(1) + "server " + deployment.serverName,
+    indent(1) + "image " + JSON.stringify(deployment.image),
+    indent(1) + "replicas " + deployment.replicas,
+    indent(1) + "port " + deployment.port,
+    indent(1) + "health " + JSON.stringify(deployment.healthPath),
+    indent(1) + "readiness " + JSON.stringify(deployment.readinessPath),
+    ...deployment.environments.map(
+      (item) =>
+        indent(1) +
+        "env " +
+        item.name +
+        " " +
+        JSON.stringify(item.source),
+    ),
+    ...deployment.secrets.map(
+      (item) =>
+        indent(1) +
+        "secret " +
+        item.name +
+        " " +
+        JSON.stringify(item.source),
+    ),
+    indent(1) +
+      "observability " +
+      JSON.stringify(deployment.observability),
+    indent(1) + "rollback " + deployment.rollbackRevisions,
+  ];
+
+  return (
+    "deploy " +
+    deployment.name +
+    "\n\n" +
+    lines.join("\n") +
     "\nend"
   );
 }

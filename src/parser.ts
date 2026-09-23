@@ -15,6 +15,7 @@ import type {
   DataDeclaration,
   DatasetDeclaration,
   DataField,
+  DeploymentDeclaration,
   DatabaseDeclaration,
   EndpointDeclaration,
   EvaluationDeclaration,
@@ -144,6 +145,7 @@ class Parser {
     const arrays: ArrayDeclaration[] = [];
     const pythonBridges: PythonDeclaration[] = [];
     const pipelines: PipelineDeclaration[] = [];
+    const deployments: DeploymentDeclaration[] = [];
     const components: ComponentDeclaration[] = [];
     const screens: ScreenDeclaration[] = [];
 
@@ -224,6 +226,11 @@ class Parser {
           continue;
         }
 
+        if (this.check("deploy")) {
+          deployments.push(this.parseDeployment());
+          continue;
+        }
+
         if (this.check("component")) {
           components.push(this.parseComponent());
           continue;
@@ -274,6 +281,7 @@ class Parser {
       arrays,
       pythonBridges,
       pipelines,
+      deployments,
       components,
       screens,
       span: {
@@ -2089,6 +2097,143 @@ class Parser {
     };
   }
 
+  private parseDeployment(): DeploymentDeclaration {
+    const start = this.consume("deploy", "Expected a deployment declaration.");
+    const name = this.consume("identifier", "Expected a deployment name.");
+    let serverName: string | undefined;
+    let image: string | undefined;
+    let replicas = 1;
+    let port: number | undefined;
+    let healthPath = "/health";
+    let readinessPath = "/ready";
+    const environments: {
+      name: string;
+      source: string;
+      span: SourceSpan;
+    }[] = [];
+    const secrets: {
+      name: string;
+      source: string;
+      span: SourceSpan;
+    }[] = [];
+    let observability: "basic" | "open-telemetry" = "basic";
+    let rollbackRevisions = 3;
+
+    while (!this.check("eof") && !this.check("end")) {
+      if (this.match("server")) {
+        const value = this.consume("identifier", "Expected a server declaration name.");
+        serverName = value.value ?? value.lexeme;
+        continue;
+      }
+
+      if (this.matchWord("image")) {
+        const value = this.consume("string", "Expected a container image reference.");
+        image = value.value ?? "";
+        continue;
+      }
+
+      if (this.matchWord("replicas")) {
+        const value = this.consume("number", "Expected a replica count.");
+        replicas = Number(value.value ?? value.lexeme);
+        continue;
+      }
+
+      if (this.matchWord("port")) {
+        const value = this.consume("number", "Expected a container port.");
+        port = Number(value.value ?? value.lexeme);
+        continue;
+      }
+
+      if (this.matchWord("health")) {
+        const value = this.consume("string", "Expected a health path.");
+        healthPath = value.value ?? "";
+        continue;
+      }
+
+      if (this.matchWord("readiness")) {
+        const value = this.consume("string", "Expected a readiness path.");
+        readinessPath = value.value ?? "";
+        continue;
+      }
+
+      if (this.matchWord("env")) {
+        const envName = this.consume("identifier", "Expected an environment variable name.");
+        const source = this.consume("string", "Expected the external environment source name.");
+        environments.push({
+          name: envName.value ?? envName.lexeme,
+          source: source.value ?? "",
+          span: spanFrom(envName, source),
+        });
+        continue;
+      }
+
+      if (this.matchWord("secret")) {
+        const secretName = this.consume("identifier", "Expected a secret variable name.");
+        const source = this.consume("string", "Expected the external secret source name.");
+        secrets.push({
+          name: secretName.value ?? secretName.lexeme,
+          source: source.value ?? "",
+          span: spanFrom(secretName, source),
+        });
+        continue;
+      }
+
+      if (this.matchWord("observability")) {
+        const value = this.consume("string", "Expected basic or open-telemetry.");
+        const mode = value.value ?? "";
+        if (mode !== "basic" && mode !== "open-telemetry") {
+          return this.fail(
+            value,
+            "E1500",
+            'Unknown observability mode "' + mode + '".',
+            "Use basic or open-telemetry.",
+          );
+        }
+        observability = mode;
+        continue;
+      }
+
+      if (this.matchWord("rollback")) {
+        const value = this.consume("number", "Expected rollback revision history count.");
+        rollbackRevisions = Number(value.value ?? value.lexeme);
+        continue;
+      }
+
+      return this.fail(
+        this.peek(),
+        "E1501",
+        "Expected a deployment option.",
+        "Use server, image, replicas, port, health, readiness, env, secret, observability, or rollback.",
+      );
+    }
+
+    const end = this.consume("end", 'Expected "end" to close the deployment.');
+
+    if (!serverName || !image || port === undefined) {
+      return this.fail(
+        end,
+        "E1502",
+        "Deployments require server <Name>, image <reference>, and port <number>.",
+      );
+    }
+
+    return {
+      kind: "DeploymentDeclaration",
+      name: name.value ?? name.lexeme,
+      serverName,
+      image,
+      replicas,
+      port,
+      healthPath,
+      readinessPath,
+      environments,
+      secrets,
+      observability,
+      rollbackRevisions,
+      span: spanFrom(start, end),
+    };
+  }
+
   private parseComponent(): ComponentDeclaration {
     const start = this.consume("component", "Expected a component declaration.");
     const name = this.consume("identifier", "Expected a component name.");
@@ -2463,6 +2608,7 @@ class Parser {
       this.check("array") ||
       this.check("python") ||
       this.check("pipeline") ||
+      this.check("deploy") ||
       this.check("component") ||
       this.check("screen")
     );

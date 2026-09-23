@@ -27,6 +27,7 @@ export type IRProgram = {
   readonly arrays: readonly IRArray[];
   readonly pythonBridges: readonly IRPythonBridge[];
   readonly pipelines: readonly IRPipeline[];
+  readonly deployments: readonly IRDeployment[];
   readonly screens: readonly IRScreen[];
 };
 
@@ -373,6 +374,30 @@ export type IRPipeline = {
   readonly tracking: string;
 };
 
+export type IRDeploymentEnvironment = {
+  readonly name: string;
+  readonly source: string;
+};
+
+export type IRDeploymentSecret = {
+  readonly name: string;
+  readonly source: string;
+};
+
+export type IRDeployment = {
+  readonly name: string;
+  readonly serverName: string;
+  readonly image: string;
+  readonly replicas: number;
+  readonly port: number;
+  readonly healthPath: string;
+  readonly readinessPath: string;
+  readonly environments: readonly IRDeploymentEnvironment[];
+  readonly secrets: readonly IRDeploymentSecret[];
+  readonly observability: "basic" | "open-telemetry";
+  readonly rollbackRevisions: number;
+};
+
 export type IRScreen = {
   readonly id: string;
   readonly title?: string;
@@ -669,6 +694,25 @@ export function lowerToIR(model: SemanticModel): IRProgram {
       evaluateBridge: pipeline.evaluateBridge,
       seed: pipeline.seed,
       tracking: pipeline.tracking,
+    })),
+    deployments: model.program.deployments.map((deployment) => ({
+      name: deployment.name,
+      serverName: deployment.serverName,
+      image: deployment.image,
+      replicas: deployment.replicas,
+      port: deployment.port,
+      healthPath: deployment.healthPath,
+      readinessPath: deployment.readinessPath,
+      environments: deployment.environments.map((item) => ({
+        name: item.name,
+        source: item.source,
+      })),
+      secrets: deployment.secrets.map((item) => ({
+        name: item.name,
+        source: item.source,
+      })),
+      observability: deployment.observability,
+      rollbackRevisions: deployment.rollbackRevisions,
     })),
     screens: model.program.screens.map((screen) => {
       const title = screen.body.find(

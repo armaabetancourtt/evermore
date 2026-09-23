@@ -176,7 +176,8 @@ function readTarget(args: readonly string[]): CompileTarget {
     value === "ai" ||
     value === "react-native" ||
     value === "flutter" ||
-    value === "python"
+    value === "python" ||
+    value === "infra"
   ) {
     return value;
   }
@@ -184,7 +185,7 @@ function readTarget(args: readonly string[]): CompileTarget {
   throw new Error(
     'Unknown target "' +
       value +
-      '". Use vue, node, ai, react-native, flutter, or python.',
+      '". Use vue, node, ai, react-native, flutter, python, or infra.',
   );
 }
 
@@ -215,7 +216,7 @@ function printHelp(): void {
       "  evermore check <entry.ever|evermore.json>",
       "  evermore ast <file.ever>",
       "  evermore format <file.ever> [--style natural|explicit] [--write]",
-      "  evermore build <entry.ever|evermore.json> [--target vue|node|ai|react-native|flutter|python] [--out directory]",
+      "  evermore build <entry.ever|evermore.json> [--target vue|node|ai|react-native|flutter|python|infra] [--out directory]",
       "",
       "",
       "Modules:",
@@ -234,6 +235,7 @@ function printHelp(): void {
       "  react-native React Native mobile application generation",
       "  flutter      Flutter backend experiment",
       "  python       Typed Python data/scientific pipeline generation",
+      "  infra        Docker + Kubernetes deployment plan generation",
     ].join("\n"),
   );
 }

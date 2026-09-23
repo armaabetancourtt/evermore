@@ -2120,7 +2120,7 @@ class Parser {
     let rollbackRevisions = 3;
 
     while (!this.check("eof") && !this.check("end")) {
-      if (this.matchWord("server")) {
+      if (this.match("server")) {
         const value = this.consume("identifier", "Expected a server declaration name.");
         serverName = value.value ?? value.lexeme;
         continue;

@@ -1,0 +1,28 @@
+app "Evermore Mobile"
+
+mobile ProductMobile
+  storage "secure"
+  permission "camera"
+  permission "notifications"
+  network "offline-first"
+  native "swift"
+  native "kotlin"
+end
+
+screen Home
+  state count starts 0
+  title "Mobile from the same semantics"
+  text "React Native and Flutter consume the same screen IR."
+  show count
+  button "Increase"
+    increases count
+  button "Details"
+    opens Details
+end
+
+screen Details
+  title "Native specialization stays available"
+  text "Swift and Kotlin boundaries are generated without forking the language."
+  button "Back"
+    opens Home
+end

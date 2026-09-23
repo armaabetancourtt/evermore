@@ -20,6 +20,9 @@ import {
 export type FunctionSignature = {
   readonly declaration: FunctionDeclaration;
   readonly typeParameters: readonly string[];
+  readonly isAsync: boolean;
+  readonly effects: readonly string[];
+  readonly capabilities: readonly string[];
   readonly parameters: readonly TypeRef[];
   readonly returnType: TypeRef;
 };
@@ -83,6 +86,38 @@ export function validateFunctions(
         ),
     );
     let signatureValid = true;
+
+    const duplicateEffect = firstDuplicate(fn.effects);
+    if (duplicateEffect) {
+      diagnostics.push({
+        code: "E2253",
+        severity: "error",
+        message:
+          'Function "' +
+          fn.name +
+          '" declares effect "' +
+          duplicateEffect +
+          '" more than once.',
+        span: fn.span,
+        help: "Keep each declared effect once.",
+      });
+    }
+
+    const duplicateCapability = firstDuplicate(fn.capabilities);
+    if (duplicateCapability) {
+      diagnostics.push({
+        code: "E2254",
+        severity: "error",
+        message:
+          'Function "' +
+          fn.name +
+          '" requires capability "' +
+          duplicateCapability +
+          '" more than once.',
+        span: fn.span,
+        help: "Keep each required capability once.",
+      });
+    }
 
     for (const parameter of fn.typeParameters) {
       if (genericNames.has(parameter.name)) {
@@ -201,6 +236,9 @@ export function validateFunctions(
       signaturesByName.set(fn.name, {
         declaration: fn,
         typeParameters: fn.typeParameters.map((parameter) => parameter.name),
+        isAsync: fn.isAsync,
+        effects: fn.effects,
+        capabilities: fn.capabilities,
         parameters: parameterTypes,
         returnType,
       });
@@ -219,6 +257,11 @@ export function validateFunctions(
         diagnostics,
         options.initialValues,
       );
+      validateFunctionBoundary(
+        signature,
+        bodyCallSignatures,
+        diagnostics,
+      );
     }
   }
 
@@ -226,6 +269,186 @@ export function validateFunctions(
     functionsByName,
     signaturesByName,
   };
+}
+
+function firstDuplicate(values: readonly string[]): string | undefined {
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (seen.has(value)) return value;
+    seen.add(value);
+  }
+  return undefined;
+}
+
+function validateFunctionBoundary(
+  caller: FunctionSignature,
+  signatures: ReadonlyMap<string, FunctionSignature>,
+  diagnostics: Diagnostic[],
+): void {
+  const visitExpression = (expression: Expression): void => {
+    if (expression.kind === "CallExpression") {
+      const callee = signatures.get(expression.callee);
+
+      if (callee) {
+        const missingEffects = callee.effects.filter(
+          (effect) => !caller.effects.includes(effect),
+        );
+        if (missingEffects.length > 0) {
+          diagnostics.push({
+            code: "E2250",
+            severity: "error",
+            message:
+              'Function "' +
+              caller.declaration.name +
+              '" calls "' +
+              callee.declaration.name +
+              '" but does not declare effect(s): ' +
+              missingEffects.join(", ") +
+              ".",
+            span: expression.span,
+            help:
+              "Declare the effects explicitly on the caller. Evermore does not infer ambient effects.",
+          });
+        }
+
+        const missingCapabilities = callee.capabilities.filter(
+          (capability) => !caller.capabilities.includes(capability),
+        );
+        if (missingCapabilities.length > 0) {
+          diagnostics.push({
+            code: "E2251",
+            severity: "error",
+            message:
+              'Function "' +
+              caller.declaration.name +
+              '" calls "' +
+              callee.declaration.name +
+              '" but does not require capability/capabilities: ' +
+              missingCapabilities.join(", ") +
+              ".",
+            span: expression.span,
+            help:
+              "Add the required capabilities with using so authority remains explicit.",
+          });
+        }
+
+        if (callee.isAsync && !caller.isAsync) {
+          diagnostics.push({
+            code: "E2252",
+            severity: "error",
+            message:
+              'Synchronous function "' +
+              caller.declaration.name +
+              '" cannot call async function "' +
+              callee.declaration.name +
+              '".',
+            span: expression.span,
+            help:
+              "Mark the caller async or move the async call behind an async boundary.",
+          });
+        }
+      }
+
+      for (const argument of expression.arguments) {
+        visitExpression(argument);
+      }
+      return;
+    }
+
+    if (
+      expression.kind === "NumberExpression" ||
+      expression.kind === "StringExpression" ||
+      expression.kind === "BooleanExpression" ||
+      expression.kind === "NoneExpression" ||
+      expression.kind === "IdentifierExpression" ||
+      expression.kind === "ChoiceCaseExpression"
+    ) {
+      return;
+    }
+
+    if (
+      expression.kind === "ListExpression" ||
+      expression.kind === "SetExpression"
+    ) {
+      for (const element of expression.elements) {
+        visitExpression(element);
+      }
+      return;
+    }
+
+    if (expression.kind === "MapExpression") {
+      for (const entry of expression.entries) {
+        visitExpression(entry.key);
+        visitExpression(entry.value);
+      }
+      return;
+    }
+
+    if (expression.kind === "IfExpression") {
+      visitExpression(expression.condition);
+      visitExpression(expression.thenExpression);
+      visitExpression(expression.elseExpression);
+      return;
+    }
+
+    if (expression.kind === "MatchExpression") {
+      visitExpression(expression.value);
+      for (const branch of expression.cases) {
+        visitExpression(branch.expression);
+      }
+      return;
+    }
+
+    if (expression.kind === "MemberExpression") {
+      visitExpression(expression.object);
+      return;
+    }
+
+    if (expression.kind === "MethodCallExpression") {
+      visitExpression(expression.object);
+      for (const argument of expression.arguments) {
+        visitExpression(argument);
+      }
+      return;
+    }
+
+    if (expression.kind === "UnaryExpression") {
+      visitExpression(expression.expression);
+      return;
+    }
+
+    if (expression.kind === "BinaryExpression") {
+      visitExpression(expression.left);
+      visitExpression(expression.right);
+    }
+  };
+
+  const visitStatement = (statement: FunctionStatement): void => {
+    if (
+      statement.kind === "LetStatement" ||
+      statement.kind === "VarStatement" ||
+      statement.kind === "SetStatement" ||
+      statement.kind === "ReturnStatement"
+    ) {
+      visitExpression(statement.expression);
+      return;
+    }
+
+    if (statement.kind === "WhileStatement") {
+      visitExpression(statement.condition);
+      for (const nested of statement.body) visitStatement(nested);
+      return;
+    }
+
+    if (statement.kind === "ForEachStatement") {
+      visitExpression(statement.collection);
+      for (const nested of statement.body) visitStatement(nested);
+    }
+  };
+
+  for (const statement of caller.declaration.body) {
+    visitStatement(statement);
+  }
 }
 
 function validateFunctionBody(

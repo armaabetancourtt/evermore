@@ -551,6 +551,8 @@ Implemented today:
 - generated-target builds in CI, including a three-screen M1 showcase;
 - nominal `data` declarations with primitive and user-defined types;
 - pure typed functions with parameters, declared returns, inferred local `let`, arithmetic precedence and typed calls;
+- typed control flow with `while`, `for ... in`, `break` and `continue`, including loop-local scope validation;
+- boolean logic with typed `and`, `or` and unary `not` using explicit precedence;
 - strict TypeScript generation for models and functions, validated by `vue-tsc`;
 - typed full-stack semantics with a generated Node.js server runtime;
 - provider-neutral AI agents, tools, context/budget controls, approval boundaries and deterministic evaluations;

@@ -3,6 +3,7 @@ import type {
   ArrayDeclaration,
   BinaryExpression,
   BinaryOperator,
+  BreakStatement,
   ButtonAction,
   ButtonStatement,
   CallExpression,
@@ -12,6 +13,7 @@ import type {
   ChoiceCase,
   ComponentDeclaration,
   ContextDeclaration,
+  ContinueStatement,
   DataDeclaration,
   DatasetDeclaration,
   DataField,
@@ -20,6 +22,7 @@ import type {
   EndpointDeclaration,
   EvaluationDeclaration,
   Expression,
+  ForEachStatement,
   FunctionDeclaration,
   FunctionParameter,
   FunctionStatement,
@@ -606,6 +609,21 @@ class Parser {
           continue;
         }
 
+        if (this.match("for")) {
+          body.push(this.parseForEach(this.previous()));
+          continue;
+        }
+
+        if (this.match("break")) {
+          body.push(this.parseBreak(this.previous()));
+          continue;
+        }
+
+        if (this.match("continue")) {
+          body.push(this.parseContinue(this.previous()));
+          continue;
+        }
+
         if (this.match("return")) {
           body.push(this.parseReturn(this.previous()));
           continue;
@@ -615,7 +633,7 @@ class Parser {
           this.peek(),
           "E1010",
           "Expected a function declaration item or statement.",
-          "Use generic, takes, returns, let, var, set, while, or return.",
+          "Use generic, takes, returns, let, var, set, while, for, break, continue, or return.",
         );
       } catch (error) {
         if (!(error instanceof EvermoreDiagnosticError)) throw error;
@@ -726,6 +744,21 @@ class Parser {
         continue;
       }
 
+      if (this.match("for")) {
+        body.push(this.parseForEach(this.previous()));
+        continue;
+      }
+
+      if (this.match("break")) {
+        body.push(this.parseBreak(this.previous()));
+        continue;
+      }
+
+      if (this.match("continue")) {
+        body.push(this.parseContinue(this.previous()));
+        continue;
+      }
+
       if (this.match("return")) {
         body.push(this.parseReturn(this.previous()));
         continue;
@@ -735,7 +768,7 @@ class Parser {
         this.peek(),
         "E1012",
         "Expected a statement inside while.",
-        "Use let, var, set, while, or return.",
+        "Use let, var, set, while, for, break, continue, or return.",
       );
     }
 
@@ -751,6 +784,99 @@ class Parser {
         start: start.span.start,
         end: end.span.end,
       },
+    };
+  }
+
+  private parseForEach(start: Token): ForEachStatement {
+    const binding = this.consume(
+      "identifier",
+      "Expected an iteration binding after for.",
+    );
+    this.consume("in", 'Expected "in" after the iteration binding.');
+    const collection = this.parseExpression();
+    const explicitBlock = this.match("lbrace");
+    const body: FunctionStatement[] = [];
+
+    while (
+      !this.check("eof") &&
+      !(explicitBlock && this.check("rbrace")) &&
+      !(!explicitBlock && this.check("end"))
+    ) {
+      if (this.match("let")) {
+        body.push(this.parseLet(this.previous()));
+        continue;
+      }
+
+      if (this.match("var")) {
+        body.push(this.parseVar(this.previous()));
+        continue;
+      }
+
+      if (this.match("set")) {
+        body.push(this.parseSet(this.previous()));
+        continue;
+      }
+
+      if (this.match("while")) {
+        body.push(this.parseWhile(this.previous()));
+        continue;
+      }
+
+      if (this.match("for")) {
+        body.push(this.parseForEach(this.previous()));
+        continue;
+      }
+
+      if (this.match("break")) {
+        body.push(this.parseBreak(this.previous()));
+        continue;
+      }
+
+      if (this.match("continue")) {
+        body.push(this.parseContinue(this.previous()));
+        continue;
+      }
+
+      if (this.match("return")) {
+        body.push(this.parseReturn(this.previous()));
+        continue;
+      }
+
+      this.fail(
+        this.peek(),
+        "E1013",
+        "Expected a statement inside for.",
+        "Use let, var, set, while, for, break, continue, or return.",
+      );
+    }
+
+    const end = explicitBlock
+      ? this.consume("rbrace", 'Expected "}" to close the for statement.')
+      : this.consume("end", 'Expected "end" to close the for statement.');
+
+    return {
+      kind: "ForEachStatement",
+      bindingName: binding.value ?? binding.lexeme,
+      collection,
+      body,
+      span: {
+        start: start.span.start,
+        end: end.span.end,
+      },
+    };
+  }
+
+  private parseBreak(start: Token): BreakStatement {
+    return {
+      kind: "BreakStatement",
+      span: start.span,
+    };
+  }
+
+  private parseContinue(start: Token): ContinueStatement {
+    return {
+      kind: "ContinueStatement",
+      span: start.span,
     };
   }
 

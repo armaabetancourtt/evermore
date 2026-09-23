@@ -2,6 +2,10 @@ import type { Program } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
 import { EvermoreDiagnosticError } from "./diagnostics.js";
 import { emitAI } from "./codegen/ai.js";
+import {
+  emitFlutter,
+  emitReactNative,
+} from "./codegen/mobile.js";
 import { emitNode } from "./codegen/node.js";
 import { emitVue, type GeneratedFile } from "./codegen/vue.js";
 import { lowerToIR } from "./ir.js";
@@ -13,7 +17,12 @@ import {
 } from "./project.js";
 import { analyze } from "./semantic.js";
 
-export type CompileTarget = "vue" | "node" | "ai";
+export type CompileTarget =
+  | "vue"
+  | "node"
+  | "ai"
+  | "react-native"
+  | "flutter";
 
 export type CompileResult = {
   readonly appName: string;
@@ -137,6 +146,20 @@ export function compileProgram(
         target,
         diagnostics: analysis.diagnostics,
         files: emitAI(ir),
+      };
+    case "react-native":
+      return {
+        appName: ir.appName,
+        target,
+        diagnostics: analysis.diagnostics,
+        files: emitReactNative(ir),
+      };
+    case "flutter":
+      return {
+        appName: ir.appName,
+        target,
+        diagnostics: analysis.diagnostics,
+        files: emitFlutter(ir),
       };
   }
 }

@@ -44,7 +44,7 @@ test("parses and formats deployment intent", () => {
 
   const formatted = formatSource(source);
   assert.match(formatted, /deploy Production/);
-  assert.match(formatted, /secret DATABASE_URL "prod\\/database-url"/);
+  assert.match(formatted, /secret DATABASE_URL "prod\/database-url"/);
   assert.match(formatted, /observability "open-telemetry"/);
 });
 

@@ -700,13 +700,17 @@ export function emitFunctions(
     });
 
     lines.push(
-      "function " +
+      (fn.isAsync ? "async function " : "function ") +
         generatedName +
         genericClause +
         "(" +
         params.join(", ") +
         "): " +
-        emitTypeRef(fn.returnType, genericNames) +
+        (fn.isAsync
+          ? "Promise<" +
+            emitTypeRef(fn.returnType, genericNames) +
+            ">"
+          : emitTypeRef(fn.returnType, genericNames)) +
         " {",
     );
 
@@ -1486,6 +1490,7 @@ function emitFunctionExpression(
       }
 
       return (
+        (expression.isAsync ? "await " : "") +
         generated +
         "(" +
         expression.arguments

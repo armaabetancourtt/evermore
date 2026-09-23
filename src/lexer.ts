@@ -34,6 +34,10 @@ export type TokenKind =
   | "var"
   | "set"
   | "while"
+  | "for"
+  | "in"
+  | "break"
+  | "continue"
   | "return"
   | "true"
   | "false"
@@ -128,6 +132,10 @@ const keywords = new Map<string, TokenKind>([
   ["var", "var"],
   ["set", "set"],
   ["while", "while"],
+  ["for", "for"],
+  ["in", "in"],
+  ["break", "break"],
+  ["continue", "continue"],
   ["return", "return"],
   ["true", "true"],
   ["false", "false"],

@@ -531,7 +531,7 @@ Advanced styling remains possible, but beautiful and usable should be the defaul
 
 # Current implementation
 
-Evermore's current research roadmap, **M0 through M9**, is implemented with executable evidence. The project remains pre-alpha: milestone completion means the planned semantics, targets and research prototypes exist and are tested; it does not mean production stability.
+Evermore's current research roadmap, **M0 through M9**, is implemented with executable evidence. The **M10 core-language completion slice is also complete**: the remaining alpha work is concentrated in the standard library, remote package distribution, CLI/DX and hardening. The project remains pre-alpha: milestone completion means the planned semantics, targets and research prototypes exist and are tested; it does not mean production stability.
 
 Implemented today:
 
@@ -549,10 +549,12 @@ Implemented today:
 - complete Vue 3 + Vite application generation;
 - accessibility defaults including visible focus, reduced-motion behavior, touch sizing and polite live state output;
 - generated-target builds in CI, including a three-screen M1 showcase;
-- nominal `data` declarations with primitive and user-defined types;
-- pure typed functions with parameters, declared returns, inferred local `let`, arithmetic precedence and typed calls;
+- nominal `data` and `class` declarations with construction/member access, generic type parameters, applied types such as `Box<text>`, and protocol constraints;
+- typed functions with parameters, declared returns, inferred local `let`, arithmetic precedence and typed calls;
+- payload-carrying algebraic `choice` cases with typed construction and exhaustive payload bindings in `match`;
 - typed control flow with `while`, `for ... in`, `break` and `continue`, including loop-local scope validation;
 - boolean logic with typed `and`, `or` and unary `not` using explicit precedence;
+- explicit function boundaries for `async`, declared effects and required capabilities, with transitive call-graph validation and no ambient effect inference;
 - strict TypeScript generation for models and functions, validated by `vue-tsc`;
 - typed full-stack semantics with a generated Node.js server runtime;
 - provider-neutral AI agents, tools, context/budget controls, approval boundaries and deterministic evaluations;

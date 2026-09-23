@@ -668,6 +668,41 @@ export function emitFunctions(
         continue;
       }
 
+      if (statement.kind === "ForEach") {
+        const loopValues = new Map(values);
+        const generatedItem = "loop_item";
+        loopValues.set(statement.bindingName, generatedItem);
+        lines.push(
+          "  for (const " +
+            generatedItem +
+            " of " +
+            emitFunctionExpression(
+              statement.collection,
+              values,
+              functionNames,
+            ) +
+            ") {",
+        );
+        lines.push(
+          ...emitNestedFunctionStatements(
+            statement.body,
+            loopValues,
+            functionNames,
+            2,
+            "loop_local_",
+          ),
+        );
+        lines.push("  }");
+        continue;
+      }
+
+      if (statement.kind === "Break" || statement.kind === "Continue") {
+        lines.push(
+          "  " + (statement.kind === "Break" ? "break;" : "continue;"),
+        );
+        continue;
+      }
+
       lines.push(
         "  return " +
           emitFunctionExpression(
@@ -763,6 +798,39 @@ function emitNestedFunctionStatements(
       continue;
     }
 
+    if (statement.kind === "ForEach") {
+      const nestedValues = new Map(values);
+      const generatedItem = localPrefix + "item";
+      nestedValues.set(statement.bindingName, generatedItem);
+      lines.push(
+        padding +
+          "for (const " +
+          generatedItem +
+          " of " +
+          emitFunctionExpression(statement.collection, values, functions) +
+          ") {",
+      );
+      lines.push(
+        ...emitNestedFunctionStatements(
+          statement.body,
+          nestedValues,
+          functions,
+          indentLevel + 1,
+          localPrefix + "nested_",
+        ),
+      );
+      lines.push(padding + "}");
+      continue;
+    }
+
+    if (statement.kind === "Break" || statement.kind === "Continue") {
+      lines.push(
+        padding +
+          (statement.kind === "Break" ? "break;" : "continue;"),
+      );
+      continue;
+    }
+
     lines.push(
       padding +
         "return " +
@@ -847,6 +915,37 @@ function emitMethodProperty(
           ).join(" ") +
           " }",
       );
+      continue;
+    }
+
+    if (statement.kind === "ForEach") {
+      const loopValues = new Map(values);
+      const generatedItem = "method_loop_item";
+      loopValues.set(statement.bindingName, generatedItem);
+      body.push(
+        "for (const " +
+          generatedItem +
+          " of " +
+          emitFunctionExpression(
+            statement.collection,
+            values,
+            functions,
+          ) +
+          ") { " +
+          emitNestedFunctionStatements(
+            statement.body,
+            loopValues,
+            functions,
+            0,
+            "method_loop_local_",
+          ).join(" ") +
+          " }",
+      );
+      continue;
+    }
+
+    if (statement.kind === "Break" || statement.kind === "Continue") {
+      body.push(statement.kind === "Break" ? "break;" : "continue;");
       continue;
     }
 

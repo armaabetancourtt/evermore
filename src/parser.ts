@@ -1685,13 +1685,21 @@ class Parser {
         continue;
       }
 
-      if (this.match("input")) {
+      if (
+        this.check("identifier") &&
+        this.peek().lexeme === "input"
+      ) {
+        this.advance();
         const value = this.consume("identifier", "Expected an input fixture function.");
         inputFunction = value.value ?? value.lexeme;
         continue;
       }
 
-      if (this.match("expected")) {
+      if (
+        this.check("identifier") &&
+        this.peek().lexeme === "expected"
+      ) {
+        this.advance();
         const value = this.consume("identifier", "Expected an expected-output fixture function.");
         expectedFunction = value.value ?? value.lexeme;
         continue;

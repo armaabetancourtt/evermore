@@ -10,7 +10,9 @@ import {
 import { emitNode } from "./codegen/node.js";
 import { emitPython } from "./codegen/python.js";
 import { emitVue, type GeneratedFile } from "./codegen/vue.js";
+import { emitWasmResearch } from "./codegen/wasm.js";
 import { lowerToIR } from "./ir.js";
+import { optimizeIR } from "./optimizer.js";
 import { parse } from "./parser.js";
 import { loadPackageProject, packageGraph } from "./package.js";
 import {
@@ -26,7 +28,8 @@ export type CompileTarget =
   | "react-native"
   | "flutter"
   | "python"
-  | "infra";
+  | "infra"
+  | "wasm";
 
 export type CompileResult = {
   readonly appName: string;
@@ -178,6 +181,13 @@ export function compileProgram(
         target,
         diagnostics: analysis.diagnostics,
         files: emitInfrastructure(ir),
+      };
+    case "wasm":
+      return {
+        appName: ir.appName,
+        target,
+        diagnostics: analysis.diagnostics,
+        files: emitWasmResearch(optimizeIR(ir).program),
       };
   }
 }

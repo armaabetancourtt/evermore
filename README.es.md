@@ -772,7 +772,7 @@ accessibility
 
 # Lo que ya funciona
 
-Evermore ya completó **M0: fundamentos del compilador** y el vertical slice ejecutable de **M1: sintaxis humana + web**.
+La roadmap de investigación actual de Evermore, **M0 a M9**, está implementada con evidencia ejecutable. El proyecto sigue en pre-alpha: completar los milestones significa que existen y se prueban las semánticas, targets y prototipos planeados; no significa estabilidad de producción.
 
 Implementado hoy:
 
@@ -792,7 +792,14 @@ Implementado hoy:
 - builds reales del target generado dentro de CI, incluyendo un showcase M1 de tres pantallas;
 - declaraciones nominales `data` con tipos primitivos y definidos por el usuario;
 - funciones puras tipadas con parámetros, returns declarados, `let` local inferido, precedencia aritmética y llamadas tipadas;
-- generación TypeScript estricta de modelos y funciones, validada con `vue-tsc`.
+- generación TypeScript estricta de modelos y funciones, validada con `vue-tsc`;
+- semántica full-stack tipada con runtime de servidor Node.js generado;
+- agentes y tools de IA provider-neutral con contexto, budgets, aprobación y evaluaciones deterministas;
+- semántica móvil compartida con React Native, boundaries Swift/Kotlin y experimento Flutter;
+- datasets, arrays, bridges de Python y pipelines científicos reproducibles;
+- planeación Docker/Kubernetes inspeccionable con health/readiness, secretos externos, rollback y apply protegido;
+- LSP/tooling conectado al compilador, generación de documentación, diseño de registry y prototipos de Playground/Studio;
+- optimización conservadora de IR, compilación incremental instrumentada y experimento WebAssembly ejecutable para funciones numéricas puras.
 
 Un ejemplo ejecutable completo ya puede escribirse así:
 
@@ -859,7 +866,7 @@ backend Vue/Vite
 npm install + build de producción
 ~~~
 
-Todavía **no afirmamos soporte implementado** para IA, mobile, Python/data o infraestructura. Esos siguen siendo milestones posteriores hasta tener evidencia ejecutable.
+CI ya valida las superficies implementadas de web, server, IA, mobile, data, infraestructura, tooling y la investigación WebAssembly. Siguen siendo capacidades pre-alpha y no una afirmación de readiness para producción.
 
 Consulta [examples/showcase.ever](examples/showcase.ever) y [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -1004,7 +1011,7 @@ Los targets pueden cambiar debajo.
 
 ## Estado
 
-**Experimental · Pre-alpha · M1 completo; núcleo tipado M2 en desarrollo**
+**Experimental · Pre-alpha · roadmap M0–M9 completa con evidencia ejecutable**
 
 Todavía no uses Evermore para producción.
 

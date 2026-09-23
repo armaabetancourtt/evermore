@@ -13,7 +13,8 @@
     "research:m2": "tsx scripts/research/m2-type-system-study.ts",
     "evermore": "tsx src/cli.ts",
     "lsp": "tsx src/tooling/lsp-server.ts",
-    "docs": "tsx src/tooling/docs-cli.ts"
+    "docs": "tsx src/tooling/docs-cli.ts",
+    "research:m9": "tsx scripts/research/m9-performance-study.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

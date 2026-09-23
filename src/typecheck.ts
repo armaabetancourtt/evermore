@@ -7,6 +7,7 @@ import type {
   FunctionStatement,
   ProtocolDeclaration,
   TypeAnnotation,
+  TypeParameter,
 } from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
 import {
@@ -39,6 +40,7 @@ export type FunctionValidationOptions = {
   readonly initialValues?: ReadonlyMap<string, TypeRef>;
   readonly bodyCallSignatures?: ReadonlyMap<string, FunctionSignature>;
   readonly validateBodies?: boolean;
+  readonly ambientTypeParameters?: readonly TypeParameter[];
 };
 
 export function validateFunctions(
@@ -68,8 +70,18 @@ export function validateFunctions(
   for (const fn of functionsByName.values()) {
     const parameterTypes: TypeRef[] = [];
     const parameterNames = new Set<string>();
-    const genericNames = new Set<string>();
-    const genericConstraints = new Map<string, string>();
+    const ambientTypeParameters = options.ambientTypeParameters ?? [];
+    const genericNames = new Set<string>(
+      ambientTypeParameters.map((parameter) => parameter.name),
+    );
+    const genericConstraints = new Map<string, string>(
+      ambientTypeParameters
+        .filter((parameter) => parameter.constraintName)
+        .map(
+          (parameter) =>
+            [parameter.name, parameter.constraintName!] as const,
+        ),
+    );
     let signatureValid = true;
 
     for (const parameter of fn.typeParameters) {
@@ -188,7 +200,7 @@ export function validateFunctions(
     if (signatureValid && returnType) {
       signaturesByName.set(fn.name, {
         declaration: fn,
-        typeParameters: [...genericNames],
+        typeParameters: fn.typeParameters.map((parameter) => parameter.name),
         parameters: parameterTypes,
         returnType,
       });
@@ -818,7 +830,7 @@ function inferExpression(
       }
 
       const owner =
-        objectType.kind === "Named"
+        objectType.kind === "Named" || objectType.kind === "Applied"
           ? (types.dataByName.get(objectType.name) ??
             types.classesByName.get(objectType.name))
           : objectType.kind === "Protocol"
@@ -864,7 +876,7 @@ function inferExpression(
       }
 
       if (
-        objectType.kind === "Named" &&
+        (objectType.kind === "Named" || objectType.kind === "Applied") &&
         types.classesByName.has(objectType.name) &&
         "visibility" in field &&
         field.visibility === "private"
@@ -885,10 +897,36 @@ function inferExpression(
         return undefined;
       }
 
-      return typeRefFromAnnotation(
-        field.type,
-        new Set(),
-        new Set(types.protocolsByName.keys()),
+      const ownerTypeParameters =
+        "typeParameters" in owner ? owner.typeParameters : [];
+      const ownerGenericNames = new Set(
+        ownerTypeParameters.map((parameter) => parameter.name),
+      );
+      const ownerGenericConstraints = new Map(
+        ownerTypeParameters
+          .filter((parameter) => parameter.constraintName)
+          .map(
+            (parameter) =>
+              [parameter.name, parameter.constraintName!] as const,
+          ),
+      );
+      const ownerBindings = new Map<string, TypeRef>();
+
+      if (objectType.kind === "Applied") {
+        ownerTypeParameters.forEach((parameter, index) => {
+          const argument = objectType.arguments[index];
+          if (argument) ownerBindings.set(parameter.name, argument);
+        });
+      }
+
+      return substituteGenerics(
+        typeRefFromAnnotation(
+          field.type,
+          ownerGenericNames,
+          new Set(types.protocolsByName.keys()),
+          ownerGenericConstraints,
+        ),
+        ownerBindings,
       );
     }
 
@@ -1036,7 +1074,7 @@ function inferExpression(
       }
 
       const owner =
-        objectType.kind === "Named"
+        objectType.kind === "Named" || objectType.kind === "Applied"
           ? (types.dataByName.get(objectType.name) ??
             types.classesByName.get(objectType.name))
           : objectType.kind === "Protocol"
@@ -1081,6 +1119,28 @@ function inferExpression(
         return undefined;
       }
 
+      const ownerTypeParameters =
+        "typeParameters" in owner ? owner.typeParameters : [];
+      const ownerGenericNames = new Set(
+        ownerTypeParameters.map((parameter) => parameter.name),
+      );
+      const ownerGenericConstraints = new Map(
+        ownerTypeParameters
+          .filter((parameter) => parameter.constraintName)
+          .map(
+            (parameter) =>
+              [parameter.name, parameter.constraintName!] as const,
+          ),
+      );
+      const ownerBindings = new Map<string, TypeRef>();
+
+      if (objectType.kind === "Applied") {
+        ownerTypeParameters.forEach((parameter, index) => {
+          const argument = objectType.arguments[index];
+          if (argument) ownerBindings.set(parameter.name, argument);
+        });
+      }
+
       if (expression.arguments.length !== method.parameters.length) {
         diagnostics.push({
           code: "E2325",
@@ -1101,10 +1161,14 @@ function inferExpression(
       expression.arguments.forEach((argument, index) => {
         const parameter = method.parameters[index];
         const parameterType = parameter
-          ? typeRefFromAnnotation(
-              parameter.type,
-              new Set(),
-              new Set(types.protocolsByName.keys()),
+          ? substituteGenerics(
+              typeRefFromAnnotation(
+                parameter.type,
+                ownerGenericNames,
+                new Set(types.protocolsByName.keys()),
+                ownerGenericConstraints,
+              ),
+              ownerBindings,
             )
           : undefined;
         const actual = inferExpression(
@@ -1140,10 +1204,14 @@ function inferExpression(
         }
       });
 
-      return typeRefFromAnnotation(
-        method.returnType,
-        new Set(),
-        new Set(types.protocolsByName.keys()),
+      return substituteGenerics(
+        typeRefFromAnnotation(
+          method.returnType,
+          ownerGenericNames,
+          new Set(types.protocolsByName.keys()),
+          ownerGenericConstraints,
+        ),
+        ownerBindings,
       );
     }
 

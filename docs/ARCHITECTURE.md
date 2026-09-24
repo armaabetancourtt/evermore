@@ -1,3 +1,5 @@
+<p align="center"><img src="../brand/evermore-banner.svg" alt="Evermore official botanical wordmark" width="680" /></p>
+
 
 # Evermore Architecture
 

@@ -1,18 +1,106 @@
 <!doctype html>
 <html lang="en">
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Evermore Studio Research Prototype</title>
-<style>
-  body{margin:0;font-family:ui-sans-serif,system-ui;background:#090b10;color:#f5f7ff}
-  .shell{display:grid;grid-template-columns:220px 1fr 300px;min-height:100vh}
-  aside,section{padding:24px;border-right:1px solid #202634}
-  section{border-right:0}.muted{color:#909bb0}.card{background:#111621;border:1px solid #252d3d;border-radius:14px;padding:14px;margin:12px 0}
-  code{color:#cfd8ff}
-</style>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#013D1E" />
+  <meta name="description" content="Evermore Studio research prototype — an intent-first workspace for the experimental Evermore programming language." />
+  <link rel="icon" type="image/svg+xml" href="../brand/evermore-icon.svg" />
+  <title>Evermore Studio · Research Prototype</title>
+  <style>
+    :root{color-scheme:dark;--forest:#013D1E;--deep:#002D18;--raised:#07522E;--leaf:#85CE32;--ivory:#FFF8ED;--sage:#B7D6BD;--line:#275A3B;--muted:#91B79B}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--deep);color:var(--ivory);font:14px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    a{color:inherit}
+    .shell{min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr) 272px}
+    .side{padding:25px 19px;border-right:1px solid var(--line);background:linear-gradient(164deg,#053F24,var(--deep) 85%);display:flex;flex-direction:column;gap:30px}
+    .logo-tile{padding:14px 12px 6px;border:1px solid #35754A;border-radius:15px;background:#013D1E}
+    .logo-tile img{display:block;width:100%;height:auto}
+    .small{font-size:10px;letter-spacing:.17em;font-weight:750;text-transform:uppercase;color:var(--muted)}
+    .side .description{margin:9px 0 0;color:var(--sage);font-size:12px}
+    .nav-group{display:grid;gap:7px}
+    .nav-item{padding:10px 12px;border:1px solid transparent;border-radius:10px;font-size:13px;color:var(--sage)}
+    .nav-item.selected{border-color:#3C774C;background:#124B2B;color:var(--ivory)}
+    .nav-item.selected::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--leaf);margin-right:10px;vertical-align:middle}
+    .side-foot{margin-top:auto;border-top:1px solid var(--line);padding-top:15px;color:var(--muted);font-size:11px}
+    .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #3D7C44;padding:6px 10px;border-radius:99px;color:#CBEDAE;background:#103E25;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+    .pill:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--leaf)}
+    .center{min-width:0;padding:30px clamp(20px,4vw,58px) 60px;background:radial-gradient(circle at 80% 0%,rgba(74,134,72,.2),transparent 35%),#052B1B}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px}
+    .hero{margin:62px 0 36px;max-width:760px}
+    .eyebrow{font-size:11px;letter-spacing:.18em;font-weight:850;color:#9DDA66}
+    h1{font-size:clamp(42px,5.2vw,74px);line-height:1.02;letter-spacing:-.065em;margin:13px 0 17px;font-weight:650}
+    .hero p{max-width:590px;margin:0;color:var(--sage);font-size:15px;line-height:1.8}
+    .hrow{display:flex;align-items:center;justify-content:space-between;gap:15px;margin:0 0 12px}
+    .hrow h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin:0}
+    .card{background:linear-gradient(145deg,#103923,#072B1B);border:1px solid var(--line);border-radius:18px;box-shadow:0 14px 40px rgba(0,16,6,.12)}
+    .editor{overflow:hidden}
+    .editor-top{display:flex;justify-content:space-between;gap:15px;align-items:center;padding:13px 19px;border-bottom:1px solid var(--line);font-size:12px;color:var(--sage)}
+    .file-dot{width:7px;height:7px;background:var(--leaf);border-radius:50%;display:inline-block;margin-right:8px}
+    pre{margin:0;overflow:auto;padding:25px;min-height:245px;font:14px/1.95 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ivory)}
+    .number{display:inline-block;width:30px;color:#658E70;user-select:none}
+    .syntax{color:#A6E376}.string{color:#F0DBA7}
+    .status{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:14px;color:var(--muted);font-size:11px}
+    .right{padding:29px 19px;border-left:1px solid var(--line);background:#032719}
+    .right h2{font-size:15px;margin:0 0 8px}.right p{font-size:12px;color:var(--sage);line-height:1.65}
+    .right .card{padding:18px;margin-top:13px;box-shadow:none}
+    .right .card b{display:block;font-size:12px;margin-bottom:5px}.right .card span{color:var(--muted);font-size:11px}
+    .code-tag{display:inline-block;margin:5px 4px 0 0;padding:4px 7px;background:#164A2C;border-radius:6px;font:10px ui-monospace,monospace;color:#C6F0AA}
+    .note{margin-top:24px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:11px}
+    @media(max-width:1080px){.shell{grid-template-columns:210px 1fr}.right{grid-column:2;border-left:0;border-top:1px solid var(--line)}}
+    @media(max-width:700px){.shell{display:block}.side{gap:15px;border-right:0;border-bottom:1px solid var(--line)}.logo-tile{max-width:225px}.side-foot{margin-top:0}.center{padding:24px 18px 34px}.hero{margin:36px 0 28px}.right{padding:25px 18px}.top{justify-content:flex-start}}
+  </style>
+</head>
+<body>
 <div class="shell">
-  <aside><strong>EVERMORE</strong><p class="muted">Studio prototype</p><div class="card">Project<br><code>Atlas</code></div><div class="card">Targets<br>Web · Node · AI · Mobile · Data · Infra</div></aside>
-  <section><h1>Intent workspace</h1><p class="muted">Research shell for source, diagnostics and generated artifacts.</p><div class="card"><code>screen Home<br>  title "Your product"</code></div><div class="card">Diagnostics: 0 errors</div></section>
-  <aside><strong>Inspector</strong><div class="card">Semantic model</div><div class="card">Generated targets</div><div class="card">Deployment plan</div></aside>
+  <aside class="side" aria-label="Evermore navigation">
+    <div>
+      <div class="logo-tile"><img src="../brand/evermore-wordmark.svg" alt="Evermore" width="200" height="55" /></div>
+      <p class="description">The language for what comes next.</p>
+    </div>
+    <div class="nav-group" aria-label="Research areas">
+      <div class="small">Workspace</div>
+      <div class="nav-item selected">Intent workspace</div>
+      <div class="nav-item">Source &amp; diagnostics</div>
+      <div class="nav-item">Generated artifacts</div>
+      <div class="nav-item">Target explorer</div>
+    </div>
+    <div class="nav-group">
+      <div class="small">Current project</div>
+      <div class="card" style="padding:14px"><strong>Atlas</strong><br /><span style="color:var(--muted);font-size:11px">Illustrative project</span></div>
+    </div>
+    <div class="side-foot"><span class="pill">Pre-alpha research</span><p>Interface concept, not a connected compiler IDE.</p><a href="../README.md">Read documentation ↗</a></div>
+  </aside>
+  <main class="center">
+    <div class="top"><span>EVERMORE / STUDIO / RESEARCH</span><span>Human-first · AI-native</span></div>
+    <header class="hero">
+      <div class="eyebrow">A NEW WAY TO EXPRESS SOFTWARE</div>
+      <h1>Build software<br />like you think<span style="color:var(--leaf)">.</span></h1>
+      <p>Give ideas a clear form. Keep source, meaning and generated targets visible — with the language at the center, not the framework.</p>
+    </header>
+    <div class="hrow"><h2>Intent workspace</h2><span class="small">Example source / .ever</span></div>
+    <div class="card editor" aria-label="Illustrative Evermore source code">
+      <div class="editor-top"><span><span class="file-dot"></span>atlas.ever</span><span>READ-ONLY EXAMPLE</span></div>
+      <pre><span class="number">01</span><span class="syntax">app</span> <span class="string">"Atlas"</span>
+<span class="number">02</span>
+<span class="number">03</span><span class="syntax">screen</span> Home
+<span class="number">04</span>  title <span class="string">"Your ideas, alive."</span>
+<span class="number">05</span>
+<span class="number">06</span>  <span class="syntax">button</span> <span class="string">"Continue"</span>
+<span class="number">07</span>    opens Dashboard</pre>
+    </div>
+    <div class="status"><span>Source preview only · No compiler service connected</span><span>Evermore / experimental</span></div>
+  </main>
+  <aside class="right" aria-label="Inspector preview">
+    <div class="small">The other side of the source</div>
+    <h2>Inspector</h2>
+    <p>What this workspace is intended to make inspectable as the language and tooling evolve.</p>
+    <div class="card"><b>Semantic model</b><span>Typed, analyzable intent</span></div>
+    <div class="card"><b>Generated targets</b><span>Frameworks as replaceable backends</span><div><span class="code-tag">WEB</span><span class="code-tag">NODE</span><span class="code-tag">DATA / AI</span></div></div>
+    <div class="card"><b>Deployment plan</b><span>Planned target inspection</span></div>
+    <div class="note">Research interface only. Implementation progress is documented in the repository roadmap.</div>
+  </aside>
 </div>
+</body>
 </html>

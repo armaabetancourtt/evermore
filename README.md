@@ -1,13 +1,19 @@
-# EVERMORE
+<p align="center"><img src="brand/evermore-banner.svg" alt="Evermore — official botanical brand wordmark" width="100%" /></p>
 
-### Human-first. AI-native. Built to outlast frameworks.
+<p align="center"><strong>Human-first. AI-native. Built to outlast frameworks.</strong><br/><sub>THE LANGUAGE FOR WHAT COMES NEXT</sub></p>
 
-[English](README.md) · [Español](README.es.md)
+<p align="center"><a href="README.md">English</a> · <a href="README.es.md">Español</a></p>
 
-![Status](https://img.shields.io/badge/status-pre--alpha-111111)
-![Compiler](https://img.shields.io/badge/compiler-TypeScript-111111?logo=typescript&logoColor=white)
-![Language](https://img.shields.io/badge/language-Evermore-111111)
-[![CI](https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml/badge.svg)](https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml)
+<p align="center">
+  <img alt="Status: pre-alpha" src="https://img.shields.io/badge/STATUS-PRE--ALPHA-013D1E?style=flat-square&labelColor=002D18&color=236B47" />
+  <img alt="Compiler: TypeScript" src="https://img.shields.io/badge/COMPILER-TYPESCRIPT-013D1E?style=flat-square&labelColor=002D18&color=236B47&logo=typescript&logoColor=white" />
+  <img alt="Language: Evermore" src="https://img.shields.io/badge/LANGUAGE-EVERMORE-85CE32?style=flat-square&labelColor=013D1E&color=85CE32" />
+  <a href="https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml/badge.svg" /></a>
+</p>
+
+<p align="center">[Explore the language](#design-target-software-in-human-terms) · [Compiler](#compiler-architecture) · [Current implementation](#current-implementation) · [Brand assets](#brand-identity)</p>
+
+---
 
 > **Evermore is an experimental programming language and software-construction platform for building products, intelligence and infrastructure with dramatically less accidental complexity.**
 
@@ -22,6 +28,19 @@ Evermore is currently **pre-alpha**. The repository is being built in public-fac
 > **Ownership and licensing notice:** Evermore is proprietary technology wholly owned by **Armando Betancourt**. Public access to source code does **not** make Evermore open source and does not grant a commercial, redistribution, training or certification license. See [Ownership & licensing](#ownership--licensing).
 
 ---
+
+## Brand identity
+
+The official Evermore identity is botanical: custom ivory lettering, living leaf forms, and a deep evergreen canvas. Its visual system is shared by the language, documentation, Studio and Playground.
+
+| Token | Official value | Usage |
+| --- | --- | --- |
+| Forest | `#013D1E` | Primary brand background |
+| Leaf | `#85CE32` | Botanical highlights and interactive accents |
+| Ivory | `#FFF8ED` | Wordmark and primary text |
+| Deep forest | `#002D18` | Dark UI surfaces |
+
+Use the repository assets rather than typesetting the logo: [official wordmark](brand/evermore-wordmark.svg), [README hero](brand/evermore-banner.svg), [botanical E icon](brand/evermore-icon.svg). See [brand guidelines](brand/README.md) for clear space, contrast, and asset usage.
 
 ## The thesis
 

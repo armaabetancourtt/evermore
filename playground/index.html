@@ -1,30 +1,92 @@
 <!doctype html>
 <html lang="en">
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Evermore Playground Prototype</title>
-<style>
-  body{font-family:ui-sans-serif,system-ui;margin:0;background:#0b0d12;color:#eef2ff}
-  main{max-width:1100px;margin:0 auto;padding:48px 24px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-  textarea,pre{box-sizing:border-box;width:100%;min-height:420px;border:1px solid #2a3140;border-radius:16px;background:#111621;color:#eef2ff;padding:18px;font:14px/1.55 ui-monospace,monospace}
-  h1{font-size:40px;margin:0 0 8px} p{color:#aeb8cc}
-</style>
-<main>
-  <h1>Evermore Playground</h1>
-  <p>M8 research prototype for editing source beside inspectable compiler intent.</p>
-  <div class="grid">
-    <textarea id="source">app "Hello"
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#013D1E" />
+  <meta name="description" content="Evermore Playground research prototype. Write an Evermore source draft and inspect it side by side." />
+  <link rel="icon" type="image/svg+xml" href="../brand/evermore-icon.svg" />
+  <title>Evermore Playground · Research Prototype</title>
+  <style>
+    :root{color-scheme:dark;--forest:#013D1E;--deep:#002D18;--panel:#0C3722;--leaf:#85CE32;--ivory:#FFF8ED;--sage:#B7D6BD;--border:#275A3B}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 76% -12%,#125A37 0%,transparent 47%),#002D18;color:var(--ivory);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button,textarea{font:inherit}
+    a{color:inherit}
+    .topbar{border-bottom:1px solid var(--border);background:rgba(0,35,19,.46)}
+    .top-inner{max-width:1320px;margin:auto;padding:14px 26px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .brand{display:flex;align-items:center;gap:18px}
+    .brand img{display:block;width:155px;height:auto}
+    .brand span{padding-left:18px;border-left:1px solid var(--border);font-size:11px;color:var(--sage);letter-spacing:.14em;text-transform:uppercase}
+    .top-links{display:flex;gap:18px;align-items:center;color:var(--sage);font-size:12px}
+    .top-links a{text-decoration:none}.top-links a:hover{color:var(--leaf)}
+    .tag{border:1px solid #447B4A;color:#BEE9A3;background:#0B3F25;border-radius:99px;padding:6px 11px;font-size:10px;font-weight:850;letter-spacing:.12em;white-space:nowrap}
+    main{max-width:1320px;margin:0 auto;padding:57px 26px 68px}
+    .eyebrow{font-size:10px;letter-spacing:.21em;color:#A2DD75;font-weight:850}
+    h1{font-size:clamp(42px,6vw,72px);line-height:1;letter-spacing:-.06em;margin:15px 0 15px;font-weight:650}
+    h1 em{font-style:normal;color:var(--leaf)}
+    .intro{color:var(--sage);max-width:710px;font-size:15px;line-height:1.75;margin:0 0 32px}
+    .workspace{border:1px solid #34734A;border-radius:21px;overflow:hidden;box-shadow:0 28px 80px #001C0D70;background:var(--panel)}
+    .workspace-head{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;padding:13px 19px;border-bottom:1px solid var(--border);background:#0A3320}
+    .workspace-head .file{font:12px ui-monospace,Menlo,Consolas,monospace;color:var(--ivory)}
+    .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--leaf);margin-right:10px}
+    .workspace-head .hint{font-size:10px;color:var(--sage);letter-spacing:.1em}
+    .grid{display:grid;grid-template-columns:1fr 1fr;min-height:440px}
+    .pane{min-width:0;display:flex;flex-direction:column}
+    .pane:first-child{border-right:1px solid var(--border)}
+    .pane-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 19px;border-bottom:1px solid var(--border);color:var(--sage);font-size:11px}
+    .pane-bar b{color:var(--ivory);font-weight:750}
+    textarea,pre{display:block;box-sizing:border-box;width:100%;min-height:380px;flex:1;border:0;border-radius:0;background:#062D1B;color:var(--ivory);padding:21px 23px;font:14px/1.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2;outline:none}
+    textarea{resize:vertical;caret-color:var(--leaf)}
+    textarea:focus-visible{box-shadow:inset 0 0 0 2px #79B849}
+    pre{margin:0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#0B3320;color:#D8ECCC}
+    .foot{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid var(--border);padding:14px 19px;color:var(--sage);font-size:11px}
+    .foot strong{color:var(--leaf);font-weight:700}
+    .note{max-width:800px;margin:22px 0 0;color:#A4C3AA;font-size:12px;line-height:1.75}
+    @media(max-width:700px){.top-inner{padding:15px 18px;align-items:flex-start;flex-wrap:wrap}.brand{gap:10px}.brand img{width:138px}.brand span{padding-left:10px}main{padding:42px 17px}.grid{grid-template-columns:1fr}.pane:first-child{border-right:0;border-bottom:1px solid var(--border)}textarea,pre{min-height:250px}.top-links{gap:12px}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="top-inner">
+      <div class="brand"><a href="../README.md"><img src="../brand/evermore-wordmark.svg" alt="Evermore" width="155" height="42" /></a><span>Playground</span></div>
+      <nav class="top-links" aria-label="Project links"><a href="../README.md">Documentation ↗</a><a href="../studio/index.html">Studio ↗</a><span class="tag">PRE-ALPHA</span></nav>
+    </div>
+  </header>
+  <main>
+    <div class="eyebrow">THINK IT. EXPRESS IT. BUILD IT.</div>
+    <h1>Make room for <em>ideas.</em></h1>
+    <p class="intro">The Evermore Playground is an early research surface for exploring human-first source. Edit the example and inspect the text beside it. Live compilation and diagnostics are not connected yet.</p>
+    <div class="workspace">
+      <div class="workspace-head"><span class="file"><span class="dot"></span>hello.ever</span><span class="hint">SOURCE / PREVIEW · RESEARCH PROTOTYPE</span></div>
+      <div class="grid">
+        <section class="pane" aria-label="Source editor">
+          <div class="pane-bar"><b>Source</b><span>Editable · .ever</span></div>
+          <textarea id="source" spellcheck="false" aria-label="Evermore source code">app "Hello"
 
 screen Home
   title "Build software like you think."</textarea>
-    <pre id="preview"></pre>
-  </div>
-</main>
-<script>
-  const source=document.querySelector("#source");
-  const preview=document.querySelector("#preview");
-  const render=()=>preview.textContent="Source preview\n\n"+source.value+"\n\nConnect an Evermore LSP/compiler worker for live diagnostics and generated artifacts.";
-  source.addEventListener("input",render); render();
-</script>
+        </section>
+        <section class="pane" aria-label="Source preview">
+          <div class="pane-bar"><b>Source preview</b><span id="line-count" aria-live="polite">4 lines</span></div>
+          <pre id="preview" aria-live="polite"></pre>
+        </section>
+      </div>
+      <div class="foot"><span><strong>●</strong> Local source preview only</span><span>Compiler / LSP integration is a future milestone.</span></div>
+    </div>
+    <p class="note">Evermore is proprietary experimental software. Read the <a href="../README.md#ownership--licensing">ownership and licensing notice</a> and current implementation status before using this prototype.</p>
+  </main>
+  <script>
+    const source = document.querySelector("#source");
+    const preview = document.querySelector("#preview");
+    const lineCount = document.querySelector("#line-count");
+    function render() {
+      const lines = source.value.split("\n").length;
+      lineCount.textContent = lines + (lines === 1 ? " line" : " lines");
+      preview.textContent = source.value + "\n\n— Source mirror only —\n\nConnect an Evermore LSP/compiler worker for live diagnostics and generated artifacts.";
+    }
+    source.addEventListener("input", render);
+    render();
+  </script>
+</body>
 </html>

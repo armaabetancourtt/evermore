@@ -11,7 +11,7 @@
   <a href="https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml/badge.svg" /></a>
 </p>
 
-<p align="center">[Explore the language](#design-target-software-in-human-terms) · [Architecture](#architecture) · [Get started](#getting-started) · [Brand assets](#brand-identity)</p>
+<p align="center">[Explore the language](#design-target-software-in-human-terms) · [Compiler](#compiler-architecture) · [Current implementation](#current-implementation) · [Brand assets](#brand-identity)</p>
 
 ---
 

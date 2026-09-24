@@ -11,7 +11,7 @@
   <a href="https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml/badge.svg" /></a>
 </p>
 
-<p align="center">[Explora el lenguaje](#software-en-términos-humanos) · [Arquitectura](#arquitectura) · [Comenzar](#inicio-rápido) · [Identidad](#identidad-de-marca)</p>
+<p align="center">[Explora el lenguaje](#software-en-términos-humanos) · [Compilador](#arquitectura-del-compilador) · [CLI actual](#cli-actual) · [Identidad](#identidad-de-marca)</p>
 
 ---
 

@@ -41,6 +41,29 @@ jobs:
           cd "$ROOT/web"
           npm install --no-audit --no-fund
           npm run build
+      - name: Boot the generated web app through evermore run
+        run: |
+          ROOT="$(mktemp -d)"
+          APP="$ROOT/hello-evermore"
+          WEB="$APP/.evermore-build/vue"
+          node dist/src/cli.js init "$APP"
+          node dist/src/cli.js build "$APP/evermore.json" --out "$WEB"
+          (cd "$WEB" && npm install --no-audit --no-fund)
+          node dist/src/cli.js run "$APP/evermore.json" --no-install > /tmp/evermore-dev.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          READY=0
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5173/ | grep -q '<div id="app"></div>'; then
+              READY=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$READY" -ne 1 ]; then
+            cat /tmp/evermore-dev.log
+            exit 1
+          fi
       - name: Check npm package contents
         run: |
           npm pack --dry-run --json > /tmp/evermore-pack.json

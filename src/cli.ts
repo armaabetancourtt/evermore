@@ -233,7 +233,7 @@ async function main(): Promise<void> {
       if (rest.some((argument) => argument !== "--no-install" && argument !== "--help")) {
         throw new Error("Usage: evermore run <entry.ever|evermore.json> [--no-install]");
       }
-      const out = path.resolve(".evermore-build", "vue");
+      const out = path.join(path.dirname(absoluteSource), ".evermore-build", "vue");
       const readSource = (filePath: string) => readFile(filePath, "utf8");
       const result = packageInput
         ? await compilePackage(absoluteSource, readSource, { target: "vue" })

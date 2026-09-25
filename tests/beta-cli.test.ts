@@ -61,6 +61,11 @@ test("generated outputs reject pre-existing symlinks and directories", async () 
   const outside = path.join(root, "outside");
   await initializeProject(outside);
   await prepareGeneratedDestination(output, path.join(output, "src", "file.ts"));
+  await symlink(outside, path.join(root, "linked-root"), "dir");
+  await assert.rejects(
+    () => prepareGeneratedDestination(path.join(root, "linked-root"), path.join(root, "linked-root", "escape.ts")),
+    /Unsafe generated output root/,
+  );
   await symlink(outside, path.join(output, "linked"), "dir");
   await assert.rejects(
     () => prepareGeneratedDestination(output, path.join(output, "linked", "escape.ts")),

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -18,6 +18,12 @@ import { loadPackageProject } from "./package.js";
 import { loadProject } from "./project.js";
 import { analyze } from "./semantic.js";
 import { resolveGeneratedPath } from "./output-path.js";
+import {
+  discoverTestEntries,
+  initializeProject,
+  prepareGeneratedDestination,
+  runGeneratedWeb,
+} from "./beta-cli.js";
 
 async function main(): Promise<void> {
   const [command, sourcePath, ...rest] = process.argv.slice(2);
@@ -27,8 +33,16 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "init") {
+    if (rest.length > 0) throw new Error("Usage: evermore init [directory]");
+    const destination = await initializeProject(sourcePath ?? "evermore-app");
+    console.log("✓ Created Evermore project at " + destination);
+    console.log("  Next: evermore check " + path.join(destination, "evermore.json"));
+    return;
+  }
+
   if (!sourcePath) {
-    throw new Error("Expected an Evermore source file.");
+    throw new Error("Expected an Evermore source file or package manifest.");
   }
 
   const absoluteSource = path.resolve(sourcePath);
@@ -91,6 +105,49 @@ async function main(): Promise<void> {
       return;
     }
 
+    case "test": {
+      if (rest.length > 0) throw new Error("Usage: evermore test <entry.ever|evermore.json|directory>");
+      const entries = await discoverTestEntries(absoluteSource);
+      if (entries.length === 0) throw new Error("No .ever files or manifests found.");
+      const readSource = (filePath: string) => readFile(filePath, "utf8");
+      let passed = 0;
+      let failed = 0;
+      let skipped = 0;
+      for (const entry of entries) {
+        try {
+          if (path.basename(entry) !== "evermore.json") {
+            const unit = parse(await readSource(entry));
+            if (unit.unitKind === "module") {
+              skipped += 1;
+              continue;
+            }
+          }
+          const project = path.basename(entry) === "evermore.json"
+            ? await loadPackageProject(entry, readSource)
+            : await loadProject(entry, readSource);
+          const analysis = analyze(project.program);
+          const errors = analysis.diagnostics.filter((item) => item.severity === "error");
+          if (errors.length > 0 || !analysis.model) {
+            failed += 1;
+            for (const diagnostic of errors) console.error(formatDiagnostic(diagnostic, entry));
+            continue;
+          }
+          passed += 1;
+          console.log("✓ " + path.relative(process.cwd(), entry));
+        } catch (error) {
+          failed += 1;
+          if (error instanceof EvermoreDiagnosticError) {
+            for (const diagnostic of error.diagnostics) console.error(formatDiagnostic(diagnostic, entry));
+          } else {
+            console.error(entry + ": " + (error instanceof Error ? error.message : String(error)));
+          }
+        }
+      }
+      console.log("Evermore: " + passed + " passed, " + failed + " failed, " + skipped + " modules skipped.");
+      if (failed > 0 || passed === 0) process.exitCode = 1;
+      return;
+    }
+
     case "ast": {
       if (packageInput) {
         throw new Error(
@@ -112,7 +169,17 @@ async function main(): Promise<void> {
       const style = readFormatStyle(rest);
       const formatted = formatSource(source, style);
 
-      if (rest.includes("--write")) {
+      if (rest.includes("--write") && rest.includes("--check")) {
+        throw new Error("Choose either --write or --check.");
+      }
+      if (rest.includes("--check")) {
+        if (formatted !== source) {
+          console.error("✗ " + sourcePath + " is not formatted (" + style + ").");
+          process.exitCode = 1;
+        } else {
+          console.log("✓ " + sourcePath + " is formatted.");
+        }
+      } else if (rest.includes("--write")) {
         await writeFile(absoluteSource, formatted, "utf8");
         console.log("✓ Formatted " + sourcePath + " using " + style + " style.");
       } else {
@@ -145,7 +212,7 @@ async function main(): Promise<void> {
 
       for (const file of result.files) {
         const destination = resolveGeneratedPath(out, file.path);
-        await mkdir(path.dirname(destination), { recursive: true });
+        await prepareGeneratedDestination(out, destination);
         await writeFile(destination, file.content, "utf8");
       }
 
@@ -159,6 +226,26 @@ async function main(): Promise<void> {
           " files).",
       );
       console.log("  Output: " + path.resolve(out));
+      return;
+    }
+
+    case "run": {
+      if (rest.some((argument) => argument !== "--no-install" && argument !== "--help")) {
+        throw new Error("Usage: evermore run <entry.ever|evermore.json> [--no-install]");
+      }
+      const out = path.resolve(".evermore-build", "vue");
+      const readSource = (filePath: string) => readFile(filePath, "utf8");
+      const result = packageInput
+        ? await compilePackage(absoluteSource, readSource, { target: "vue" })
+        : await compileProject(absoluteSource, readSource, { target: "vue" });
+      for (const file of result.files) {
+        const destination = resolveGeneratedPath(out, file.path);
+        await prepareGeneratedDestination(out, destination);
+        await writeFile(destination, file.content, "utf8");
+      }
+      console.log("✓ Starting " + result.appName + " at http://127.0.0.1:5173");
+      const code = await runGeneratedWeb(out, !rest.includes("--no-install"));
+      if (code !== 0) process.exitCode = code;
       return;
     }
 
@@ -206,7 +293,9 @@ function readFormatStyle(args: readonly string[]): FormatStyle {
 function readOption(args: readonly string[], name: string): string | undefined {
   const index = args.indexOf(name);
   if (index === -1) return undefined;
-  return args[index + 1];
+  const value = args[index + 1];
+  if (!value || value.startsWith("--")) throw new Error("Expected a value after " + name + ".");
+  return value;
 }
 
 function printHelp(): void {
@@ -215,9 +304,12 @@ function printHelp(): void {
       "Evermore compiler",
       "",
       "Usage:",
+      "  evermore init [directory]",
       "  evermore check <entry.ever|evermore.json>",
+      "  evermore test <entry.ever|evermore.json|directory> (semantic checks)",
       "  evermore ast <file.ever>",
-      "  evermore format <file.ever> [--style natural|explicit] [--write]",
+      "  evermore format <file.ever> [--style natural|explicit] [--write|--check]",
+      "  evermore run <entry.ever|evermore.json> [--no-install] (Vue/Vite)",
       "  evermore build <entry.ever|evermore.json> [--target vue|node|ai|react-native|flutter|python|infra|wasm] [--out directory]",
       "",
       "",

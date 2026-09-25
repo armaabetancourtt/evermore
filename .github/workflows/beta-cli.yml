@@ -1,0 +1,47 @@
+name: Beta CLI smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  cli-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install compiler dependencies
+        run: npm install
+      - name: Check compiler and test
+        run: |
+          npm run check
+          npm test
+          npm run build
+      - name: Exercise distributed CLI from a clean directory
+        run: |
+          ROOT="$(mktemp -d)"
+          node dist/src/cli.js init "$ROOT/hello-evermore"
+          node dist/src/cli.js check "$ROOT/hello-evermore/evermore.json"
+          node dist/src/cli.js test "$ROOT/hello-evermore"
+          node dist/src/cli.js format "$ROOT/hello-evermore/main.ever" --check
+          node dist/src/cli.js build "$ROOT/hello-evermore/evermore.json" --out "$ROOT/web"
+          test -f "$ROOT/web/package.json"
+          test -f "$ROOT/web/src/generated/routes.ts"
+      - name: Build generated Vue application
+        run: |
+          ROOT="$(mktemp -d)"
+          node dist/src/cli.js init "$ROOT/hello-evermore"
+          node dist/src/cli.js build "$ROOT/hello-evermore/evermore.json" --out "$ROOT/web"
+          cd "$ROOT/web"
+          npm install --no-audit --no-fund
+          npm run build
+      - name: Check npm package contents
+        run: |
+          npm pack --dry-run --json > /tmp/evermore-pack.json
+          node --input-type=module -e 'import fs from "node:fs"; const p=JSON.parse(fs.readFileSync("/tmp/evermore-pack.json","utf8"))[0]; if (!p.files.some(f=>f.path==="dist/src/cli.js")) process.exit(1)'

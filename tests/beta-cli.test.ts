@@ -14,7 +14,7 @@ async function tempDirectory(): Promise<string> {
 }
 
 function cli(cwd: string, ...args: string[]) {
-  return spawnSync(process.execPath, ["--import", "tsx", path.resolve("src/cli.ts"), ...args], {
+  return spawnSync(process.execPath, ["--import", import.meta.resolve("tsx"), path.resolve("src/cli.ts"), ...args], {
     cwd,
     encoding: "utf8",
     timeout: 30_000,

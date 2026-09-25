@@ -18,6 +18,8 @@ type JsonRpcRequest = {
 
 const documents = new Map<string, string>();
 let input = Buffer.alloc(0);
+const MAX_MESSAGE_BYTES = 8 * 1024 * 1024;
+const MAX_HEADER_BYTES = 8192;
 
 process.stdin.on("data", (chunk: Buffer) => {
   input = Buffer.concat([input, chunk]);
@@ -29,7 +31,18 @@ process.stdin.resume();
 function drain(): void {
   while (true) {
     const headerEnd = input.indexOf("\r\n\r\n");
-    if (headerEnd < 0) return;
+    if (headerEnd < 0) {
+      if (input.length > MAX_HEADER_BYTES) {
+        input = Buffer.alloc(0);
+        sendError(null, -32700, "LSP header exceeds maximum size.");
+      }
+      return;
+    }
+    if (headerEnd > MAX_HEADER_BYTES) {
+      input = input.subarray(headerEnd + 4);
+      sendError(null, -32700, "LSP header exceeds maximum size.");
+      continue;
+    }
 
     const header = input.subarray(0, headerEnd).toString("utf8");
     const match = /Content-Length:\s*(\d+)/i.exec(header);
@@ -40,6 +53,11 @@ function drain(): void {
 
     const length = Number(match[1]);
     const bodyStart = headerEnd + 4;
+    if (!Number.isSafeInteger(length) || length < 0 || length > MAX_MESSAGE_BYTES) {
+      input = Buffer.alloc(0);
+      sendError(null, -32700, "Invalid or oversized Content-Length.");
+      return;
+    }
     if (input.length < bodyStart + length) return;
 
     const body = input.subarray(bodyStart, bodyStart + length).toString("utf8");
@@ -49,10 +67,21 @@ function drain(): void {
     try {
       request = JSON.parse(body) as JsonRpcRequest;
     } catch {
+      sendError(null, -32700, "Invalid JSON payload.");
       continue;
     }
 
-    handle(request);
+    if (!request || request.jsonrpc !== "2.0" || typeof request.method !== "string") {
+      sendError(null, -32600, "Invalid JSON-RPC request.");
+      continue;
+    }
+    try {
+      handle(request);
+    } catch (error) {
+      if (request.id !== undefined) {
+        sendError(request.id, -32603, error instanceof Error ? error.message : "Internal error.");
+      }
+    }
   }
 }
 
@@ -163,10 +192,27 @@ function handle(request: JsonRpcRequest): void {
 }
 
 function publishDiagnostics(uri: string, text: string): void {
-  notify("textDocument/publishDiagnostics", {
-    uri,
-    diagnostics: diagnosticsForSource(text),
-  });
+  try {
+    notify("textDocument/publishDiagnostics", {
+      uri,
+      diagnostics: diagnosticsForSource(text),
+    });
+  } catch (error) {
+    notify("textDocument/publishDiagnostics", {
+      uri,
+      diagnostics: [{
+        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+        severity: 1,
+        source: "evermore",
+        code: "E9000",
+        message: error instanceof Error ? error.message : "Internal language service error.",
+      }],
+    });
+  }
+}
+
+function sendError(id: string | number | null, code: number, message: string): void {
+  send({ jsonrpc: "2.0", id, error: { code, message } });
 }
 
 function respond(id: string | number | undefined, result: unknown): void {

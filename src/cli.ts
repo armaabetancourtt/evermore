@@ -17,6 +17,7 @@ import { parse } from "./parser.js";
 import { loadPackageProject } from "./package.js";
 import { loadProject } from "./project.js";
 import { analyze } from "./semantic.js";
+import { resolveGeneratedPath } from "./output-path.js";
 
 async function main(): Promise<void> {
   const [command, sourcePath, ...rest] = process.argv.slice(2);
@@ -143,7 +144,7 @@ async function main(): Promise<void> {
       }
 
       for (const file of result.files) {
-        const destination = path.resolve(out, file.path);
+        const destination = resolveGeneratedPath(out, file.path);
         await mkdir(path.dirname(destination), { recursive: true });
         await writeFile(destination, file.content, "utf8");
       }

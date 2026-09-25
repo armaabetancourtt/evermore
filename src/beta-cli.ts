@@ -3,6 +3,8 @@ import { lstat, mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
+import { formatSource } from "./formatter.js";
+
 const excludedDirectories = new Set([".git", ".evermore-build", "dist", "node_modules"]);
 
 function missing(error: unknown): boolean {
@@ -39,7 +41,7 @@ export async function initializeProject(directory: string): Promise<string> {
     dependencies: {},
   };
   await writeFile(path.join(root, "evermore.json"), JSON.stringify(manifest, null, 2) + "\n", { flag: "wx" });
-  await writeFile(path.join(root, "main.ever"), [
+  await writeFile(path.join(root, "main.ever"), formatSource([
     "app " + JSON.stringify(displayName),
     "",
     "screen Home",
@@ -52,7 +54,7 @@ export async function initializeProject(directory: string): Promise<string> {
     "  title \"Your first Evermore app\"",
     "  text \"Build what you imagine.\"",
     "",
-  ].join("\n"), { flag: "wx" });
+  ].join("\n")), { flag: "wx" });
   await writeFile(path.join(root, ".gitignore"), ".evermore-build/\nnode_modules/\n", { flag: "wx" });
   return root;
 }

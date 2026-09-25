@@ -96,6 +96,7 @@ test("the beta CLI init/check/test/format/build path works end-to-end", async ()
   const runWithoutInstall = cli(root, "run", manifest, "--no-install");
   assert.equal(runWithoutInstall.status, 1);
   assert.match(runWithoutInstall.stderr, /Generated dependencies are missing/);
+  assert.ok((await readdir(path.join(root, "SampleApp", ".evermore-build", "vue"))).includes("package.json"));
 });
 
 test("CLI test and format --check fail on invalid or unformatted programs", async () => {

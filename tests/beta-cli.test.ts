@@ -47,12 +47,12 @@ test("test discovery ignores generated folders and symlinks and prefers package 
   await writeFile(path.join(root, "app", "extra.ever"), 'module Extra\n');
   await initializeProject(path.join(root, "node_modules", "vendor"));
   const entries = await discoverTestEntries(root);
-  assert.deepEqual(entries.sort(), [
+  assert.deepEqual([...entries].sort(), [
     path.join(root, "app", "evermore.json"),
     path.join(root, "standalone.ever"),
   ].sort());
   await symlink(path.join(root, "app"), path.join(root, "linked-app"), "dir");
-  assert.deepEqual((await discoverTestEntries(root)).sort(), entries.sort());
+  assert.deepEqual([...(await discoverTestEntries(root))].sort(), [...entries].sort());
 });
 
 test("generated outputs reject pre-existing symlinks and directories", async () => {

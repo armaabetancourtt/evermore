@@ -98,3 +98,28 @@ test("wasm compiler target exposes inspectable byte manifest", () => {
   assert.ok(parsed.exports.includes("add"));
   assert.deepEqual(parsed.bytes.slice(0, 4), [0, 97, 115, 109]);
 });
+
+
+test("incremental cache evicts least recently used results", () => {
+  const compiler = new IncrementalCompiler({ maxEntries: 2 });
+  const a = source;
+  const b = source.replace('"Performance"', '"Performance B"');
+  const c = source.replace('"Performance"', '"Performance C"');
+  const first = compiler.compile(a, { target: "wasm" });
+  compiler.compile(b, { target: "wasm" });
+  assert.equal(compiler.compile(a, { target: "wasm" }), first);
+  compiler.compile(c, { target: "wasm" });
+  assert.equal(compiler.stats().entries, 2);
+  compiler.compile(b, { target: "wasm" });
+  assert.equal(compiler.stats().misses, 4);
+  assert.equal(compiler.stats().entries, 2);
+});
+
+test("incremental cache rejects invalid limits and never caches failures", () => {
+  for (const maxEntries of [0, -1, 1.5, Number.POSITIVE_INFINITY, Number.NaN]) {
+    assert.throws(() => new IncrementalCompiler({ maxEntries }), RangeError);
+  }
+  const compiler = new IncrementalCompiler({ maxEntries: 1 });
+  assert.throws(() => compiler.compile('app "Broken" screen'), Error);
+  assert.equal(compiler.stats().entries, 0);
+});

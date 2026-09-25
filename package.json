@@ -1,8 +1,8 @@
 {
   "name": "evermore-language",
-  "version": "0.0.1",
+  "version": "0.1.0-beta.1",
   "private": true,
-  "description": "Human-first, AI-native programming language and software construction platform.",
+  "description": "Evermore beta candidate: human-first typed language and multi-target compiler",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -14,12 +14,25 @@
     "evermore": "tsx src/cli.ts",
     "lsp": "tsx src/tooling/lsp-server.ts",
     "docs": "tsx src/tooling/docs-cli.ts",
-    "research:m9": "tsx scripts/research/m9-performance-study.ts"
+    "research:m9": "tsx scripts/research/m9-performance-study.ts",
+    "prepare": "npm run build",
+    "prepack": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "bin": {
+    "evermore": "./dist/src/cli.js"
+  },
+  "files": [
+    "dist/src",
+    "README.md",
+    "README.es.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
 }

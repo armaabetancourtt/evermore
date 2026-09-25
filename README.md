@@ -5,7 +5,7 @@
 <p align="center"><a href="README.md">English</a> · <a href="README.es.md">Español</a></p>
 
 <p align="center">
-  <img alt="Status: pre-alpha" src="https://img.shields.io/badge/STATUS-PRE--ALPHA-013D1E?style=flat-square&labelColor=002D18&color=236B47" />
+  <img alt="Status: beta candidate" src="https://img.shields.io/badge/STATUS-BETA--CANDIDATE-013D1E?style=flat-square&labelColor=002D18&color=236B47" />
   <img alt="Compiler: TypeScript" src="https://img.shields.io/badge/COMPILER-TYPESCRIPT-013D1E?style=flat-square&labelColor=002D18&color=236B47&logo=typescript&logoColor=white" />
   <img alt="Language: Evermore" src="https://img.shields.io/badge/LANGUAGE-EVERMORE-85CE32?style=flat-square&labelColor=013D1E&color=85CE32" />
   <a href="https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/armaabetancourtt/evermore/actions/workflows/ci.yml/badge.svg" /></a>
@@ -23,7 +23,7 @@ Evermore explores a simple question:
 
 The language is inspired by the clarity of **Swift**, the cross-platform product mindset of **Flutter**, and the approachability of **Python**—while being designed for a world where applications span web, mobile, servers, data, AI agents, native code and cloud infrastructure.
 
-Evermore is currently **pre-alpha**. The repository is being built in public-facing, research-grade increments: language design first, executable compiler foundations second, then increasingly capable targets. Features described as **design targets** are intentionally distinguished from features already implemented.
+Evermore 0.1.0-beta.1 is a **usable web beta candidate**, not an across-the-board stable platform. The Vue/Vite vertical slice has a CLI workflow and executable tests; other backends and future language features retain their experimental status. See [Beta scope and quick start](docs/BETA.md).
 
 > **Ownership and licensing notice:** Evermore is proprietary technology wholly owned by **Armando Betancourt**. Public access to source code does **not** make Evermore open source and does not grant a commercial, redistribution, training or certification license. See [Ownership & licensing](#ownership--licensing).
 
@@ -552,7 +552,7 @@ Advanced styling remains possible, but beautiful and usable should be the defaul
 
 # Current implementation
 
-Evermore's current research roadmap, **M0 through M9**, is implemented with executable evidence. The **M10 core-language completion slice is also complete**: the remaining alpha work is concentrated in the standard library, remote package distribution, CLI/DX and hardening. The project remains pre-alpha: milestone completion means the planned semantics, targets and research prototypes exist and are tested; it does not mean production stability.
+Evermore's current research roadmap, **M0 through M9**, is implemented with executable evidence. The **M10 core-language completion slice is also complete**: the remaining alpha work is concentrated in the standard library, remote package distribution, CLI/DX and hardening. The primary web workflow is now a beta candidate; milestone completion does not mean production stability or completion of the M10 package and standard-library work.
 
 Implemented today:
 
@@ -796,7 +796,7 @@ The source should describe enduring product and system intent. Targets can evolv
 
 ## Status
 
-**Experimental · Pre-alpha · M0–M9 research roadmap complete · M10 core language complete with executable evidence**
+**Experimental · Web beta candidate · M0–M9 research roadmap complete · M10 core language complete with executable evidence**
 
 Do not use Evermore for production systems yet.
 

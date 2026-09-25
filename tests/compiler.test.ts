@@ -85,3 +85,11 @@ screen Home {
     },
   );
 });
+
+
+test("unsupported compilation targets fail explicitly for JavaScript callers", () => {
+  assert.throws(
+    () => compile(hello, { target: "unknown" as never }),
+    /Unsupported Evermore compilation target/,
+  );
+});

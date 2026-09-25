@@ -189,5 +189,7 @@ export function compileProgram(
         diagnostics: analysis.diagnostics,
         files: emitWasmResearch(optimizeIR(ir).program),
       };
+    default:
+      throw new RangeError("Unsupported Evermore compilation target: " + String(target));
   }
 }

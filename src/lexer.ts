@@ -365,13 +365,13 @@ class Lexer {
     while (!this.atEnd()) {
       const char = this.peek();
 
-      if (/\s/.test(char)) {
+      if (char === "\uFEFF" || /\s/.test(char)) {
         this.advance();
         continue;
       }
 
       if (char === "/" && this.peekNext() === "/") {
-        while (!this.atEnd() && this.peek() !== "\n") this.advance();
+        while (!this.atEnd() && this.peek() !== "\n" && this.peek() !== "\r") this.advance();
         continue;
       }
 
@@ -403,7 +403,15 @@ class Lexer {
             value += "\\";
             break;
           default:
-            value += escaped;
+            throw new EvermoreDiagnosticError([
+              {
+                code: "E0004",
+                severity: "error",
+                message: "Invalid string escape " + JSON.stringify("\\" + escaped) + ".",
+                span: { start, end: this.position() },
+                help: 'Use \\, \\", \\n, or \\t.',
+              },
+            ]);
         }
         continue;
       }
@@ -499,8 +507,11 @@ class Lexer {
     const char = this.source[this.index] ?? "\0";
     this.index += 1;
 
-    if (char === "\n") {
+    if (char === "\r") {
       this.line += 1;
+      this.column = 1;
+    } else if (char === "\n") {
+      if (this.source[this.index - 2] !== "\r") this.line += 1;
       this.column = 1;
     } else {
       this.column += 1;

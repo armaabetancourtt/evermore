@@ -104,7 +104,11 @@ export async function prepareGeneratedDestination(root: string, destination: str
   if (!relative || relative.startsWith(".." + path.sep) || relative === ".." || path.isAbsolute(relative)) {
     throw new Error("Generated output escapes the build directory.");
   }
-  await mkdir(absoluteRoot, { recursive: true });
+  const rootStat = await pathStat(absoluteRoot);
+  if (rootStat?.isSymbolicLink() || (rootStat && !rootStat.isDirectory())) {
+    throw new Error("Unsafe generated output root: " + absoluteRoot);
+  }
+  if (!rootStat) await mkdir(absoluteRoot, { recursive: true });
   let current = absoluteRoot;
   for (const segment of relative.split(path.sep).slice(0, -1)) {
     current = path.join(current, segment);

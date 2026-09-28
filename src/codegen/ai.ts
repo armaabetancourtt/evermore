@@ -1,6 +1,7 @@
 import type { IRProgram } from "../ir.js";
 import { OPENAI_PROVIDER_SOURCE } from "./openai-provider.js";
 import { emitLiveEvaluations } from "./ai-live-eval.js";
+import { PROVIDER_ADVERSARIAL_TEST_SOURCE } from "./ai-provider-tests.js";
 import type { TypeRef } from "../types.js";
 import {
   emitFunctions,
@@ -27,6 +28,7 @@ export function emitAI(program: IRProgram): readonly GeneratedFile[] {
               build: "tsc -p tsconfig.json",
               test: "npm run build && node dist/evaluations.js",
               "test:live": "npm run build && node dist/evaluations.live.js",
+              "test:provider": "npm run build && node --test dist/provider.test.js",
             },
             devDependencies: {
               "@types/node": "^24.0.0",
@@ -93,6 +95,10 @@ export function emitAI(program: IRProgram): readonly GeneratedFile[] {
     {
       path: "src/evaluations.live.ts",
       content: emitLiveEvaluations(program),
+    },
+    {
+      path: "src/provider.test.ts",
+      content: PROVIDER_ADVERSARIAL_TEST_SOURCE,
     },
     {
       path: "src/generated/evermore.ai.json",

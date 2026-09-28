@@ -1,4 +1,5 @@
 import type { IRProgram } from "../ir.js";
+import { OPENAI_PROVIDER_SOURCE } from "./openai-provider.js";
 import type { TypeRef } from "../types.js";
 import {
   emitFunctions,
@@ -82,6 +83,10 @@ export function emitAI(program: IRProgram): readonly GeneratedFile[] {
     {
       path: "src/evaluations.ts",
       content: emitEvaluations(program),
+    },
+    {
+      path: "src/generated/openai-provider.ts",
+      content: OPENAI_PROVIDER_SOURCE,
     },
     {
       path: "src/generated/evermore.ai.json",

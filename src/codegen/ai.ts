@@ -1,4 +1,8 @@
 import type { IRProgram } from "../ir.js";
+import { OPENAI_PROVIDER_SOURCE } from "./openai-provider.js";
+import { emitLiveEvaluations } from "./ai-live-eval.js";
+import { PROVIDER_ADVERSARIAL_TEST_SOURCE } from "./ai-provider-tests.js";
+import { CONTEXT_TEST_SOURCE } from "./ai-context-tests.js";
 import type { TypeRef } from "../types.js";
 import {
   emitFunctions,
@@ -24,6 +28,8 @@ export function emitAI(program: IRProgram): readonly GeneratedFile[] {
             scripts: {
               build: "tsc -p tsconfig.json",
               test: "npm run build && node dist/evaluations.js",
+              "test:live": "npm run build && node dist/evaluations.live.js",
+              "test:provider": "npm run build && node --test dist/provider.test.js dist/context.test.js",
             },
             devDependencies: {
               "@types/node": "^24.0.0",
@@ -82,6 +88,22 @@ export function emitAI(program: IRProgram): readonly GeneratedFile[] {
     {
       path: "src/evaluations.ts",
       content: emitEvaluations(program),
+    },
+    {
+      path: "src/generated/openai-provider.ts",
+      content: OPENAI_PROVIDER_SOURCE,
+    },
+    {
+      path: "src/evaluations.live.ts",
+      content: emitLiveEvaluations(program),
+    },
+    {
+      path: "src/provider.test.ts",
+      content: PROVIDER_ADVERSARIAL_TEST_SOURCE,
+    },
+    {
+      path: "src/context.test.ts",
+      content: CONTEXT_TEST_SOURCE,
     },
     {
       path: "src/generated/evermore.ai.json",
@@ -174,7 +196,8 @@ function emitSchemas(program: IRProgram): string {
     '    case "choice":',
     '      return typeof value === "string" && schema.cases.includes(value);',
     '    case "object":',
-    '      return typeof value === "object" && value !== null &&',
+    '      return typeof value === "object" && value !== null && !Array.isArray(value) &&',
+    '        Object.keys(value).length === Object.keys(schema.fields).length &&',
     '        Object.entries(schema.fields).every(([key, child]) =>',
     '          validateEvermoreValue((value as Record<string, unknown>)[key], child));',
     '    case "list":',
@@ -244,7 +267,7 @@ function emitRuntime(program: IRProgram): string {
     'export type EvermoreModelRequest = { readonly agent: string; readonly modelRequirement: string; readonly input: unknown; readonly context: readonly { readonly source: string; readonly value: unknown }[]; readonly tools: readonly { readonly name: string; readonly permission: string; readonly requiresApproval: boolean }[]; readonly budget: { readonly tokens: number; readonly cost?: number } };',
     'export type EvermoreModelResponse = { readonly output: unknown; readonly usage: { readonly tokens: number; readonly cost?: number } };',
     'export interface EvermoreModelProvider { run(request: EvermoreModelRequest, callTool: (name: string, input: unknown) => Promise<unknown>): Promise<EvermoreModelResponse>; }',
-    'export type EvermoreAgentDependencies = { readonly provider: EvermoreModelProvider; readonly context?: (source: string) => Promise<unknown> | unknown; readonly approve?: (agent: string, tool: string, input: unknown) => Promise<boolean> | boolean; readonly trace?: (event: EvermoreTraceEvent) => void; readonly toolOverrides?: Readonly<Record<string, (input: unknown) => Promise<unknown> | unknown>> };',
+    'export type EvermoreAgentDependencies = { readonly provider: EvermoreModelProvider; readonly context?: (source: string) => Promise<unknown> | unknown; readonly summarize?: (source: string, value: unknown, maxTokens: number) => Promise<unknown> | unknown; readonly approve?: (agent: string, tool: string, input: unknown) => Promise<boolean> | boolean; readonly trace?: (event: EvermoreTraceEvent) => void; readonly toolOverrides?: Readonly<Record<string, (input: unknown) => Promise<unknown> | unknown>> };',
     "",
     "const agents = " + JSON.stringify(agents, null, 2) + " as const;",
     "const tools = " + JSON.stringify(tools, null, 2) + " as const;",
@@ -262,12 +285,19 @@ function emitRuntime(program: IRProgram): string {
     "  let used = 0;",
     "  for (const source of spec.includes) {",
     "    const value = await deps.context(source);",
-    "    const tokens = estimateTokens(value);",
-    "    if (used + tokens <= spec.tokenBudget) { resolved.push({ source, value }); used += tokens; continue; }",
+    "    const item = { source, value };",
+    "    const tokens = estimateTokens(item);",
+    "    if (used + tokens <= spec.tokenBudget) { resolved.push(item); used += tokens; continue; }",
     '    if (spec.overflow === "reject") throw new Error("Evermore context budget exceeded for " + spec.name);',
-    "    const remaining = Math.max(0, spec.tokenBudget - used);",
-    "    resolved.push({ source, value: { evermoreSummary: JSON.stringify(value).slice(0, remaining * 4), truncated: true } });",
-    "    break;",
+    '    if (!deps.summarize) throw new Error("Explicit summarizer required for overflowing context " + spec.name);',
+    "    const remaining = spec.tokenBudget - used;",
+    '    const overhead = estimateTokens({ source, value: { evermoreSummary: "", summarized: true } });',
+    '    if (remaining <= overhead) throw new Error("Insufficient budget for context summary");',
+    "    const summary = await deps.summarize(source, value, remaining - overhead);",
+    "    const condensed = { source, value: { evermoreSummary: summary, summarized: true } };",
+    '    if (estimateTokens(condensed) > remaining) throw new Error("Summarizer exceeded context budget");',
+    "    resolved.push(condensed);",
+    "    used += estimateTokens(condensed);",
     "  }",
     "  return resolved;",
     "}",

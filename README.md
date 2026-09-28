@@ -1,5 +1,8 @@
 <p align="center"><img src="brand/evermore-banner.svg" alt="Evermore — official botanical brand wordmark" width="100%" /></p>
 
+> **AI engineering evidence · experimental:** [OpenAI-compatible provider generator](src/codegen/openai-provider.ts) · [opt-in quantitative live evaluations](docs/LIVE_AI_EVALUATION.md) · [provider/codegen tests](tests/ai-real-provider.test.ts). Generate with `npm run evermore -- build examples/ai-native.ever --target ai --out /tmp/evermore-ai`; deterministic tests require no credentials. Real-model metrics are pending user-supplied API access.
+
+
 <p align="center"><strong>Human-first. AI-native. Built to outlast frameworks.</strong><br/><sub>THE LANGUAGE FOR WHAT COMES NEXT</sub></p>
 
 <p align="center"><a href="README.md">English</a> · <a href="README.es.md">Español</a></p>

@@ -475,6 +475,10 @@ jobs:
         working-directory: /tmp/evermore-ai
         run: npm test
 
+      - name: Run mocked adversarial provider tests
+        working-directory: /tmp/evermore-ai
+        run: npm run test:provider
+
       - name: Verify M4 capability artifacts
         run: |
           test -f /tmp/evermore-ai/src/generated/runtime.ts

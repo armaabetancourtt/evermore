@@ -26,6 +26,7 @@ export function emitAI(program: IRProgram): readonly GeneratedFile[] {
             scripts: {
               build: "tsc -p tsconfig.json",
               test: "npm run build && node dist/evaluations.js",
+              "test:live": "npm run build && node dist/evaluations.live.js",
             },
             devDependencies: {
               "@types/node": "^24.0.0",

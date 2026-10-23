@@ -1,0 +1,47 @@
+{
+  "name": "evermore-vscode",
+  "displayName": "Evermore Language",
+  "version": "0.0.1",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:evermore"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "evermore",
+        "extensions": [
+          ".ever"
+        ],
+        "aliases": [
+          "Evermore"
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "Evermore",
+      "properties": {
+        "evermore.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to Evermore LSP JS entrypoint."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.9.0"
+  }
+}

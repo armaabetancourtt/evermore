@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { tokenize } from "../src/lexer.js";
-import { parse } from "../src/parser.js";
+import { lex } from "../src/lexer.js";
 
 const corpus = ["", "\u0000", "\r\n", "\"unterminated", "{".repeat(64), "let a = 1", "screen Home {}"];
 function next(seed: number): number { return (Math.imul(seed,1664525)+1013904223)>>>0; }
@@ -16,7 +15,7 @@ test("parser and lexer adversarial smoke corpus finishes without process termina
   for(const source of corpus) {
     try {
       // Parse errors are valid outcomes; stack overflows and hangs require separate process isolation.
-      const result=tokenize(source);
+      const result=lex(source);
       assert.ok(result);
     } catch(error) { assert.ok(error instanceof Error); }
   }

@@ -63,3 +63,23 @@ test("preserves supported escapes", () => {
   const tokens = lex('app "a\\nb\\t\\\"c\\\\d"');
   assert.equal(tokens[1]?.value, 'a\nb\t"c\\d');
 });
+
+
+test("supports carriage-return string escapes", () => {
+  const tokens = lex('app "first\\rsecond"');
+  assert.equal(tokens[1]?.value, "first\rsecond");
+});
+
+test("invalid string escape diagnostics select only the offending escape", () => {
+  assert.throws(
+    () => lex('app "bad\\q"'),
+    (error: unknown) => {
+      assert.ok(error instanceof EvermoreDiagnosticError);
+      assert.deepEqual(
+        [error.diagnostics[0]?.span.start.offset, error.diagnostics[0]?.span.end.offset],
+        [8, 10],
+      );
+      return true;
+    },
+  );
+});

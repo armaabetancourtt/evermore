@@ -384,6 +384,7 @@ class Lexer {
     let value = "";
 
     while (!this.atEnd() && this.peek() !== '"') {
+      const charStart = this.position();
       const char = this.advance();
 
       if (char === "\\") {
@@ -395,6 +396,9 @@ class Lexer {
             break;
           case "t":
             value += "\t";
+            break;
+          case "r":
+            value += "\r";
             break;
           case '"':
             value += '"';
@@ -408,7 +412,7 @@ class Lexer {
                 code: "E0004",
                 severity: "error",
                 message: "Invalid string escape " + JSON.stringify("\\" + escaped) + ".",
-                span: { start, end: this.position() },
+                span: { start: charStart, end: this.position() },
                 help: 'Use \\, \\", \\n, or \\t.',
               },
             ]);

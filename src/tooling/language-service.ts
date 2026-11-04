@@ -64,14 +64,21 @@ export function semanticTokensForSource(source: string): readonly number[] {
   let previousCharacter = 0;
 
   for (const token of tokens) {
-    const line = Math.max(0, token.span.start.line - 1);
-    const character = Math.max(0, token.span.start.column - 1);
-    const deltaLine = line - previousLine;
-    const deltaStart = deltaLine === 0 ? character - previousCharacter : character;
-    const length = Math.max(1, token.span.end.offset - token.span.start.offset);
-    data.push(deltaLine, deltaStart, length, semanticType(token), 0);
-    previousLine = line;
-    previousCharacter = character;
+    // LSP semantic tokens must stay on a single line. Strings can span
+    // multiple lines, so emit one token per nonempty line segment.
+    const segments = source
+      .slice(token.span.start.offset, token.span.end.offset)
+      .split(/\r\n|\r|\n/);
+    for (const [index, segment] of segments.entries()) {
+      if (segment.length === 0) continue;
+      const line = Math.max(0, token.span.start.line - 1) + index;
+      const character = index === 0 ? Math.max(0, token.span.start.column - 1) : 0;
+      const deltaLine = line - previousLine;
+      const deltaStart = deltaLine === 0 ? character - previousCharacter : character;
+      data.push(deltaLine, deltaStart, segment.length, semanticType(token), 0);
+      previousLine = line;
+      previousCharacter = character;
+    }
   }
 
   return data;
@@ -82,7 +89,9 @@ export function renameIdentifier(
   position: EditorPosition,
   newName: string,
 ): readonly TextEdit[] {
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(newName)) return [];
+  if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(newName)) return [];
+  // A reserved keyword is lexically valid text, but cannot name a symbol.
+  if (lex(newName)[0]?.kind !== "identifier") return [];
 
   const offset = offsetAt(source, position);
   const tokens = lex(source);
@@ -90,7 +99,7 @@ export function renameIdentifier(
     (token) =>
       token.kind === "identifier" &&
       token.span.start.offset <= offset &&
-      offset <= token.span.end.offset,
+      offset < token.span.end.offset,
   );
 
   if (!selected) return [];
@@ -153,7 +162,7 @@ export function generateMarkdownDocumentation(source: string): string {
 }
 
 export function documentEnd(source: string): EditorPosition {
-  const lines = source.split("\n");
+  const lines = source.split(/\r\n|\r|\n/);
   return {
     line: Math.max(0, lines.length - 1),
     character: lines.at(-1)?.length ?? 0,
@@ -222,10 +231,27 @@ function toRange(span: SourceSpan): EditorRange {
 }
 
 function offsetAt(source: string, position: EditorPosition): number {
-  const lines = source.split("\n");
-  let offset = 0;
-  for (let index = 0; index < position.line; index += 1) {
-    offset += (lines[index]?.length ?? 0) + 1;
+  if (
+    !Number.isSafeInteger(position.line) ||
+    !Number.isSafeInteger(position.character) ||
+    position.line < 0 ||
+    position.character < 0
+  ) return -1;
+
+  let line = 0;
+  let start = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (char !== "\n" && char !== "\r") continue;
+    if (line === position.line) {
+      return position.character <= index - start ? start + position.character : -1;
+    }
+    if (char === "\r" && source[index + 1] === "\n") index += 1;
+    start = index + 1;
+    line += 1;
   }
-  return offset + position.character;
+
+  return line === position.line && position.character <= source.length - start
+    ? start + position.character
+    : -1;
 }
